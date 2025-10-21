@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dev Feedback Capture</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      width: 350px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 0;
+    }
+
+    .header {
+      padding: 20px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .content {
+      background: white;
+      color: #333;
+      padding: 20px;
+      border-radius: 12px 12px 0 0;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section:last-child {
+      margin-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .info-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .info-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-icon {
+      width: 32px;
+      height: 32px;
+      background: #667eea;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 12px;
+      font-size: 16px;
+    }
+
+    .info-text {
+      flex: 1;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #666;
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .info-value {
+      color: #333;
+    }
+
+    .shortcuts {
+      background: #f9f9f9;
+      padding: 12px;
+      border-radius: 6px;
+    }
+
+    .shortcut {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 12px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .shortcut:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .shortcut-key {
+      background: #667eea;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .instructions {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #666;
+    }
+
+    .instructions ol {
+      padding-left: 20px;
+    }
+
+    .instructions li {
+      margin-bottom: 6px;
+    }
+
+    .footer {
+      padding: 16px 20px;
+      text-align: center;
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4CAF50;
+    }
+
+    .status-dot.inactive {
+      background: #999;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #667eea;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: #5568d3;
+    }
+
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      color: #856404;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Dev Feedback Capture</h1>
+    <p>Annotate web elements on localhost</p>
+  </div>
+
+  <div class="content">
+    <div id="localhost-warning" class="warning" style="display: none;">
+      ⚠️ This extension only works on localhost pages
+    </div>
+
+    <div class="section">
+      <div class="section-title">Quick Start</div>
+      <div class="instructions">
+        <ol>
+          <li>Navigate to a <strong>localhost</strong> page</li>
+          <li>Click the floating button or press <strong>Alt+F</strong></li>
+          <li>Hover and click elements to capture feedback</li>
+          <li>Export as JSON or Markdown</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Keyboard Shortcuts</div>
+      <div class="shortcuts">
+        <div class="shortcut">
+          <span>Toggle Feedback Mode</span>
+          <span class="shortcut-key">Alt+F</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Current Page</div>
+      <div class="info-item">
+        <div class="info-icon">🌐</div>
+        <div class="info-text">
+          <div class="info-label">Status</div>
+          <div class="status">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">Checking...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <button class="btn" id="open-options">View Documentation</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    Dev Feedback Capture v1.0.0
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

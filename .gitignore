@@ -1,0 +1,15 @@
+# Icon files (generated)
+icon16.png
+icon48.png
+icon128.png
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

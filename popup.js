@@ -5,84 +5,93 @@
 (function() {
   'use strict';
 
-  const STORAGE_KEY = 'dev-feedback-extension-enabled';
+  let currentTabId = null;
+  let isLocalhost = false;
 
   // Check if current tab is a localhost page
   function checkCurrentPage() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
+        currentTabId = tabs[0].id;
         const url = tabs[0].url;
-        const isLocalhost = url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
+        isLocalhost = url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
 
-        const statusDot = document.getElementById('status-dot');
-        const statusText = document.getElementById('status-text');
         const warning = document.getElementById('localhost-warning');
+        const toggleBtn = document.getElementById('toggle-feedback-btn');
 
         if (isLocalhost) {
-          statusDot.classList.remove('inactive');
-          statusText.textContent = 'Extension Active';
           warning.style.display = 'none';
+          toggleBtn.disabled = false;
+          // Get current state from content script
+          getContentState();
         } else {
-          statusDot.classList.add('inactive');
-          statusText.textContent = 'Not on localhost';
           warning.style.display = 'block';
+          toggleBtn.disabled = true;
+          updateUI(false, 0);
         }
       }
     });
   }
 
-  // Load the extension enabled state
-  function loadEnabledState() {
-    chrome.storage.local.get([STORAGE_KEY], (result) => {
-      const toggle = document.getElementById('extension-toggle');
-      // Default to enabled if not set
-      const isEnabled = result[STORAGE_KEY] !== false;
-      toggle.checked = isEnabled;
+  // Get state from content script
+  function getContentState() {
+    if (!currentTabId) return;
+
+    chrome.tabs.sendMessage(currentTabId, { action: 'get-state' }, (response) => {
+      if (chrome.runtime.lastError) {
+        // Content script might not be loaded yet
+        console.log('Content script not ready:', chrome.runtime.lastError.message);
+        updateUI(false, 0);
+        return;
+      }
+      if (response) {
+        updateUI(response.feedbackMode, response.itemCount);
+      }
     });
   }
 
-  // Save the extension enabled state and notify content scripts
-  function saveEnabledState(enabled) {
-    chrome.storage.local.set({ [STORAGE_KEY]: enabled }, () => {
-      // Send message to all localhost tabs to update their state
-      chrome.tabs.query({}, (tabs) => {
-        tabs.forEach(tab => {
-          if (tab.url && (tab.url.startsWith('http://localhost') || tab.url.startsWith('http://127.0.0.1'))) {
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'extension-enabled-changed',
-              enabled: enabled
-            }).catch(() => {
-              // Ignore errors for tabs where content script isn't loaded
-            });
-          }
-        });
-      });
+  // Toggle feedback mode
+  function toggleFeedbackMode() {
+    if (!currentTabId || !isLocalhost) return;
+
+    chrome.tabs.sendMessage(currentTabId, { action: 'toggle-feedback-mode' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.log('Error toggling:', chrome.runtime.lastError.message);
+        return;
+      }
+      if (response) {
+        updateUI(response.feedbackMode, response.itemCount);
+      }
     });
   }
 
-  // Open documentation (README)
-  function openDocumentation() {
-    const docsUrl = 'https://github.com/your-username/dev-feedback-capture';
-    chrome.tabs.create({ url: docsUrl });
+  // Update UI based on state
+  function updateUI(feedbackMode, itemCount) {
+    const toggleBtn = document.getElementById('toggle-feedback-btn');
+    const statusText = document.getElementById('feedback-mode-status');
+    const itemCountEl = document.getElementById('item-count');
+
+    if (feedbackMode) {
+      toggleBtn.textContent = 'Stop Feedback Mode';
+      toggleBtn.classList.add('active');
+      statusText.textContent = 'ON';
+      statusText.classList.add('active');
+    } else {
+      toggleBtn.textContent = 'Start Feedback Mode';
+      toggleBtn.classList.remove('active');
+      statusText.textContent = 'OFF';
+      statusText.classList.remove('active');
+    }
+
+    itemCountEl.textContent = itemCount;
   }
 
   // Initialize popup
   function init() {
     checkCurrentPage();
-    loadEnabledState();
 
-    // Setup extension toggle listener
-    const toggle = document.getElementById('extension-toggle');
-    toggle.addEventListener('change', (e) => {
-      saveEnabledState(e.target.checked);
-    });
-
-    // Setup event listeners
-    document.getElementById('open-options').addEventListener('click', () => {
-      // For now, just show an alert with instructions
-      // In a real extension, this could open a full options page
-      alert('Dev Feedback Capture\n\nTo use:\n1. Navigate to any localhost page\n2. Click the floating "Feedback Mode" button\n3. Click elements to capture feedback\n4. Export your feedback as JSON or Markdown\n\nKeyboard shortcut: Alt+F toggles feedback mode');
-    });
+    // Setup toggle button
+    document.getElementById('toggle-feedback-btn').addEventListener('click', toggleFeedbackMode);
   }
 
   // Run when popup opens

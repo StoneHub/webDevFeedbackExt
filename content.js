@@ -6,19 +6,14 @@
 (function() {
   'use strict';
 
-  // Constants
-  const ENABLED_STORAGE_KEY = 'dev-feedback-extension-enabled';
-
   // State management
-  let extensionEnabled = true;
   let feedbackMode = false;
   let feedbackItems = [];
   let currentElement = null;
   let isDragging = false;
   let dragOffset = { x: 0, y: 0 };
 
-  // UI Elements
-  let toggleButton = null;
+  // UI Elements (no floating button - controlled via popup)
   let feedbackPanel = null;
   let captureModal = null;
 
@@ -26,82 +21,12 @@
    * Initialize the extension
    */
   function init() {
-    // Check enabled state first, then create UI
-    chrome.storage.local.get([ENABLED_STORAGE_KEY], (result) => {
-      extensionEnabled = result[ENABLED_STORAGE_KEY] !== false; // Default to enabled
+    createFeedbackPanel();
+    createCaptureModal();
+    loadFeedbackItems();
+    setupKeyboardShortcuts();
 
-      createToggleButton();
-      createFeedbackPanel();
-      createCaptureModal();
-      loadFeedbackItems();
-      setupKeyboardShortcuts();
-      setupStorageListener();
-
-      // Apply initial enabled state
-      updateUIVisibility();
-
-      console.log('Dev Feedback Capture initialized, enabled:', extensionEnabled);
-    });
-  }
-
-  /**
-   * Update UI visibility based on extension enabled state
-   */
-  function updateUIVisibility() {
-    if (extensionEnabled) {
-      showExtensionUI();
-    } else {
-      hideExtensionUI();
-    }
-  }
-
-  /**
-   * Show all extension UI elements
-   */
-  function showExtensionUI() {
-    if (toggleButton) {
-      toggleButton.style.display = 'block';
-    }
-  }
-
-  /**
-   * Hide all extension UI elements
-   */
-  function hideExtensionUI() {
-    // Turn off feedback mode if it was on
-    if (feedbackMode) {
-      toggleFeedbackMode();
-    }
-
-    if (toggleButton) {
-      toggleButton.style.display = 'none';
-    }
-    if (feedbackPanel) {
-      feedbackPanel.classList.remove('visible');
-    }
-  }
-
-  /**
-   * Setup storage change listener
-   */
-  function setupStorageListener() {
-    chrome.storage.onChanged.addListener((changes, namespace) => {
-      if (namespace === 'local' && changes[ENABLED_STORAGE_KEY]) {
-        extensionEnabled = changes[ENABLED_STORAGE_KEY].newValue !== false;
-        updateUIVisibility();
-      }
-    });
-  }
-
-  /**
-   * Create the floating toggle button
-   */
-  function createToggleButton() {
-    toggleButton = document.createElement('button');
-    toggleButton.id = 'dev-feedback-toggle';
-    toggleButton.textContent = 'Feedback Mode: OFF';
-    toggleButton.addEventListener('click', toggleFeedbackMode);
-    document.body.appendChild(toggleButton);
+    console.log('Dev Feedback Capture initialized');
   }
 
   /**
@@ -198,15 +123,20 @@
     feedbackMode = !feedbackMode;
 
     if (feedbackMode) {
-      toggleButton.textContent = 'Feedback Mode: ON';
-      toggleButton.classList.add('active');
       feedbackPanel.classList.add('visible');
       enableElementHighlighting();
     } else {
-      toggleButton.textContent = 'Feedback Mode: OFF';
-      toggleButton.classList.remove('active');
       feedbackPanel.classList.remove('visible');
       disableElementHighlighting();
+    }
+  }
+
+  /**
+   * Set feedback mode to a specific state
+   */
+  function setFeedbackMode(enabled) {
+    if (feedbackMode !== enabled) {
+      toggleFeedbackMode();
     }
   }
 
@@ -280,7 +210,6 @@
   function isOurElement(element) {
     return element.id && (
       element.id.startsWith('dev-feedback') ||
-      element.closest('#dev-feedback-toggle') ||
       element.closest('#dev-feedback-panel') ||
       element.closest('#dev-feedback-modal')
     );
@@ -676,12 +605,10 @@
    */
   function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      // Alt+F to toggle feedback mode (only if extension is enabled)
+      // Alt+F to toggle feedback mode
       if (e.altKey && e.key === 'f') {
         e.preventDefault();
-        if (extensionEnabled) {
-          toggleFeedbackMode();
-        }
+        toggleFeedbackMode();
       }
     });
   }
@@ -744,16 +671,18 @@
     init();
   }
 
-  // Listen for messages from extension
+  // Listen for messages from extension popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'toggle-feedback-mode') {
-      if (extensionEnabled) {
-        toggleFeedbackMode();
-      }
-    } else if (request.action === 'extension-enabled-changed') {
-      extensionEnabled = request.enabled;
-      updateUIVisibility();
+      toggleFeedbackMode();
+      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+    } else if (request.action === 'get-state') {
+      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+    } else if (request.action === 'set-feedback-mode') {
+      setFeedbackMode(request.enabled);
+      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
     }
+    return true; // Keep channel open for async response
   });
 
 })();

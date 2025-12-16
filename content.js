@@ -6,7 +6,11 @@
 (function() {
   'use strict';
 
+  // Constants
+  const ENABLED_STORAGE_KEY = 'dev-feedback-extension-enabled';
+
   // State management
+  let extensionEnabled = true;
   let feedbackMode = false;
   let feedbackItems = [];
   let currentElement = null;
@@ -22,12 +26,71 @@
    * Initialize the extension
    */
   function init() {
-    createToggleButton();
-    createFeedbackPanel();
-    createCaptureModal();
-    loadFeedbackItems();
-    setupKeyboardShortcuts();
-    console.log('Dev Feedback Capture initialized');
+    // Check enabled state first, then create UI
+    chrome.storage.local.get([ENABLED_STORAGE_KEY], (result) => {
+      extensionEnabled = result[ENABLED_STORAGE_KEY] !== false; // Default to enabled
+
+      createToggleButton();
+      createFeedbackPanel();
+      createCaptureModal();
+      loadFeedbackItems();
+      setupKeyboardShortcuts();
+      setupStorageListener();
+
+      // Apply initial enabled state
+      updateUIVisibility();
+
+      console.log('Dev Feedback Capture initialized, enabled:', extensionEnabled);
+    });
+  }
+
+  /**
+   * Update UI visibility based on extension enabled state
+   */
+  function updateUIVisibility() {
+    if (extensionEnabled) {
+      showExtensionUI();
+    } else {
+      hideExtensionUI();
+    }
+  }
+
+  /**
+   * Show all extension UI elements
+   */
+  function showExtensionUI() {
+    if (toggleButton) {
+      toggleButton.style.display = 'block';
+    }
+  }
+
+  /**
+   * Hide all extension UI elements
+   */
+  function hideExtensionUI() {
+    // Turn off feedback mode if it was on
+    if (feedbackMode) {
+      toggleFeedbackMode();
+    }
+
+    if (toggleButton) {
+      toggleButton.style.display = 'none';
+    }
+    if (feedbackPanel) {
+      feedbackPanel.classList.remove('visible');
+    }
+  }
+
+  /**
+   * Setup storage change listener
+   */
+  function setupStorageListener() {
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+      if (namespace === 'local' && changes[ENABLED_STORAGE_KEY]) {
+        extensionEnabled = changes[ENABLED_STORAGE_KEY].newValue !== false;
+        updateUIVisibility();
+      }
+    });
   }
 
   /**
@@ -613,10 +676,12 @@
    */
   function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      // Alt+F to toggle feedback mode
+      // Alt+F to toggle feedback mode (only if extension is enabled)
       if (e.altKey && e.key === 'f') {
         e.preventDefault();
-        toggleFeedbackMode();
+        if (extensionEnabled) {
+          toggleFeedbackMode();
+        }
       }
     });
   }
@@ -679,10 +744,15 @@
     init();
   }
 
-  // Listen for keyboard shortcut from extension
+  // Listen for messages from extension
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'toggle-feedback-mode') {
-      toggleFeedbackMode();
+      if (extensionEnabled) {
+        toggleFeedbackMode();
+      }
+    } else if (request.action === 'extension-enabled-changed') {
+      extensionEnabled = request.enabled;
+      updateUIVisibility();
     }
   });
 

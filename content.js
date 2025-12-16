@@ -13,8 +13,7 @@
   let isDragging = false;
   let dragOffset = { x: 0, y: 0 };
 
-  // UI Elements
-  let toggleButton = null;
+  // UI Elements (no floating button - controlled via popup)
   let feedbackPanel = null;
   let captureModal = null;
 
@@ -22,23 +21,12 @@
    * Initialize the extension
    */
   function init() {
-    createToggleButton();
     createFeedbackPanel();
     createCaptureModal();
     loadFeedbackItems();
     setupKeyboardShortcuts();
-    console.log('Dev Feedback Capture initialized');
-  }
 
-  /**
-   * Create the floating toggle button
-   */
-  function createToggleButton() {
-    toggleButton = document.createElement('button');
-    toggleButton.id = 'dev-feedback-toggle';
-    toggleButton.textContent = 'Feedback Mode: OFF';
-    toggleButton.addEventListener('click', toggleFeedbackMode);
-    document.body.appendChild(toggleButton);
+    console.log('Dev Feedback Capture initialized');
   }
 
   /**
@@ -135,15 +123,20 @@
     feedbackMode = !feedbackMode;
 
     if (feedbackMode) {
-      toggleButton.textContent = 'Feedback Mode: ON';
-      toggleButton.classList.add('active');
       feedbackPanel.classList.add('visible');
       enableElementHighlighting();
     } else {
-      toggleButton.textContent = 'Feedback Mode: OFF';
-      toggleButton.classList.remove('active');
       feedbackPanel.classList.remove('visible');
       disableElementHighlighting();
+    }
+  }
+
+  /**
+   * Set feedback mode to a specific state
+   */
+  function setFeedbackMode(enabled) {
+    if (feedbackMode !== enabled) {
+      toggleFeedbackMode();
     }
   }
 
@@ -217,7 +210,6 @@
   function isOurElement(element) {
     return element.id && (
       element.id.startsWith('dev-feedback') ||
-      element.closest('#dev-feedback-toggle') ||
       element.closest('#dev-feedback-panel') ||
       element.closest('#dev-feedback-modal')
     );
@@ -679,11 +671,18 @@
     init();
   }
 
-  // Listen for keyboard shortcut from extension
+  // Listen for messages from extension popup
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'toggle-feedback-mode') {
       toggleFeedbackMode();
+      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+    } else if (request.action === 'get-state') {
+      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+    } else if (request.action === 'set-feedback-mode') {
+      setFeedbackMode(request.enabled);
+      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
     }
+    return true; // Keep channel open for async response
   });
 
 })();

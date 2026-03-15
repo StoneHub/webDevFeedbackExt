@@ -1,23 +1,38 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture",
-  "version": "1.0.0",
-  "description": "Annotate and capture web page elements for development feedback on localhost pages",
+  "version": "1.1.0",
+  "description": "Annotate and capture web page elements for development feedback on local development pages",
   "permissions": [
     "storage",
     "activeTab"
   ],
   "host_permissions": [
     "http://localhost/*",
-    "http://127.0.0.1/*"
+    "https://localhost/*",
+    "http://127.0.0.1/*",
+    "https://127.0.0.1/*",
+    "http://0.0.0.0/*",
+    "https://0.0.0.0/*",
+    "http://[::1]/*",
+    "https://[::1]/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [
         "http://localhost/*",
-        "http://127.0.0.1/*"
+        "https://localhost/*",
+        "http://127.0.0.1/*",
+        "https://127.0.0.1/*",
+        "http://0.0.0.0/*",
+        "https://0.0.0.0/*",
+        "http://[::1]/*",
+        "https://[::1]/*"
       ],
-      "js": ["content.js"],
+      "js": ["shared.js", "content.js"],
       "css": ["styles.css"],
       "run_at": "document_idle"
     }
@@ -38,8 +53,8 @@
   "commands": {
     "toggle-feedback-mode": {
       "suggested_key": {
-        "default": "Alt+F",
-        "mac": "Alt+F"
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
       },
       "description": "Toggle Feedback Mode"
     }

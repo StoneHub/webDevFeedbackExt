@@ -4,11 +4,11 @@ A Chrome browser extension that helps developers annotate and capture web page e
 
 ## Features
 
-- **🎯 Element Capture**: Click any element on localhost pages to capture detailed information
+- **🎯 Element Capture**: Click any element on supported local dev pages to capture detailed information
 - **📝 Feedback Notes**: Add contextual notes about what needs to be changed
 - **💾 Export Options**: Copy all feedback as JSON or Markdown format
 - **🎨 Visual Feedback**: Elements highlight on hover with blue outline, selected elements show green dashed outline with number badges
-- **⌨️ Keyboard Shortcut**: Toggle feedback mode with `Alt+F`
+- **⌨️ Keyboard Shortcut**: Toggle feedback mode with `Ctrl+Shift+F`
 - **📍 Draggable Panel**: Move the feedback panel anywhere on screen
 - **💿 Persistent Storage**: Feedback items are saved per-origin until you clear them
 
@@ -37,31 +37,33 @@ A Chrome browser extension that helps developers annotate and capture web page e
    - You should see "Dev Feedback Capture" in your extensions list
    - The extension icon will appear in your toolbar
 
-### Creating Icons (Optional)
+### Icons
 
-The extension references icon files (`icon16.png`, `icon48.png`, `icon128.png`). You can:
+The extension now ships with ready-to-use icons:
 
-1. **Create simple icons** using any image editor
-2. **Use online tools** like [favicon.io](https://favicon.io/) to generate icon sets
-3. **Or use placeholder icons** - the extension will work without them, but Chrome will show a default icon
-
-Recommended icon sizes:
 - `icon16.png`: 16x16 pixels
 - `icon48.png`: 48x48 pixels
 - `icon128.png`: 128x128 pixels
+
+To regenerate them locally:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-icons.ps1
+```
 
 ## Usage
 
 ### Quick Start
 
-1. **Navigate to a localhost page**
-   - Example: `http://localhost:3000`, `http://localhost:5000`, etc.
-   - The extension only works on localhost by default
+1. **Navigate to a supported local dev page**
+   - Examples: `http://localhost:3000`, `https://127.0.0.1:5173`, `http://0.0.0.0:3000`, `http://[::1]:8080`
+   - The extension only runs on local development hosts by default
 
 2. **Enable Feedback Mode**
-   - Click the floating "Feedback Mode: OFF" button in the bottom-right corner
-   - Or press `Alt+F` on your keyboard
-   - Button will turn blue and say "Feedback Mode: ON"
+   - Open the extension popup from the browser toolbar
+   - Click **Start Feedback Mode**
+   - Or press `Ctrl+Shift+F`
+   - If you just installed the extension, refresh the page once first
 
 3. **Capture Elements**
    - Hover over any element - it will highlight with a blue outline
@@ -95,6 +97,7 @@ For each element, the extension captures:
   - Width & height
   - Margin & padding
 - **Viewport Position**: X and Y coordinates
+- **Page URL**: The exact page where the feedback was captured
 - **Your Note**: What you want changed
 - **Timestamp**: When the feedback was captured
 
@@ -145,20 +148,22 @@ Perfect for pasting into GitHub issues, Notion, or sharing with your team!
 
 | Shortcut | Action |
 |----------|--------|
-| `Alt+F` | Toggle Feedback Mode ON/OFF |
+| `Ctrl+Shift+F` | Toggle Feedback Mode ON/OFF |
 
 ## Configuration
 
 ### Enable on Additional Domains
 
-By default, the extension only works on `localhost` and `127.0.0.1`. To enable it on other domains:
+By default, the extension only works on `localhost`, `127.0.0.1`, `0.0.0.0`, and `[::1]` over HTTP or HTTPS. To enable it on other domains:
 
 1. Open `manifest.json`
 2. Add your domain to the `host_permissions` array:
    ```json
    "host_permissions": [
      "http://localhost/*",
+     "https://localhost/*",
      "http://127.0.0.1/*",
+     "https://127.0.0.1/*",
      "http://your-domain.local/*"
    ]
    ```
@@ -169,9 +174,9 @@ By default, the extension only works on `localhost` and `127.0.0.1`. To enable i
 
 ### Extension doesn't appear on my page
 
-- ✅ Make sure you're on a `localhost` or `127.0.0.1` URL
+- ✅ Make sure you're on a supported local dev URL such as `localhost`, `127.0.0.1`, `0.0.0.0`, or `[::1]`
 - ✅ Check that the extension is enabled in `chrome://extensions/`
-- ✅ Try refreshing the page
+- ✅ Refresh the page once after installing or reloading the extension
 - ✅ Open the browser console (F12) and check for errors
 
 ### Feedback items disappeared
@@ -182,7 +187,7 @@ By default, the extension only works on `localhost` and `127.0.0.1`. To enable i
 
 ### Element highlighting doesn't work
 
-- Make sure Feedback Mode is ON (button should be blue)
+- Make sure Feedback Mode is ON in the popup
 - Some elements with high z-index might cover the extension UI
 - Try clicking directly on elements rather than relying solely on hover
 
@@ -212,7 +217,7 @@ The extension has limited support for iframes:
 
 - **No external servers**: All data is stored locally in Chrome's storage
 - **No network requests**: The extension doesn't send any data anywhere
-- **Localhost only**: By default, only runs on local development pages
+- **Local dev hosts only**: By default, only runs on local development pages
 - **No permissions abuse**: Only requests necessary permissions (storage, activeTab)
 
 ## Development
@@ -244,7 +249,9 @@ webDevFeedbackExt/
 1. Edit the files in your extension folder
 2. Go to `chrome://extensions/`
 3. Click the refresh icon on the "Dev Feedback Capture" card
-4. Refresh your localhost page to see changes
+4. Refresh your local dev page to see changes
+5. Run `npm test` for helper and manifest checks
+6. Run `npm run check` before packaging a release
 
 ## Roadmap / Future Enhancements
 

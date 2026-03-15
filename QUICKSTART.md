@@ -2,16 +2,18 @@
 
 Get Dev Feedback Capture running in **2 minutes**!
 
-## Step 1: Generate Icons (30 seconds)
+## Step 1: Load the Included Icons (0 seconds)
 
-1. Open `generate-icons.html` in your browser
-2. Click "Download All Icons"
-3. Save the three PNG files to this folder:
-   - `icon16.png`
-   - `icon48.png`
-   - `icon128.png`
+The repo now includes the required icon files already:
+- `icon16.png`
+- `icon48.png`
+- `icon128.png`
 
-**Skip this step?** The extension works without icons, Chrome will just show a default icon.
+If you ever want to regenerate them, run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-icons.ps1
+```
 
 ## Step 2: Load Extension in Chrome (60 seconds)
 
@@ -23,12 +25,12 @@ Get Dev Feedback Capture running in **2 minutes**!
 
 ## Step 3: Test It (30 seconds)
 
-1. Navigate to any **localhost** page (e.g., `http://localhost:3000`)
-2. Look for the **"Feedback Mode: OFF"** button (bottom-right)
-3. Click it or press **Alt+F**
-4. Hover over elements - they'll highlight in blue
-5. Click an element to capture feedback
-6. Add your note and click "Save Feedback"
+1. Navigate to any supported local dev page such as `http://localhost:3000`
+2. Open the extension popup from the browser toolbar
+3. Click **Start Feedback Mode** or press **Ctrl+Shift+F**
+4. Hover over elements and click one to capture feedback
+5. Add your note and click **Save Feedback**
+6. Use the floating panel to export or delete captured items
 
 ## Export Your Feedback
 
@@ -45,7 +47,8 @@ You're now capturing detailed feedback about UI elements. No more vague "make th
 ### Need Help?
 
 - Full docs: See `README.md`
-- Not working? Check you're on a **localhost** URL
-- Element not highlighting? Make sure Feedback Mode is **ON** (blue button)
+- Not working? Check you're on `localhost`, `127.0.0.1`, `0.0.0.0`, or `[::1]`
+- Just installed it? Refresh the page once so the content script can attach
+- Element not highlighting? Make sure Feedback Mode is **ON** in the popup
 
 Happy feedback capturing! 🎯

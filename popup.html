@@ -242,12 +242,12 @@
 <body>
   <div class="header">
     <h1>Dev Feedback Capture</h1>
-    <p>Annotate web elements on localhost</p>
+    <p>Annotate web elements on local dev pages</p>
   </div>
 
   <div class="content">
     <div id="localhost-warning" class="warning" style="display: none;">
-      This extension only works on localhost pages
+      This extension only works on supported local dev URLs
     </div>
 
     <div class="section" id="feedback-controls">
@@ -268,8 +268,8 @@
       <div class="section-title">Quick Start</div>
       <div class="instructions">
         <ol>
-          <li>Navigate to a <strong>localhost</strong> page</li>
-          <li>Click the button above or press <strong>Alt+F</strong></li>
+          <li>Navigate to a supported local page such as <strong>localhost</strong> or <strong>127.0.0.1</strong></li>
+          <li>Click the button above or press <strong>Ctrl+Shift+F</strong></li>
           <li>Hover and click elements to capture feedback</li>
           <li>Export as JSON or Markdown from the panel</li>
         </ol>
@@ -281,16 +281,17 @@
       <div class="shortcuts">
         <div class="shortcut">
           <span>Toggle Feedback Mode</span>
-          <span class="shortcut-key">Alt+F</span>
+          <span class="shortcut-key" id="shortcut-label">Ctrl+Shift+F</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="footer">
-    Dev Feedback Capture v1.0.1
+    Dev Feedback Capture v1.1.0
   </div>
 
+  <script src="shared.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,7 +1,21 @@
 /* Dev Feedback Capture Extension Styles */
 
+#dev-feedback-panel,
+#dev-feedback-modal,
+#dev-feedback-marker-layer {
+  box-sizing: border-box;
+  color-scheme: light;
+}
+
+#dev-feedback-panel *,
+#dev-feedback-modal *,
+#dev-feedback-marker-layer * {
+  box-sizing: border-box;
+}
+
 /* Floating Feedback Panel */
 #dev-feedback-panel {
+  all: initial;
   position: fixed;
   bottom: 20px;
   right: 20px;
@@ -189,6 +203,7 @@
 
 /* Capture Modal */
 #dev-feedback-modal {
+  all: initial;
   position: fixed;
   top: 0;
   left: 0;
@@ -216,6 +231,12 @@
   overflow-y: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: modalSlideIn 0.3s ease;
+}
+
+.dev-feedback-help-text {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #777;
 }
 
 @keyframes modalSlideIn {
@@ -320,13 +341,18 @@
 .dev-feedback-selected {
   outline: 3px dashed #4CAF50 !important;
   outline-offset: 2px;
-  position: relative !important;
+}
+
+#dev-feedback-marker-layer {
+  all: initial;
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999999;
 }
 
 .dev-feedback-badge {
-  position: absolute !important;
-  top: -12px !important;
-  right: -12px !important;
+  position: fixed !important;
   background: #4CAF50 !important;
   color: white !important;
   width: 24px !important;
@@ -339,6 +365,49 @@
   font-weight: 600 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
   z-index: 999997 !important;
+}
+
+.dev-feedback-item-location,
+.dev-feedback-item-status {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #777;
+}
+
+.dev-feedback-item-status {
+  color: #b85600;
+}
+
+.dev-feedback-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  min-width: 220px;
+  max-width: 360px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 1000001;
+}
+
+.dev-feedback-notification.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dev-feedback-notification-success {
+  background: #2e7d32;
+}
+
+.dev-feedback-notification-error {
+  background: #c62828;
 }
 
 /* Scrollbar Styling for Panel */

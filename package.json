@@ -1,0 +1,10 @@
+{
+  "name": "dev-feedback-capture",
+  "private": true,
+  "version": "1.1.0",
+  "description": "Chrome extension for capturing structured feedback on local development pages",
+  "scripts": {
+    "test": "node test/release.test.cjs",
+    "check": "node scripts/release-check.cjs"
+  }
+}

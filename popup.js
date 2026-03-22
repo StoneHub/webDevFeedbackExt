@@ -5,113 +5,223 @@
 (function() {
   'use strict';
 
-  const { isLocalDevUrl, SHORTCUT_LABEL, MAC_SHORTCUT_LABEL } = globalThis.DevFeedbackShared;
+  const {
+    SHORTCUT_LABEL,
+    MAC_SHORTCUT_LABEL,
+    canInjectIntoUrl,
+    getEffectivePageUrl,
+    makeStorageKey
+  } = globalThis.DevFeedbackShared;
 
+  const STORAGE_KEYS = {
+    captureMode: 'dev-feedback-popup-mode'
+  };
+
+  let currentTab = null;
   let currentTabId = null;
-  let isSupportedTab = false;
+  let selectedMode = window.localStorage.getItem(STORAGE_KEYS.captureMode) || 'element';
 
   function getShortcutLabel() {
     return navigator.platform.toLowerCase().includes('mac') ? MAC_SHORTCUT_LABEL : SHORTCUT_LABEL;
   }
 
-  function setWarning(message, visible) {
-    const warning = document.getElementById('localhost-warning');
+  function setWarning(message) {
+    const warning = document.getElementById('warning');
     warning.textContent = message;
-    warning.style.display = visible ? 'block' : 'none';
+    warning.style.display = message ? 'block' : 'none';
   }
 
-  // Check if current tab is a supported local page.
-  function checkCurrentPage() {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeTab = tabs && tabs[0];
-      const toggleBtn = document.getElementById('toggle-feedback-btn');
+  function setInfo(message) {
+    const info = document.getElementById('info');
+    info.textContent = message;
+    info.style.display = message ? 'block' : 'none';
+  }
 
-      currentTabId = activeTab && typeof activeTab.id === 'number' ? activeTab.id : null;
-      isSupportedTab = Boolean(activeTab && isLocalDevUrl(activeTab.url));
+  async function init() {
+    document.getElementById('shortcut-label').textContent = getShortcutLabel();
+    bindCaptureModeInputs();
+    document.getElementById('primary-action-btn').addEventListener('click', handlePrimaryAction);
+    await loadCurrentTab();
+    syncModeUi();
+  }
 
-      if (isSupportedTab) {
-        setWarning('', false);
-        toggleBtn.disabled = false;
-        getContentState();
-        return;
-      }
+  function bindCaptureModeInputs() {
+    document.querySelectorAll('input[name="capture-mode"]').forEach((input) => {
+      input.checked = input.value === selectedMode;
+      input.addEventListener('change', () => {
+        selectedMode = input.value;
+        window.localStorage.setItem(STORAGE_KEYS.captureMode, selectedMode);
+        syncModeUi();
+      });
+    });
+  }
 
-      toggleBtn.disabled = true;
+  async function loadCurrentTab() {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentTab = tabs && tabs[0] ? tabs[0] : null;
+    currentTabId = currentTab && typeof currentTab.id === 'number' ? currentTab.id : null;
+
+    const pageLabel = document.getElementById('page-label');
+    if (!currentTab) {
+      pageLabel.textContent = 'No active tab';
       updateUI(false, 0);
-      setWarning('Open a localhost, 127.0.0.1, 0.0.0.0, or ::1 page to start capturing feedback.', true);
-    });
+      return;
+    }
+
+    pageLabel.textContent = getEffectivePageUrl(currentTab.url || currentTab.pendingUrl || currentTab.title || 'Current tab');
+    await refreshState();
   }
 
-  // Get state from content script
-  function getContentState() {
-    if (!currentTabId) return;
+  async function refreshState() {
+    const primaryButton = document.getElementById('primary-action-btn');
+    const itemCount = await getItemCount();
+    const feedbackState = await getFeedbackState();
 
-    chrome.tabs.sendMessage(currentTabId, { action: 'get-state' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.log('Content script not ready:', chrome.runtime.lastError.message);
-        updateUI(false, 0);
-        setWarning('Refresh this page once so the extension can attach to it.', true);
-        return;
-      }
-
-      setWarning('', false);
-
-      if (response) {
-        updateUI(response.feedbackMode, response.itemCount);
-      }
-    });
+    updateUI(feedbackState.feedbackMode, itemCount);
+    primaryButton.disabled = !currentTabId;
+    syncModeUi();
   }
 
-  // Toggle feedback mode
-  function toggleFeedbackMode() {
-    if (!currentTabId || !isSupportedTab) return;
+  async function getItemCount() {
+    if (!currentTab?.url) {
+      return 0;
+    }
 
-    chrome.tabs.sendMessage(currentTabId, { action: 'toggle-feedback-mode' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.log('Error toggling:', chrome.runtime.lastError.message);
-        setWarning('Refresh the page and try again. The content script is not available yet.', true);
-        return;
-      }
-
-      setWarning('', false);
-
-      if (response) {
-        updateUI(response.feedbackMode, response.itemCount);
-      }
-    });
+    const storageKey = makeStorageKey(currentTab.url);
+    const result = await chrome.storage.local.get([storageKey]);
+    return Array.isArray(result[storageKey]) ? result[storageKey].length : 0;
   }
 
-  // Update UI based on state
+  async function getFeedbackState() {
+    if (!currentTabId) {
+      return { feedbackMode: false };
+    }
+
+    try {
+      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'get-state' });
+      return response || { feedbackMode: false };
+    } catch (error) {
+      return { feedbackMode: false };
+    }
+  }
+
+  function syncModeUi() {
+    const primaryButton = document.getElementById('primary-action-btn');
+    const canInject = canInjectIntoUrl(currentTab?.url || '');
+
+    setWarning('');
+    setInfo('');
+
+    if (!currentTabId) {
+      primaryButton.disabled = true;
+      primaryButton.textContent = 'No Active Tab';
+      return;
+    }
+
+    if (selectedMode === 'region') {
+      primaryButton.disabled = false;
+      primaryButton.classList.remove('stop');
+      primaryButton.textContent = 'Capture Region';
+
+      if ((currentTab?.url || '').startsWith('file://')) {
+        setInfo('If region capture fails on a local PDF, enable "Allow access to file URLs" on the extension first.');
+      } else {
+        setInfo('Region capture takes a viewport screenshot and opens an editor tab for drawing the crop.');
+      }
+      return;
+    }
+
+    primaryButton.textContent = document.getElementById('feedback-mode-status').textContent === 'ON'
+      ? 'Stop Element Mode'
+      : 'Start Element Mode';
+    primaryButton.classList.toggle('stop', document.getElementById('feedback-mode-status').textContent === 'ON');
+    primaryButton.disabled = !canInject;
+
+    if (!canInject) {
+      setWarning('Element mode needs an injectable page such as http, https, or file. Use Region mode for PDFs and browser viewer surfaces.');
+      return;
+    }
+
+    setInfo('Element mode injects the feedback UI into the current tab only after you start it.');
+  }
+
+  async function handlePrimaryAction() {
+    if (!currentTabId) {
+      return;
+    }
+
+    if (selectedMode === 'region') {
+      await startRegionCapture();
+      return;
+    }
+
+    await toggleElementMode();
+  }
+
+  async function toggleElementMode() {
+    setWarning('');
+
+    const ensured = await chrome.runtime.sendMessage({
+      action: 'ensure-content-script',
+      tabId: currentTabId,
+      url: currentTab?.url || ''
+    });
+
+    if (!ensured || !ensured.ok) {
+      setWarning(ensured?.reason || 'Unable to load the in-page feedback UI on this tab.');
+      return;
+    }
+
+    try {
+      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'toggle-feedback-mode' });
+      updateUI(Boolean(response?.feedbackMode), await getItemCount());
+      syncModeUi();
+    } catch (error) {
+      setWarning('Refresh the current page and try again. The feedback UI did not attach cleanly.');
+    }
+  }
+
+  async function startRegionCapture() {
+    setWarning('');
+
+    let viewportMetrics = null;
+    try {
+      viewportMetrics = await chrome.tabs.sendMessage(currentTabId, { action: 'get-viewport-metrics' });
+    } catch (error) {
+      viewportMetrics = null;
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'start-region-capture',
+      tab: {
+        id: currentTab.id,
+        windowId: currentTab.windowId,
+        url: currentTab.url,
+        title: currentTab.title
+      },
+      viewportMetrics
+    });
+
+    if (!response || !response.ok) {
+      setWarning(response?.reason || 'Unable to start region capture on this tab.');
+      return;
+    }
+
+    window.close();
+  }
+
   function updateUI(feedbackMode, itemCount) {
-    const toggleBtn = document.getElementById('toggle-feedback-btn');
     const statusText = document.getElementById('feedback-mode-status');
     const itemCountEl = document.getElementById('item-count');
 
-    if (feedbackMode) {
-      toggleBtn.textContent = 'Stop Feedback Mode';
-      toggleBtn.classList.add('active');
-      statusText.textContent = 'ON';
-      statusText.classList.add('active');
-    } else {
-      toggleBtn.textContent = 'Start Feedback Mode';
-      toggleBtn.classList.remove('active');
-      statusText.textContent = 'OFF';
-      statusText.classList.remove('active');
-    }
-
-    itemCountEl.textContent = itemCount;
+    statusText.textContent = feedbackMode ? 'ON' : 'OFF';
+    statusText.classList.toggle('active', feedbackMode);
+    itemCountEl.textContent = String(itemCount);
   }
 
-  // Initialize popup
-  function init() {
-    document.getElementById('shortcut-label').textContent = getShortcutLabel();
-    checkCurrentPage();
-
-    // Setup toggle button
-    document.getElementById('toggle-feedback-btn').addEventListener('click', toggleFeedbackMode);
-  }
-
-  // Run when popup opens
-  document.addEventListener('DOMContentLoaded', init);
-
+  document.addEventListener('DOMContentLoaded', () => {
+    init().catch((error) => {
+      setWarning(error.message || 'Unable to initialize the popup.');
+    });
+  });
 })();

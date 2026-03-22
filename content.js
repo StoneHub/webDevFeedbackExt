@@ -1,16 +1,28 @@
 /**
  * Dev Feedback Capture - Content Script
- * Runs on supported local development pages.
+ * Injected on demand into the current tab for in-page UI and element capture.
  */
 
 (function() {
   'use strict';
 
+  if (window.__DEV_FEEDBACK_CAPTURE_LOADED__) {
+    return;
+  }
+
+  window.__DEV_FEEDBACK_CAPTURE_LOADED__ = true;
+
   const {
+    CAPTURE_TYPE_ELEMENT,
+    CAPTURE_TYPE_REGION,
     MAX_NOTE_LENGTH,
+    buildAiPromptExport,
+    buildFeedbackId,
+    buildMarkdownExport,
     escapeCssIdentifier,
-    isLocalDevUrl,
-    makeStorageKey
+    formatTimestamp,
+    makeStorageKey,
+    sanitizeFeedbackItems
   } = globalThis.DevFeedbackShared;
 
   const UI_IDS = {
@@ -38,7 +50,7 @@
   let decorationFrame = 0;
 
   function init() {
-    if (!document.body || !isLocalDevUrl(window.location.href)) {
+    if (!document.body) {
       return;
     }
 
@@ -47,7 +59,6 @@
     createMarkerLayer();
     attachGlobalListeners();
     loadFeedbackItems();
-
     console.log('Dev Feedback Capture initialized');
   }
 
@@ -62,15 +73,11 @@
         </div>
       </div>
       <div class="dev-feedback-panel-actions">
-        <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-copy-json">
-          Copy as JSON
-        </button>
-        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-markdown">
-          Copy as Markdown
-        </button>
-        <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-clear">
-          Clear All
-        </button>
+        <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-copy-json">Copy JSON</button>
+        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-markdown">Copy Markdown</button>
+        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-ai">Copy AI Prompt</button>
+        <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-capture-region">Capture Region</button>
+        <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-clear">Clear All</button>
       </div>
       <div class="dev-feedback-items"></div>
     `;
@@ -79,6 +86,8 @@
     feedbackPanel.querySelector('.dev-feedback-panel-header').addEventListener('mousedown', startDragging);
     feedbackPanel.querySelector('#dev-feedback-copy-json').addEventListener('click', copyAsJSON);
     feedbackPanel.querySelector('#dev-feedback-copy-markdown').addEventListener('click', copyAsMarkdown);
+    feedbackPanel.querySelector('#dev-feedback-copy-ai').addEventListener('click', copyAsAiPrompt);
+    feedbackPanel.querySelector('#dev-feedback-capture-region').addEventListener('click', startRegionCapture);
     feedbackPanel.querySelector('#dev-feedback-clear').addEventListener('click', clearAllFeedback);
   }
 
@@ -106,12 +115,8 @@
         </div>
 
         <div class="dev-feedback-modal-actions">
-          <button class="dev-feedback-btn dev-feedback-btn-large dev-feedback-btn-primary" id="dev-feedback-save">
-            Save Feedback
-          </button>
-          <button class="dev-feedback-btn dev-feedback-btn-large dev-feedback-btn-secondary" id="dev-feedback-cancel">
-            Cancel
-          </button>
+          <button class="dev-feedback-btn dev-feedback-btn-large dev-feedback-btn-primary" id="dev-feedback-save">Save Feedback</button>
+          <button class="dev-feedback-btn dev-feedback-btn-large dev-feedback-btn-secondary" id="dev-feedback-cancel">Cancel</button>
         </div>
       </div>
     `;
@@ -119,7 +124,6 @@
 
     captureModal.querySelector('#dev-feedback-save').addEventListener('click', saveFeedback);
     captureModal.querySelector('#dev-feedback-cancel').addEventListener('click', closeCaptureModal);
-
     captureModal.addEventListener('click', (event) => {
       if (event.target === captureModal) {
         closeCaptureModal();
@@ -204,14 +208,12 @@
     }
 
     const target = event.target;
-
     if (isOurElement(target)) {
       return;
     }
 
     event.preventDefault();
     event.stopPropagation();
-
     captureElement(target);
   }
 
@@ -257,7 +259,6 @@
 
   function getElementPosition(element) {
     const rect = element.getBoundingClientRect();
-
     return {
       x: Math.round(rect.left + window.scrollX),
       y: Math.round(rect.top + window.scrollY)
@@ -351,7 +352,6 @@
 
   function showCaptureModal() {
     captureModal.classList.add('visible');
-
     const noteField = captureModal.querySelector(`#${UI_IDS.note}`);
     noteField.value = '';
     noteField.focus();
@@ -386,8 +386,11 @@
 
     const nextItems = feedbackItems.concat({
       id: buildFeedbackId(),
+      type: CAPTURE_TYPE_ELEMENT,
+      captureType: CAPTURE_TYPE_ELEMENT,
       selector: elementInfo.selector,
       pageUrl: window.location.href,
+      pageTitle: document.title,
       elementInfo: {
         tag: elementInfo.tag,
         classes: elementInfo.classes,
@@ -403,19 +406,29 @@
       return;
     }
 
-    feedbackItems = nextItems;
+    feedbackItems = sanitizeFeedbackItems(nextItems, window.location.href, document.title);
     updateFeedbackPanel();
     closeCaptureModal();
     scheduleDecorationRefresh();
     showNotification('Feedback saved.');
   }
 
-  function buildFeedbackId() {
-    if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
-      return globalThis.crypto.randomUUID();
-    }
+  async function startRegionCapture() {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        action: 'start-region-capture',
+        viewportMetrics: getViewportMetrics()
+      });
 
-    return `feedback-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+      if (!response || !response.ok) {
+        showNotification(response?.reason || 'Unable to start region capture.', 'error');
+        return;
+      }
+
+      showNotification('Region capture opened in a new tab.');
+    } catch (error) {
+      showNotification('Unable to start region capture.', 'error');
+    }
   }
 
   function updateFeedbackPanel() {
@@ -428,17 +441,15 @@
     if (feedbackItems.length === 0) {
       const emptyState = document.createElement('div');
       emptyState.className = 'dev-feedback-empty';
-      emptyState.textContent = 'No feedback items yet. Enable Feedback Mode and click elements to capture them.';
+      emptyState.textContent = 'No feedback items yet. Capture an element or use region capture from the panel or popup.';
       itemsContainer.appendChild(emptyState);
       return;
     }
 
     const fragment = document.createDocumentFragment();
-
     feedbackItems.forEach((item, index) => {
       fragment.appendChild(createFeedbackItemElement(item, index));
     });
-
     itemsContainer.appendChild(fragment);
   }
 
@@ -463,22 +474,22 @@
 
     header.appendChild(number);
     header.appendChild(deleteButton);
+    itemElement.appendChild(header);
 
-    const selector = document.createElement('div');
-    selector.className = 'dev-feedback-item-selector';
-    selector.textContent = item.selector;
+    if (item.type === CAPTURE_TYPE_REGION) {
+      populateRegionItem(itemElement, item);
+    } else {
+      populateElementItem(itemElement, item);
+    }
 
     const note = document.createElement('div');
     note.className = 'dev-feedback-item-note';
     note.textContent = item.note;
+    itemElement.appendChild(note);
 
     const timestamp = document.createElement('div');
     timestamp.className = 'dev-feedback-item-timestamp';
     timestamp.textContent = formatTimestamp(item.timestamp);
-
-    itemElement.appendChild(header);
-    itemElement.appendChild(selector);
-    itemElement.appendChild(note);
     itemElement.appendChild(timestamp);
 
     const pageHint = getPageHint(item.pageUrl);
@@ -489,7 +500,7 @@
       itemElement.appendChild(locationHint);
     }
 
-    if (!findCapturedElement(item.selector)) {
+    if (item.type === CAPTURE_TYPE_ELEMENT && !findCapturedElement(item.selector)) {
       const status = document.createElement('div');
       status.className = 'dev-feedback-item-status';
       status.textContent = 'Element not currently found on this page';
@@ -497,6 +508,40 @@
     }
 
     return itemElement;
+  }
+
+  function populateElementItem(itemElement, item) {
+    const selector = document.createElement('div');
+    selector.className = 'dev-feedback-item-selector';
+    selector.textContent = item.selector;
+    itemElement.appendChild(selector);
+  }
+
+  function populateRegionItem(itemElement, item) {
+    const label = document.createElement('div');
+    label.className = 'dev-feedback-item-selector';
+    label.textContent = `Region capture (${item.sourceKind})`;
+    itemElement.appendChild(label);
+
+    if (item.screenshot.dataUrl) {
+      const thumbnail = document.createElement('img');
+      thumbnail.className = 'dev-feedback-item-thumbnail';
+      thumbnail.src = item.screenshot.dataUrl;
+      thumbnail.alt = 'Captured region preview';
+      itemElement.appendChild(thumbnail);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'dev-feedback-item-location';
+    meta.textContent = `Rect ${item.viewportRect.width}×${item.viewportRect.height} at (${item.viewportRect.x}, ${item.viewportRect.y})`;
+    itemElement.appendChild(meta);
+
+    if (item.tabContext?.url) {
+      const source = document.createElement('div');
+      source.className = 'dev-feedback-item-location';
+      source.textContent = item.tabContext.url;
+      itemElement.appendChild(source);
+    }
   }
 
   function getPageHint(rawUrl) {
@@ -522,12 +567,11 @@
     }
 
     const nextItems = feedbackItems.filter((_, itemIndex) => itemIndex !== index);
-
     if (!(await persistFeedbackItems(nextItems))) {
       return;
     }
 
-    feedbackItems = nextItems;
+    feedbackItems = sanitizeFeedbackItems(nextItems, window.location.href, document.title);
     updateFeedbackPanel();
     scheduleDecorationRefresh();
   }
@@ -548,38 +592,20 @@
   }
 
   async function copyAsMarkdown() {
-    let markdown = `# Feedback for ${window.location.href}\n\n`;
-    markdown += `**Date:** ${new Date().toLocaleString()}\n\n`;
-    markdown += `**Total Items:** ${feedbackItems.length}\n\n`;
-    markdown += '---\n\n';
-
-    feedbackItems.forEach((item, index) => {
-      markdown += `## ${index + 1}. ${item.elementInfo.tag}\n\n`;
-      markdown += `**Selector:** \`${item.selector}\`\n\n`;
-      markdown += `**Classes:** ${item.elementInfo.classes.join(', ') || 'none'}\n\n`;
-      markdown += `**Text:** ${item.elementInfo.text || '(empty)'}\n\n`;
-      markdown += `**Position:** x: ${item.position.x}, y: ${item.position.y}\n\n`;
-      markdown += '**Styles:**\n';
-
-      Object.entries(item.elementInfo.styles).forEach(([key, value]) => {
-        markdown += `- ${key}: ${value}\n`;
-      });
-
-      if (item.pageUrl) {
-        markdown += `\n**Captured On:** ${item.pageUrl}\n`;
-      }
-
-      markdown += '\n**Requested Changes:**\n\n';
-      markdown += `${item.note}\n\n`;
-      markdown += `**Captured:** ${formatTimestamp(item.timestamp)}\n\n`;
-      markdown += '---\n\n';
-    });
-
     try {
-      await copyToClipboard(markdown);
+      await copyToClipboard(buildMarkdownExport(window.location.href, feedbackItems));
       showNotification('Copied as Markdown.');
     } catch (error) {
       showNotification('Unable to copy Markdown to the clipboard.', 'error');
+    }
+  }
+
+  async function copyAsAiPrompt() {
+    try {
+      await copyToClipboard(buildAiPromptExport(window.location.href, feedbackItems));
+      showNotification('Copied as AI prompt.');
+    } catch (error) {
+      showNotification('Unable to copy the AI prompt to the clipboard.', 'error');
     }
   }
 
@@ -608,7 +634,7 @@
         await navigator.clipboard.writeText(text);
         return;
       } catch (error) {
-        // Fall back to the legacy copy path below.
+        // Fall through to the legacy copy path.
       }
     }
 
@@ -672,73 +698,10 @@
         return;
       }
 
-      feedbackItems = sanitizeFeedbackItems(result[storageKey]);
+      feedbackItems = sanitizeFeedbackItems(result[storageKey], window.location.href, document.title);
       updateFeedbackPanel();
       scheduleDecorationRefresh();
     });
-  }
-
-  function sanitizeFeedbackItems(items) {
-    if (!Array.isArray(items)) {
-      return [];
-    }
-
-    return items.flatMap((item) => {
-      if (!item || typeof item !== 'object' || typeof item.selector !== 'string' || typeof item.note !== 'string') {
-        return [];
-      }
-
-      return [{
-        id: typeof item.id === 'string' ? item.id : buildFeedbackId(),
-        selector: item.selector,
-        pageUrl: typeof item.pageUrl === 'string' ? item.pageUrl : window.location.href,
-        elementInfo: {
-          tag: typeof item.elementInfo?.tag === 'string' ? item.elementInfo.tag : 'unknown',
-          classes: Array.isArray(item.elementInfo?.classes)
-            ? item.elementInfo.classes.filter((value) => typeof value === 'string')
-            : [],
-          text: typeof item.elementInfo?.text === 'string' ? item.elementInfo.text : '',
-          styles: sanitizeStyles(item.elementInfo?.styles)
-        },
-        position: sanitizePosition(item.position),
-        note: item.note.slice(0, MAX_NOTE_LENGTH),
-        timestamp: isValidDate(item.timestamp) ? item.timestamp : new Date().toISOString()
-      }];
-    });
-  }
-
-  function sanitizeStyles(styles) {
-    if (!styles || typeof styles !== 'object') {
-      return {};
-    }
-
-    const allowedKeys = [
-      'background-color',
-      'color',
-      'font-size',
-      'width',
-      'height',
-      'margin',
-      'padding'
-    ];
-
-    return allowedKeys.reduce((result, key) => {
-      if (typeof styles[key] === 'string') {
-        result[key] = styles[key];
-      }
-      return result;
-    }, {});
-  }
-
-  function sanitizePosition(position) {
-    return {
-      x: Number.isFinite(position?.x) ? position.x : 0,
-      y: Number.isFinite(position?.y) ? position.y : 0
-    };
-  }
-
-  function isValidDate(value) {
-    return typeof value === 'string' && !Number.isNaN(Date.parse(value));
   }
 
   function scheduleDecorationRefresh() {
@@ -762,8 +725,11 @@
     const fragment = document.createDocumentFragment();
 
     feedbackItems.forEach((item, index) => {
-      const element = findCapturedElement(item.selector);
+      if (item.type !== CAPTURE_TYPE_ELEMENT) {
+        return;
+      }
 
+      const element = findCapturedElement(item.selector);
       if (!element || isOurElement(element)) {
         return;
       }
@@ -846,9 +812,12 @@
     return Math.min(Math.max(value, min), max);
   }
 
-  function formatTimestamp(isoString) {
-    const date = new Date(isoString);
-    return date.toLocaleString();
+  function getViewportMetrics() {
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio || 1
+    };
   }
 
   if (document.readyState === 'loading') {
@@ -860,18 +829,29 @@
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'toggle-feedback-mode') {
       toggleFeedbackMode();
-      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+      sendResponse({ feedbackMode, itemCount: feedbackItems.length });
       return;
     }
 
     if (request.action === 'get-state') {
-      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+      sendResponse({ feedbackMode, itemCount: feedbackItems.length });
       return;
     }
 
     if (request.action === 'set-feedback-mode') {
       setFeedbackMode(Boolean(request.enabled));
-      sendResponse({ feedbackMode: feedbackMode, itemCount: feedbackItems.length });
+      sendResponse({ feedbackMode, itemCount: feedbackItems.length });
+      return;
+    }
+
+    if (request.action === 'refresh-feedback') {
+      loadFeedbackItems();
+      sendResponse({ feedbackMode, itemCount: feedbackItems.length });
+      return;
+    }
+
+    if (request.action === 'get-viewport-metrics') {
+      sendResponse(getViewportMetrics());
     }
   });
 })();

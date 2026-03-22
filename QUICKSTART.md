@@ -1,54 +1,46 @@
 # Quick Start Guide
 
-Get Dev Feedback Capture running in **2 minutes**!
+Get Dev Feedback Capture running in a few minutes.
 
-## Step 1: Load the Included Icons (0 seconds)
+## 1. Load the extension
 
-The repo now includes the required icon files already:
-- `icon16.png`
-- `icon48.png`
-- `icon128.png`
+1. Open `chrome://extensions/` or `edge://extensions/`.
+2. Enable `Developer mode`.
+3. Click `Load unpacked`.
+4. Select the `webDevFeedbackExt` folder.
 
-If you ever want to regenerate them, run:
+Optional for local PDFs:
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\generate-icons.ps1
-```
+5. Open the extension details page.
+6. Enable `Allow access to file URLs`.
 
-## Step 2: Load Extension in Chrome (60 seconds)
+## 2. Capture an element
 
-1. Open Chrome and go to: `chrome://extensions/`
-2. Toggle **"Developer mode"** ON (top-right corner)
-3. Click **"Load unpacked"**
-4. Select the `webDevFeedbackExt` folder
-5. Done! ✅
+1. Open any `http`, `https`, or `file` page you want to inspect.
+2. Open the extension popup.
+3. Leave the mode on `Element`.
+4. Click `Start Element Mode` or press `Ctrl+Shift+F`.
+5. Click a page element, add your note, and save it.
 
-## Step 3: Test It (30 seconds)
+## 3. Capture a PDF or screenshot region
 
-1. Navigate to any supported local dev page such as `http://localhost:3000`
-2. Open the extension popup from the browser toolbar
-3. Click **Start Feedback Mode** or press **Ctrl+Shift+F**
-4. Hover over elements and click one to capture feedback
-5. Add your note and click **Save Feedback**
-6. Use the floating panel to export or delete captured items
+1. Open the target page or PDF in the browser.
+2. Open the extension popup and switch to `Region`.
+3. Click `Capture Region`.
+4. In the editor tab, draw a box over the screenshot.
+5. Add your note and save it.
 
-## Export Your Feedback
+## 4. Export saved feedback
 
-In the floating panel:
-- **Copy as JSON** - Perfect for API consumption or scripts
-- **Copy as Markdown** - Great for GitHub issues, Notion, or team docs
+From the in-page history panel on injectable pages, you can copy:
 
-## That's It!
+- `JSON` for full payloads including crop image data
+- `Markdown` for issue trackers or docs
+- `AI Prompt` for a ready-to-paste numbered summary
 
-You're now capturing detailed feedback about UI elements. No more vague "make that button bigger" - you'll have exact selectors, computed styles, and context.
+## Need Help?
 
----
-
-### Need Help?
-
-- Full docs: See `README.md`
-- Not working? Check you're on `localhost`, `127.0.0.1`, `0.0.0.0`, or `[::1]`
-- Just installed it? Refresh the page once so the content script can attach
-- Element not highlighting? Make sure Feedback Mode is **ON** in the popup
-
-Happy feedback capturing! 🎯
+- Full docs: see `README.md`
+- PDF capture issues on local files: check `Allow access to file URLs`
+- Element mode unavailable: use `Region` mode on non-injectable browser surfaces
+- Region capture saves viewport-only crops in v1, not full-page screenshots

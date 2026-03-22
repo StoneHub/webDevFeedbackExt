@@ -8,6 +8,8 @@ const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
   'background.js',
+  'capture.html',
+  'capture.js',
   'content.js',
   'manifest.json',
   'popup.html',
@@ -25,10 +27,8 @@ requiredFiles.forEach((file) => {
 });
 
 assert.equal(manifest.background.service_worker, 'background.js');
-assert.deepEqual(manifest.host_permissions, shared.SUPPORTED_MATCH_PATTERNS);
-assert.deepEqual(manifest.content_scripts[0].matches, shared.SUPPORTED_MATCH_PATTERNS);
-assert.equal(manifest.content_scripts[0].js[0], 'shared.js');
-assert.equal(manifest.content_scripts[0].js[1], 'content.js');
+assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
+assert.equal(Array.isArray(manifest.content_scripts), false);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared.MAC_SHORTCUT_LABEL);
 

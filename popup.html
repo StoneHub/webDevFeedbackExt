@@ -12,37 +12,36 @@
     }
 
     body {
-      width: 350px;
+      width: 360px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(145deg, #0f172a 0%, #1d4ed8 100%);
       color: white;
-      padding: 0;
     }
 
     .header {
-      padding: 20px;
-      text-align: center;
+      padding: 18px 20px 14px;
     }
 
     .header h1 {
       font-size: 20px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .header p {
       font-size: 13px;
-      opacity: 0.9;
+      opacity: 0.85;
+      line-height: 1.4;
     }
 
     .content {
-      background: white;
-      color: #333;
-      padding: 20px;
-      border-radius: 12px 12px 0 0;
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 18px 20px 20px;
+      border-radius: 16px 16px 0 0;
     }
 
     .section {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .section:last-child {
@@ -50,245 +49,256 @@
     }
 
     .section-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: #667eea;
-      margin-bottom: 10px;
-    }
-
-    .info-item {
-      display: flex;
-      align-items: center;
-      padding: 10px;
-      background: #f5f5f5;
-      border-radius: 6px;
-      margin-bottom: 8px;
       font-size: 13px;
+      font-weight: 700;
+      color: #1d4ed8;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
-    .info-item:last-child {
-      margin-bottom: 0;
+    .warning,
+    .info {
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 14px;
     }
 
-    .info-icon {
-      width: 32px;
-      height: 32px;
-      background: #667eea;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 12px;
-      font-size: 16px;
+    .warning {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      color: #9a3412;
     }
 
-    .info-text {
-      flex: 1;
+    .info {
+      background: #eff6ff;
+      border: 1px solid #93c5fd;
+      color: #1d4ed8;
     }
 
-    .info-label {
-      font-weight: 600;
-      color: #666;
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .mode-option {
+      position: relative;
+    }
+
+    .mode-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .mode-label {
+      display: block;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #cbd5e1;
+      background: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mode-label strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+    }
+
+    .mode-label span {
+      display: block;
+      font-size: 11px;
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    .mode-option input:checked + .mode-label {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+      background: #eff6ff;
+    }
+
+    .status-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-card {
+      background: white;
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .status-label {
       font-size: 11px;
       text-transform: uppercase;
-      margin-bottom: 2px;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 4px;
     }
 
-    .info-value {
-      color: #333;
+    .status-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #0f172a;
+      word-break: break-word;
     }
 
-    .shortcuts {
-      background: #f9f9f9;
-      padding: 12px;
-      border-radius: 6px;
+    .status-value.active {
+      color: #15803d;
     }
 
-    .shortcut {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      font-size: 12px;
-      border-bottom: 1px solid #e0e0e0;
-    }
-
-    .shortcut:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-
-    .shortcut-key {
-      background: #667eea;
+    .btn {
+      width: 100%;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
       color: white;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+    }
+
+    .btn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn.stop {
+      background: #dc2626;
+    }
+
+    .btn.stop:hover {
+      background: #b91c1c;
     }
 
     .instructions {
       font-size: 12px;
       line-height: 1.6;
-      color: #666;
-    }
-
-    .instructions ol {
-      padding-left: 20px;
+      color: #475569;
+      padding-left: 18px;
     }
 
     .instructions li {
       margin-bottom: 6px;
     }
 
+    .shortcut {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      font-size: 12px;
+    }
+
+    .shortcut-key {
+      background: #0f172a;
+      color: white;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+    }
+
     .footer {
-      padding: 16px 20px;
+      padding: 14px 20px 18px;
       text-align: center;
       font-size: 11px;
-      opacity: 0.7;
-    }
-
-    .status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #4CAF50;
-    }
-
-    .status-dot.inactive {
-      background: #999;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      background: #667eea;
-      color: white;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
-    }
-
-    .btn:hover {
-      background: #5568d3;
-    }
-
-    .btn:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-
-    .btn-feedback {
-      background: #4CAF50;
-      margin-bottom: 12px;
-    }
-
-    .btn-feedback:hover {
-      background: #388E3C;
-    }
-
-    .btn-feedback.active {
-      background: #f44336;
-    }
-
-    .btn-feedback.active:hover {
-      background: #d32f2f;
-    }
-
-    .warning {
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      color: #856404;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      margin-bottom: 16px;
-    }
-
-    .feedback-status {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px;
-      background: #f5f5f5;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      font-size: 13px;
-    }
-
-    .feedback-status-label {
-      color: #666;
-    }
-
-    .feedback-status-value {
-      font-weight: 600;
-      color: #333;
-    }
-
-    .feedback-status-value.active {
-      color: #4CAF50;
+      opacity: 0.75;
     }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Dev Feedback Capture</h1>
-    <p>Annotate web elements on local dev pages</p>
+    <p>Capture element notes on live pages or screenshot regions on PDFs and browser surfaces.</p>
   </div>
 
   <div class="content">
-    <div id="localhost-warning" class="warning" style="display: none;">
-      This extension only works on supported local dev URLs
+    <div id="warning" class="warning" style="display: none;"></div>
+    <div id="info" class="info" style="display: none;"></div>
+
+    <div class="section">
+      <div class="section-title">Capture Mode</div>
+      <div class="mode-switch">
+        <label class="mode-option">
+          <input type="radio" name="capture-mode" value="element" checked>
+          <span class="mode-label">
+            <strong>Element</strong>
+            <span>Inspect and click page elements.</span>
+          </span>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="capture-mode" value="region">
+          <span class="mode-label">
+            <strong>Region</strong>
+            <span>Crop part of the current viewport, including PDFs.</span>
+          </span>
+        </label>
+      </div>
     </div>
 
-    <div class="section" id="feedback-controls">
-      <button class="btn btn-feedback" id="toggle-feedback-btn" disabled>
-        Start Feedback Mode
-      </button>
-      <div class="feedback-status">
-        <span class="feedback-status-label">Feedback Mode</span>
-        <span class="feedback-status-value" id="feedback-mode-status">OFF</span>
-      </div>
-      <div class="feedback-status">
-        <span class="feedback-status-label">Items Captured</span>
-        <span class="feedback-status-value" id="item-count">0</span>
+    <div class="section">
+      <button class="btn" id="primary-action-btn" disabled>Start Element Mode</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Current Tab</div>
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-label">Page</div>
+          <div class="status-value" id="page-label">No active tab</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Element Mode</div>
+          <div class="status-value" id="feedback-mode-status">OFF</div>
+        </div>
+        <div class="status-card">
+          <div class="status-label">Saved Items</div>
+          <div class="status-value" id="item-count">0</div>
+        </div>
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">Quick Start</div>
-      <div class="instructions">
-        <ol>
-          <li>Navigate to a supported local page such as <strong>localhost</strong> or <strong>127.0.0.1</strong></li>
-          <li>Click the button above or press <strong>Ctrl+Shift+F</strong></li>
-          <li>Hover and click elements to capture feedback</li>
-          <li>Export as JSON or Markdown from the panel</li>
-        </ol>
-      </div>
+      <ol class="instructions">
+        <li>Pick <strong>Element</strong> for clickable DOM capture or <strong>Region</strong> for PDFs and screenshots.</li>
+        <li>Use the primary button to start the selected workflow on the current tab.</li>
+        <li>Region capture opens a separate editor tab where you draw the box and add the note.</li>
+        <li>Re-open the page later to re-export JSON, Markdown, or the AI prompt from the history panel.</li>
+      </ol>
     </div>
 
     <div class="section">
       <div class="section-title">Keyboard Shortcut</div>
-      <div class="shortcuts">
-        <div class="shortcut">
-          <span>Toggle Feedback Mode</span>
-          <span class="shortcut-key" id="shortcut-label">Ctrl+Shift+F</span>
-        </div>
+      <div class="shortcut">
+        <span>Toggle element mode</span>
+        <span class="shortcut-key" id="shortcut-label">Ctrl+Shift+F</span>
       </div>
     </div>
   </div>
 
   <div class="footer">
-    Dev Feedback Capture v1.1.0
+    Local `file://` PDFs may require enabling "Allow access to file URLs" for this extension.
   </div>
 
   <script src="shared.js"></script>

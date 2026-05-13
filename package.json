@@ -5,6 +5,7 @@
   "description": "Chrome extension for capturing structured feedback on web pages and PDFs",
   "scripts": {
     "test": "node test/release.test.cjs",
-    "check": "node scripts/release-check.cjs"
+    "check": "node scripts/release-check.cjs",
+    "package": "node scripts/package-extension.cjs"
   }
 }

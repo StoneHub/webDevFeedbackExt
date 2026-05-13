@@ -1,0 +1,37 @@
+{
+  "slug": "dev-feedback-capture",
+  "name": "Dev Feedback Capture",
+  "kind": "browser-extension",
+  "summary": "Chromium extension for capturing structured feedback on pages, PDFs, and browser-visible UI.",
+  "status": "preview",
+  "repo": "https://github.com/StoneHub/webDevFeedbackExt",
+  "liveUrl": "",
+  "releaseUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases",
+  "downloadUrl": "",
+  "supportUrl": "",
+  "license": "",
+  "platforms": [
+    "Chrome",
+    "Edge",
+    "Chromium"
+  ],
+  "requirements": [
+    "Manual install from an unpacked extension folder",
+    "Developer Mode in Chrome, Edge, or another Chromium browser",
+    "Packaged downloads are planned for GitHub Releases"
+  ],
+  "privacy": {
+    "storage": "local-first",
+    "summary": "Feedback history is saved in local extension storage. Capture and export actions are user-triggered, and no cloud sync or hosted AI integration is included."
+  },
+  "distribution": {
+    "current": "Manual unpacked install from the repository or release zip.",
+    "planned": "Versioned zip assets published through GitHub Releases."
+  },
+  "highlights": [
+    "Element capture with selectors and notes",
+    "Region capture for screenshots and PDFs",
+    "Local history with JSON, Markdown, and AI prompt exports"
+  ],
+  "screenshots": []
+}

@@ -8,3 +8,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Release package output
+dist/

@@ -108,3 +108,7 @@ Build commands beyond these release/helper checks are not defined in the repo.
 - Add full-page or multi-step PDF region capture
 - Add import/export for saved histories
 - Add optional provider-specific AI handoff after the provider/auth shape is defined
+
+## License
+
+This repository is source-visible for portfolio, review, and evaluation purposes only. All rights are reserved unless Monroe Stone grants written permission otherwise. See [LICENSE](LICENSE).

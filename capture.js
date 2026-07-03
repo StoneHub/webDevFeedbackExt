@@ -26,13 +26,17 @@
   const selectionSummary = document.getElementById('selection-summary');
   const sourceUrl = document.getElementById('source-url');
   const noteField = document.getElementById('note-field');
+  const noteCounter = document.getElementById('note-counter');
   const statusLine = document.getElementById('status-line');
+  const saveButton = document.getElementById('save-btn');
 
-  document.getElementById('save-btn').addEventListener('click', saveCapture);
+  saveButton.addEventListener('click', saveCapture);
   document.getElementById('reset-btn').addEventListener('click', resetSelection);
   document.getElementById('cancel-btn').addEventListener('click', cancelCapture);
 
   imageWrap.addEventListener('mousedown', startSelection);
+  noteField.addEventListener('input', updateCaptureState);
+  window.addEventListener('keydown', handleKeydown);
   window.addEventListener('mousemove', updateSelection);
   window.addEventListener('mouseup', finishSelection);
 
@@ -55,6 +59,7 @@
 
     sourceUrl.textContent = session.pageUrl || session.rawTabUrl || 'Unknown source';
     noteField.maxLength = MAX_NOTE_LENGTH;
+    updateCaptureState();
 
     await new Promise((resolve, reject) => {
       screenshotImage.onload = () => resolve();
@@ -82,6 +87,7 @@
     };
 
     renderSelection();
+    updateCaptureState();
     event.preventDefault();
   }
 
@@ -102,6 +108,7 @@
     };
 
     renderSelection();
+    updateCaptureState();
   }
 
   function finishSelection() {
@@ -111,6 +118,7 @@
 
     dragState = null;
     renderSelection();
+    updateCaptureState();
   }
 
   function renderSelection() {
@@ -135,6 +143,7 @@
     selectionBox.classList.remove('visible');
     selectionSummary.textContent = 'Draw a box on the screenshot.';
     setStatus('');
+    updateCaptureState();
   }
 
   async function saveCapture() {
@@ -151,50 +160,96 @@
     }
 
     setStatus('Saving region feedback...');
+    saveButton.disabled = true;
 
     const crop = cropSelectedRegion();
     const viewportRect = buildViewportRect(selection);
     const storageKey = makeStorageKey(session.pageUrl || session.rawTabUrl || '');
-    const existing = await chrome.storage.local.get([storageKey]);
-    const nextItems = sanitizeFeedbackItems(
-      existing[storageKey],
-      session.pageUrl || session.rawTabUrl || '',
-      session.pageTitle || ''
-    ).concat({
-      id: buildFeedbackId(),
-      type: CAPTURE_TYPE_REGION,
-      captureType: CAPTURE_TYPE_REGION,
-      pageUrl: session.pageUrl || session.rawTabUrl || '',
-      pageTitle: session.pageTitle || '',
-      viewportRect,
-      devicePixelRatio: session.viewportMetrics?.devicePixelRatio || 1,
-      screenshot: {
-        mimeType: 'image/png',
-        dataUrl: crop
-      },
-      tabContext: {
-        url: session.pageUrl || session.rawTabUrl || '',
-        title: session.pageTitle || ''
-      },
-      sourceKind: detectSourceKind(session.pageUrl || session.rawTabUrl || ''),
-      note: note.slice(0, MAX_NOTE_LENGTH),
-      timestamp: new Date().toISOString()
-    });
+    try {
+      const existing = await chrome.storage.local.get([storageKey]);
+      const nextItems = sanitizeFeedbackItems(
+        existing[storageKey],
+        session.pageUrl || session.rawTabUrl || '',
+        session.pageTitle || ''
+      ).concat({
+        id: buildFeedbackId(),
+        type: CAPTURE_TYPE_REGION,
+        captureType: CAPTURE_TYPE_REGION,
+        pageUrl: session.pageUrl || session.rawTabUrl || '',
+        pageTitle: session.pageTitle || '',
+        viewportRect,
+        devicePixelRatio: session.viewportMetrics?.devicePixelRatio || 1,
+        screenshot: {
+          mimeType: 'image/png',
+          dataUrl: crop
+        },
+        tabContext: {
+          url: session.pageUrl || session.rawTabUrl || '',
+          title: session.pageTitle || ''
+        },
+        sourceKind: detectSourceKind(session.pageUrl || session.rawTabUrl || ''),
+        note: note.slice(0, MAX_NOTE_LENGTH),
+        timestamp: new Date().toISOString()
+      });
 
-    await chrome.storage.local.set({ [storageKey]: nextItems });
-    await chrome.runtime.sendMessage({ action: 'notify-feedback-updated', tabId: session.tabId });
-    await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId });
+      await persistFeedbackItems(storageKey, nextItems);
+      await chrome.runtime.sendMessage({ action: 'notify-feedback-updated', tabId: session.tabId });
+      await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId });
 
-    setStatus('Saved. This tab will close.');
-    window.setTimeout(() => window.close(), 300);
+      setStatus('Saved. This tab will close.');
+      window.setTimeout(() => window.close(), 300);
+    } catch (error) {
+      setStatus(error.message || 'Unable to save region feedback.', true);
+      updateCaptureState();
+    }
   }
 
   async function cancelCapture() {
+    if (hasUnsavedWork() && !window.confirm('Discard this region capture?')) {
+      return;
+    }
+
     if (session?.sessionId) {
       await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId });
     }
 
     window.close();
+  }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelCapture();
+    }
+  }
+
+  function updateCaptureState() {
+    const noteLength = noteField.value.length;
+    const hasNote = noteField.value.trim().length > 0;
+    const hasSelection = Boolean(selection && selection.width >= 8 && selection.height >= 8);
+
+    if (noteCounter) {
+      noteCounter.textContent = `${noteLength} / ${MAX_NOTE_LENGTH}`;
+    }
+
+    saveButton.disabled = !(hasNote && hasSelection);
+  }
+
+  function hasUnsavedWork() {
+    return Boolean(noteField.value.trim() || (selection && selection.width >= 8 && selection.height >= 8));
+  }
+
+  function persistFeedbackItems(storageKey, nextItems) {
+    return new Promise((resolve, reject) => {
+      chrome.storage.local.set({ [storageKey]: nextItems }, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message || 'Unable to write extension storage.'));
+          return;
+        }
+
+        resolve();
+      });
+    });
   }
 
   function cropSelectedRegion() {

@@ -19,11 +19,25 @@ All feedback stays local in extension storage and can be re-exported later as JS
 
 ## Installation
 
+### Latest Release ZIP
+
+Use this path after the first GitHub Release has been published. Until then, use the source checkout path below.
+
+1. Download the latest `dev-feedback-capture-v<version>.zip` asset from [GitHub Releases](https://github.com/StoneHub/webDevFeedbackExt/releases).
+2. Unzip the file.
+3. Open `chrome://extensions/` or `edge://extensions/`.
+4. Enable Developer Mode.
+5. Click `Load unpacked` and select the unzipped extension folder.
+6. Optional for local PDFs: enable `Allow access to file URLs` on the extension details page.
+
+### Source Checkout
+
+Use this path when developing the extension or reviewing source changes:
+
 1. Clone or download this repository.
 2. Open `chrome://extensions/` or `edge://extensions/`.
 3. Enable Developer Mode.
 4. Click `Load unpacked` and select the `webDevFeedbackExt` folder.
-5. Optional for local PDFs: enable `Allow access to file URLs` on the extension details page.
 
 ## Usage
 
@@ -31,7 +45,7 @@ All feedback stays local in extension storage and can be re-exported later as JS
 
 1. Open the extension popup on any `http`, `https`, or `file` page you want to inspect.
 2. Leave the mode switch on `Element`.
-3. Click `Start Element Mode` or use `Ctrl+Shift+F`.
+3. Click `Start Element Mode` or use `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 4. Hover and click a page element.
 5. Add your note in the modal and save it.
 
@@ -65,10 +79,10 @@ Older element-only captures are still loaded and normalized automatically.
 The extension requests:
 
 - `storage` for local history
-- `activeTab` for user-invoked access to the current tab
-- `scripting` to inject the in-page element capture UI only when requested
+- `activeTab` for temporary, user-invoked access to the current tab
+- `scripting` to inject the in-page capture UI and history panel only when requested
 
-The extension no longer relies on static host permissions or always-on content scripts.
+The extension does not use static host permissions, always-on content scripts, telemetry, or network sync. Region captures can include visible page content in screenshot data URLs; those crops stay in local extension storage until the user clears history or removes the extension.
 
 ## PDF Notes
 
@@ -92,8 +106,16 @@ The extension no longer relies on static host permissions or always-on content s
 
 - `npm test`
 - `npm run check`
+- `npm run package`
 
-Build commands beyond these release/helper checks are not defined in the repo.
+### Release Process
+
+1. Confirm `package.json` and `manifest.json` versions match.
+2. Run `npm test`, `npm run check`, and `npm run package`.
+3. Create and push a matching tag such as `v1.2.0`.
+4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Limitations
 

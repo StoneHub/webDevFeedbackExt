@@ -5,41 +5,58 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Region Capture</title>
   <style>
+    :root {
+      --bg: #101211;
+      --surface: #171a18;
+      --surface-high: #202420;
+      --surface-higher: #2a302b;
+      --text: #edf2ee;
+      --muted: #aeb9b0;
+      --faint: #778276;
+      --accent: #8ed8a0;
+      --accent-strong: #5fba79;
+      --danger: #f87171;
+      --line: rgba(204, 221, 205, 0.16);
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+    }
+
     * {
       box-sizing: border-box;
     }
 
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #0f172a;
-      color: #e2e8f0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(142, 216, 160, 0.12), transparent 35%),
+        linear-gradient(180deg, #111411 0%, #0b0d0c 100%);
+      color: var(--text);
       min-height: 100vh;
     }
 
     .shell {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 340px;
+      grid-template-columns: minmax(0, 1fr) 360px;
       min-height: 100vh;
     }
 
     .stage {
-      padding: 20px;
+      min-width: 0;
+      padding: 18px;
       overflow: auto;
-      background:
-        radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 35%),
-        linear-gradient(180deg, #020617 0%, #111827 100%);
     }
 
     .frame {
       position: relative;
-      max-width: 1200px;
-      margin: 0 auto;
-      border-radius: 16px;
-      padding: 16px;
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      min-height: calc(100vh - 36px);
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.025);
+      box-shadow: var(--shadow);
     }
 
     .image-wrap {
@@ -48,19 +65,22 @@
       max-width: 100%;
       cursor: crosshair;
       user-select: none;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0b0d0c;
+      border: 1px solid var(--line);
     }
 
     .image-wrap img {
       display: block;
       max-width: 100%;
-      border-radius: 12px;
     }
 
     .selection {
       position: absolute;
-      border: 2px solid #38bdf8;
-      background: rgba(56, 189, 248, 0.18);
-      box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45);
+      border: 2px solid var(--accent);
+      background: rgba(142, 216, 160, 0.13);
+      box-shadow: 0 0 0 9999px rgba(7, 8, 7, 0.46);
       pointer-events: none;
       display: none;
     }
@@ -70,102 +90,172 @@
     }
 
     .sidebar {
-      padding: 24px;
-      background: #f8fafc;
-      color: #0f172a;
-      border-left: 1px solid #cbd5e1;
+      padding: 18px;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(142, 216, 160, 0.12), transparent 34%),
+        var(--surface);
+      border-left: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 2px;
+    }
+
+    .mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(142, 216, 160, 0.66);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      font: 800 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+      box-shadow: inset 0 0 0 1px rgba(142, 216, 160, 0.14);
     }
 
     h1 {
-      font-size: 20px;
-      margin: 0 0 8px;
+      font-size: 18px;
+      line-height: 1.2;
+      margin: 0;
     }
 
     .lede {
-      font-size: 13px;
-      line-height: 1.5;
-      color: #475569;
-      margin-bottom: 18px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+      margin: 3px 0 0;
     }
 
     .card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
     }
 
     .label {
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #64748b;
-      margin-bottom: 6px;
+      letter-spacing: 0.08em;
+      color: var(--faint);
+      margin-bottom: 8px;
+      font-weight: 800;
     }
 
     .value {
       font-size: 13px;
-      line-height: 1.5;
+      line-height: 1.45;
       word-break: break-word;
+      color: var(--text);
     }
 
     textarea {
       width: 100%;
-      min-height: 150px;
+      min-height: 138px;
       resize: vertical;
-      border-radius: 10px;
-      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      border: 1px solid var(--line);
       padding: 12px;
       font: inherit;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text);
+      background: #0b0d0c;
+    }
+
+    textarea::placeholder {
+      color: var(--faint);
     }
 
     textarea:focus {
-      outline: 2px solid rgba(37, 99, 235, 0.25);
-      border-color: #2563eb;
+      outline: none;
+      border-color: rgba(142, 216, 160, 0.7);
+      box-shadow: 0 0 0 3px rgba(142, 216, 160, 0.12);
+    }
+
+    .counter {
+      margin-top: 8px;
+      text-align: right;
+      color: var(--faint);
+      font-size: 11px;
     }
 
     .actions {
       display: grid;
-      gap: 10px;
+      gap: 9px;
     }
 
     button {
-      border: none;
-      border-radius: 10px;
-      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 14px;
+      min-height: 42px;
       font: inherit;
-      font-weight: 700;
+      font-size: 13px;
+      font-weight: 800;
       cursor: pointer;
-      transition: background 0.2s ease, transform 0.15s ease;
+      transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease, opacity 0.16s ease;
     }
 
     button:hover {
       transform: translateY(-1px);
     }
 
+    button:focus-visible {
+      outline: 2px solid rgba(142, 216, 160, 0.5);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      transform: none;
+    }
+
     .primary {
-      background: #2563eb;
-      color: white;
+      background: linear-gradient(180deg, #7ed693, #57b874);
+      border-color: rgba(142, 216, 160, 0.48);
+      color: #07120b;
     }
 
     .secondary {
-      background: #e2e8f0;
-      color: #0f172a;
+      background: var(--surface-high);
+      color: var(--text);
+    }
+
+    .secondary:hover {
+      background: var(--surface-higher);
     }
 
     .danger {
-      background: #fee2e2;
-      color: #991b1b;
+      background: #2b1819;
+      border-color: rgba(248, 113, 113, 0.34);
+      color: #ffcaca;
     }
 
     .status {
+      min-height: 18px;
       font-size: 12px;
-      color: #475569;
+      line-height: 1.4;
+      color: var(--muted);
     }
 
     .error {
-      color: #b91c1c;
+      color: #ffcaca;
+    }
+
+    .hint {
+      margin-top: auto;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
     }
 
     @media (max-width: 980px) {
@@ -175,7 +265,11 @@
 
       .sidebar {
         border-left: none;
-        border-top: 1px solid #cbd5e1;
+        border-top: 1px solid var(--line);
+      }
+
+      .frame {
+        min-height: 52vh;
       }
     }
   </style>
@@ -192,8 +286,13 @@
     </div>
 
     <aside class="sidebar">
-      <h1>Capture Region Feedback</h1>
-      <p class="lede">Drag a box over the screenshot, describe the change, and save it back into the page history.</p>
+      <header class="sidebar-header">
+        <div class="mark" aria-hidden="true">&lt;/&gt;</div>
+        <div>
+          <h1>Region Capture</h1>
+          <p class="lede">Draw a crop, describe the requested change, and save it to local history.</p>
+        </div>
+      </header>
 
       <div class="card">
         <div class="label">Source</div>
@@ -208,6 +307,7 @@
       <div class="card">
         <div class="label">Requested Change</div>
         <textarea id="note-field" placeholder="Describe what should change in this region..."></textarea>
+        <div class="counter" id="note-counter">0 / 2000</div>
       </div>
 
       <div class="actions">
@@ -217,6 +317,7 @@
       </div>
 
       <p class="status" id="status-line"></p>
+      <p class="hint">Press Escape to cancel. Region crops can include sensitive visible page content and stay local until cleared.</p>
     </aside>
   </div>
 

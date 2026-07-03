@@ -20,6 +20,7 @@
   let currentTab = null;
   let currentTabId = null;
   let selectedMode = window.localStorage.getItem(STORAGE_KEYS.captureMode) || 'element';
+  let currentFeedbackMode = false;
 
   function getShortcutLabel() {
     return navigator.platform.toLowerCase().includes('mac') ? MAC_SHORTCUT_LABEL : SHORTCUT_LABEL;
@@ -41,6 +42,15 @@
     document.getElementById('shortcut-label').textContent = getShortcutLabel();
     bindCaptureModeInputs();
     document.getElementById('primary-action-btn').addEventListener('click', handlePrimaryAction);
+
+    if (!globalThis.chrome?.tabs || !globalThis.chrome?.storage || !globalThis.chrome?.runtime) {
+      document.getElementById('page-label').textContent = 'Extension preview';
+      updateUI(false, 0);
+      document.getElementById('primary-action-btn').disabled = true;
+      setInfo('Open this popup from the installed extension to capture the active tab.');
+      return;
+    }
+
     await loadCurrentTab();
     syncModeUi();
   }
@@ -108,6 +118,7 @@
   function syncModeUi() {
     const primaryButton = document.getElementById('primary-action-btn');
     const canInject = canInjectIntoUrl(currentTab?.url || '');
+    const canCaptureRegion = canAttemptRegionCapture(currentTab);
 
     setWarning('');
     setInfo('');
@@ -119,9 +130,14 @@
     }
 
     if (selectedMode === 'region') {
-      primaryButton.disabled = false;
+      primaryButton.disabled = !canCaptureRegion;
       primaryButton.classList.remove('stop');
       primaryButton.textContent = 'Capture Region';
+
+      if (!canCaptureRegion) {
+        setWarning('Region capture needs a visible browser tab. Chrome may block browser-internal pages.');
+        return;
+      }
 
       if ((currentTab?.url || '').startsWith('file://')) {
         setInfo('If region capture fails on a local PDF, enable "Allow access to file URLs" on the extension first.');
@@ -131,10 +147,10 @@
       return;
     }
 
-    primaryButton.textContent = document.getElementById('feedback-mode-status').textContent === 'ON'
+    primaryButton.textContent = currentFeedbackMode
       ? 'Stop Element Mode'
       : 'Start Element Mode';
-    primaryButton.classList.toggle('stop', document.getElementById('feedback-mode-status').textContent === 'ON');
+    primaryButton.classList.toggle('stop', currentFeedbackMode);
     primaryButton.disabled = !canInject;
 
     if (!canInject) {
@@ -143,6 +159,24 @@
     }
 
     setInfo('Element mode injects the feedback UI into the current tab only after you start it.');
+  }
+
+  function canAttemptRegionCapture(tab) {
+    if (!tab || typeof tab.id !== 'number' || typeof tab.windowId !== 'number') {
+      return false;
+    }
+
+    const rawUrl = tab.url || tab.pendingUrl || '';
+    if (!rawUrl) {
+      return true;
+    }
+
+    try {
+      const url = new URL(rawUrl);
+      return !['chrome:', 'edge:', 'about:'].includes(url.protocol);
+    } catch (error) {
+      return true;
+    }
   }
 
   async function handlePrimaryAction() {
@@ -214,6 +248,7 @@
     const statusText = document.getElementById('feedback-mode-status');
     const itemCountEl = document.getElementById('item-count');
 
+    currentFeedbackMode = Boolean(feedbackMode);
     statusText.textContent = feedbackMode ? 'ON' : 'OFF';
     statusText.classList.toggle('active', feedbackMode);
     itemCountEl.textContent = String(itemCount);

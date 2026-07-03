@@ -4,67 +4,61 @@
 
 Make Dev Feedback Capture a small, credible software offering in the `monroes.tech/software` catalog.
 
-The product story should be: a browser extension for collecting structured UI feedback from pages and PDFs, with local-first storage and exports that help developers or agents act on the feedback.
+The product story is: a Chromium extension for collecting structured feedback from pages and PDFs, with local-first storage and exports that help developers or agents act on the feedback.
+
+## Current State
+
+- `product.json` exists for catalog ingestion.
+- `CHANGELOG.md` has the current `1.2.0` entry.
+- `LICENSE` marks the project as source-visible with all rights reserved.
+- `npm run package` creates a versioned release zip at `dist/dev-feedback-capture-v1.2.0.zip`.
+- `.github/workflows/release.yml` publishes a zip asset when a matching `v*` tag is pushed.
+
+Current blocker: there is no published GitHub Release asset yet. Until the first tag/release exists, `product.json.downloadUrl` must stay empty to avoid pointing the site at a dead URL.
 
 ## Catalog Metadata
 
-Create a root `product.json` for `monroes.tech/software` to consume:
+`product.json` is the source file for site ingestion. The site should treat `downloadUrl` as optional and use these fields for automatic latest-release resolution:
 
-```json
-{
-  "slug": "dev-feedback-capture",
-  "name": "Dev Feedback Capture",
-  "kind": "browser-extension",
-  "summary": "Chromium extension for capturing structured feedback on pages, PDFs, and browser-visible UI.",
-  "status": "preview",
-  "repo": "https://github.com/StoneHub/webDevFeedbackExt",
-  "liveUrl": "",
-  "releaseUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases",
-  "downloadUrl": "",
-  "supportUrl": "",
-  "license": "",
-  "platforms": ["Chrome", "Edge", "Chromium"],
-  "requirements": ["Developer Mode for unpacked install until packaged releases exist"],
-  "highlights": [
-    "Element capture with selectors and notes",
-    "Region capture for screenshots and PDFs",
-    "Local history with JSON, Markdown, and AI prompt exports"
-  ],
-  "screenshots": []
-}
-```
+- `repo`: `https://github.com/StoneHub/webDevFeedbackExt`
+- `releaseUrl`: `https://github.com/StoneHub/webDevFeedbackExt/releases`
+- `distribution.latestReleaseApi`: `https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest`
+- `distribution.assetNamePattern`: `dev-feedback-capture-v{version}.zip`
 
-## Release Work
+Best path for `monroes.tech`: fetch the GitHub latest release API, find the first asset whose name matches `dev-feedback-capture-v*.zip`, cache the resolved `browser_download_url`, and fall back to `releaseUrl` if GitHub is unavailable or no asset exists.
 
-Current blocker: there is no packaged zip or store listing. Installation is manual from the repo.
+Counterpoint: a checked-in static `downloadUrl` is simpler, but it will drift every time the extension version changes unless the release pipeline also updates site metadata.
 
-Work items:
+## First Release Steps
 
-1. Add a license file or explicitly decide the extension is source-visible but not licensed for reuse.
-2. Add a packaging script that creates a versioned zip from the extension files.
-3. Add `CHANGELOG.md` with a current `1.2.0` entry.
-4. Publish the first GitHub Release with the zip asset.
-5. Update `product.json` `downloadUrl` after the release asset exists.
-6. Later, write Chrome Web Store listing/privacy copy if store distribution becomes the chosen path.
+1. Confirm `package.json` and `manifest.json` versions match.
+2. Run local release checks:
+
+   ```bash
+   npm test
+   npm run check
+   npm run package
+   git diff --check
+   ```
+
+3. Manually load the unpacked extension in Chrome or Edge.
+4. Test Element mode on an HTTP page.
+5. Test Region mode on a normal page or rendered PDF.
+6. Confirm JSON, Markdown, and AI prompt exports still work.
+7. Create and push a matching tag:
+
+   ```bash
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+8. Verify GitHub Releases contains `dev-feedback-capture-v1.2.0.zip`.
+9. Update `product.json.downloadUrl` only if the site requires a static URL. Prefer automatic latest-release resolution.
 
 ## Public Copy Rules
 
 - Emphasize user-triggered capture and local extension storage.
 - Keep permission language clear.
 - Do not imply cloud sync or hosted AI integration until it exists.
+- Call out that screenshot crops may contain sensitive visible page content and stay local until cleared.
 - Use "Support this project" rather than hard-selling.
-
-## Verification
-
-```bash
-npm test
-npm run check
-git diff --check
-```
-
-Manual check before release:
-
-1. Load unpacked extension in Chrome or Edge.
-2. Test Element mode on an HTTP page.
-3. Test Region mode on a rendered PDF or normal page.
-4. Confirm JSON, Markdown, and AI prompt export still work.

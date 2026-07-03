@@ -68,22 +68,29 @@
     feedbackPanel.innerHTML = `
       <div class="dev-feedback-panel-header">
         <div class="dev-feedback-panel-header-title">
-          <span>Feedback Items</span>
+          <span class="dev-feedback-panel-mark" aria-hidden="true">&lt;/&gt;</span>
+          <span>
+            <span class="dev-feedback-panel-name">Dev Feedback Capture</span>
+            <span class="dev-feedback-panel-subtitle">Local page review history</span>
+          </span>
           <span class="dev-feedback-count">0</span>
         </div>
+        <button class="dev-feedback-panel-close" id="dev-feedback-panel-close" title="Stop element mode" aria-label="Stop element mode">x</button>
       </div>
       <div class="dev-feedback-panel-actions">
-        <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-copy-json">Copy JSON</button>
-        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-markdown">Copy Markdown</button>
-        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-ai">Copy AI Prompt</button>
+        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-json">JSON</button>
+        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-markdown">Markdown</button>
+        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-ai">AI Prompt</button>
         <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-capture-region">Capture Region</button>
-        <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-clear">Clear All</button>
+        <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-clear">Clear</button>
       </div>
       <div class="dev-feedback-items"></div>
+      <div class="dev-feedback-panel-footer">Feedback is stored locally in this browser.</div>
     `;
     document.body.appendChild(feedbackPanel);
 
     feedbackPanel.querySelector('.dev-feedback-panel-header').addEventListener('mousedown', startDragging);
+    feedbackPanel.querySelector('#dev-feedback-panel-close').addEventListener('click', () => setFeedbackMode(false));
     feedbackPanel.querySelector('#dev-feedback-copy-json').addEventListener('click', copyAsJSON);
     feedbackPanel.querySelector('#dev-feedback-copy-markdown').addEventListener('click', copyAsMarkdown);
     feedbackPanel.querySelector('#dev-feedback-copy-ai').addEventListener('click', copyAsAiPrompt);
@@ -770,6 +777,10 @@
 
   function startDragging(event) {
     if (event.button !== 0) {
+      return;
+    }
+
+    if (typeof event.target?.closest === 'function' && event.target.closest('button')) {
       return;
     }
 

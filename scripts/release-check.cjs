@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 
 const rootDir = path.join(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
+const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
+const productJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'product.json'), 'utf8'));
 const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
@@ -26,10 +28,15 @@ requiredFiles.forEach((file) => {
   assert.equal(fs.existsSync(absolutePath), true, `Missing required release file: ${file}`);
 });
 
+assert.equal(packageJson.version, manifest.version);
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);
+assert.equal(Array.isArray(manifest.web_accessible_resources), false);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared.MAC_SHORTCUT_LABEL);
+assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');
+assert.equal(productJson.distribution.latestReleaseApi, 'https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest');
+assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
 
 console.log('Release check passed.');

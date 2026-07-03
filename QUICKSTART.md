@@ -4,22 +4,24 @@ Get Dev Feedback Capture running in a few minutes.
 
 ## 1. Load the extension
 
-1. Open `chrome://extensions/` or `edge://extensions/`.
-2. Enable `Developer mode`.
-3. Click `Load unpacked`.
-4. Select the `webDevFeedbackExt` folder.
+1. Download the latest `dev-feedback-capture-v<version>.zip` asset from GitHub Releases.
+2. Unzip it.
+3. Open `chrome://extensions/` or `edge://extensions/`.
+4. Enable `Developer mode`.
+5. Click `Load unpacked`.
+6. Select the unzipped extension folder.
 
 Optional for local PDFs:
 
-5. Open the extension details page.
-6. Enable `Allow access to file URLs`.
+7. Open the extension details page.
+8. Enable `Allow access to file URLs`.
 
 ## 2. Capture an element
 
 1. Open any `http`, `https`, or `file` page you want to inspect.
 2. Open the extension popup.
 3. Leave the mode on `Element`.
-4. Click `Start Element Mode` or press `Ctrl+Shift+F`.
+4. Click `Start Element Mode` or press `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 5. Click a page element, add your note, and save it.
 
 ## 3. Capture a PDF or screenshot region

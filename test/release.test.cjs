@@ -4,6 +4,8 @@ const path = require('node:path');
 
 const shared = require('../shared.js');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'product.json'), 'utf8'));
 
 assert.equal(shared.isLocalDevUrl('http://localhost:3000'), true);
 assert.equal(shared.isLocalDevUrl('https://localhost:8443/test'), true);
@@ -90,5 +92,8 @@ assert.equal(
   manifest.commands['toggle-feedback-mode'].suggested_key.mac,
   shared.MAC_SHORTCUT_LABEL
 );
+assert.equal(packageJson.version, manifest.version);
+assert.equal(Array.isArray(manifest.web_accessible_resources), false);
+assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
 
 console.log('Test assertions passed.');

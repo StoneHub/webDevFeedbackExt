@@ -8,25 +8,28 @@
   "liveUrl": "",
   "releaseUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases",
   "downloadUrl": "",
-  "supportUrl": "",
-  "license": "",
+  "supportUrl": "mailto:monroe@flyingchangesfarm.net",
+  "license": "source-visible-all-rights-reserved",
   "platforms": [
     "Chrome",
     "Edge",
     "Chromium"
   ],
   "requirements": [
-    "Manual install from an unpacked extension folder",
+    "Download and unzip the latest GitHub Release asset once the first release is published",
     "Developer Mode in Chrome, Edge, or another Chromium browser",
-    "Packaged downloads are planned for GitHub Releases"
+    "Manual Load unpacked installation from the unzipped extension folder"
   ],
   "privacy": {
     "storage": "local-first",
     "summary": "Feedback history is saved in local extension storage. Capture and export actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
-    "current": "Manual unpacked install from the repository or release zip.",
-    "planned": "Versioned zip assets published through GitHub Releases."
+    "current": "Manual unpacked install from the repository until the first GitHub Release is published.",
+    "planned": "Versioned zip assets published through GitHub Releases.",
+    "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
+    "assetNamePattern": "dev-feedback-capture-v{version}.zip",
+    "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."
   },
   "highlights": [
     "Element capture with selectors and notes",

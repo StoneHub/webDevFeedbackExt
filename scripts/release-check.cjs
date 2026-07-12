@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 
 const rootDir = path.join(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
@@ -13,6 +14,9 @@ const requiredFiles = [
   'capture.html',
   'capture.js',
   'content.js',
+  'history.css',
+  'history.html',
+  'history.js',
   'manifest.json',
   'popup.html',
   'popup.js',
@@ -23,9 +27,30 @@ const requiredFiles = [
   'icon128.png'
 ];
 
+const shippedJavaScriptFiles = [
+  'background.js',
+  'capture.js',
+  'content.js',
+  'history.js',
+  'popup.js',
+  'shared.js'
+];
+
 requiredFiles.forEach((file) => {
   const absolutePath = path.join(rootDir, file);
   assert.equal(fs.existsSync(absolutePath), true, `Missing required release file: ${file}`);
+});
+
+shippedJavaScriptFiles.forEach((file) => {
+  const result = spawnSync(process.execPath, ['--check', path.join(rootDir, file)], {
+    encoding: 'utf8'
+  });
+
+  assert.equal(
+    result.status,
+    0,
+    `Syntax check failed for ${file}:\n${result.stderr || result.stdout}`
+  );
 });
 
 assert.equal(packageJson.version, manifest.version);

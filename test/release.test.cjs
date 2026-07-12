@@ -6,6 +6,8 @@ const shared = require('../shared.js');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'product.json'), 'utf8'));
+const ciWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'release.yml'), 'utf8');
 
 assert.equal(shared.isLocalDevUrl('http://localhost:3000'), true);
 assert.equal(shared.isLocalDevUrl('https://localhost:8443/test'), true);
@@ -95,5 +97,10 @@ assert.equal(
 assert.equal(packageJson.version, manifest.version);
 assert.equal(Array.isArray(manifest.web_accessible_resources), false);
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
+assert.equal(packageJson.scripts['verify:package'], 'node scripts/verify-package.cjs');
+assert.match(ciWorkflow, /pull_request:/);
+assert.match(ciWorkflow, /npm run verify:package/);
+assert.match(releaseWorkflow, /\$ZIP_PATH\.sha256/);
+assert.match(releaseWorkflow, /--generate-notes/);
 
 console.log('Test assertions passed.');

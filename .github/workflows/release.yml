@@ -49,12 +49,12 @@ jobs:
         run: npm run package
 
       - name: Verify package artifact
-        run: test -f "$ZIP_PATH"
+        run: npm run verify:package -- "$ZIP_PATH"
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "$ZIP_PATH" \
+          gh release create "$GITHUB_REF_NAME" "$ZIP_PATH" "$ZIP_PATH.sha256" \
             --title "Dev Feedback Capture $GITHUB_REF_NAME" \
-            --notes-file CHANGELOG.md
+            --generate-notes

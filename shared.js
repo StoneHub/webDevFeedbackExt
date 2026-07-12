@@ -32,6 +32,8 @@
   const MAX_NOTE_LENGTH = 2000;
   const CAPTURE_TYPE_ELEMENT = 'element';
   const CAPTURE_TYPE_REGION = 'region';
+  const FEEDBACK_STORAGE_PREFIX = 'dev-feedback-';
+  const REGION_CAPTURE_SESSION_PREFIX = 'dev-feedback-region-session-';
 
   function normalizeHostname(hostname) {
     return String(hostname || '').replace(/^\[|\]$/g, '').toLowerCase();
@@ -81,12 +83,12 @@
       const url = new URL(getEffectivePageUrl(rawUrl));
 
       if (url.protocol !== 'file:' && url.origin && url.origin !== 'null') {
-        return `dev-feedback-${url.origin}`;
+        return `${FEEDBACK_STORAGE_PREFIX}${url.origin}`;
       }
 
-      return `dev-feedback-file-${encodeURIComponent(url.href)}`;
+      return `${FEEDBACK_STORAGE_PREFIX}file-${encodeURIComponent(url.href)}`;
     } catch (error) {
-      return `dev-feedback-file-${encodeURIComponent(String(rawUrl || ''))}`;
+      return `${FEEDBACK_STORAGE_PREFIX}file-${encodeURIComponent(String(rawUrl || ''))}`;
     }
   }
 
@@ -221,10 +223,10 @@
   }
 
   function sanitizeScreenshot(screenshot) {
-    const mimeType = typeof screenshot?.mimeType === 'string' && screenshot.mimeType
-      ? screenshot.mimeType
-      : 'image/png';
-    const dataUrl = typeof screenshot?.dataUrl === 'string' ? screenshot.dataUrl : '';
+    const supportedMimeTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    const mimeType = supportedMimeTypes.includes(screenshot?.mimeType) ? screenshot.mimeType : 'image/png';
+    const rawDataUrl = typeof screenshot?.dataUrl === 'string' ? screenshot.dataUrl : '';
+    const dataUrl = /^data:image\/(?:png|jpeg|webp);base64,/i.test(rawDataUrl) ? rawDataUrl : '';
 
     return { mimeType, dataUrl };
   }
@@ -323,7 +325,7 @@
     const sourceUrl = getEffectivePageUrl(rawUrl);
     const normalizedItems = sanitizeFeedbackItems(items, rawUrl);
     let prompt = 'Use the following feedback items to edit the referenced page or PDF. ';
-    prompt += 'Each numbered item corresponds to a saved crop in the extension history.\n\n';
+    prompt += 'This is a text summary; region images are available in the companion HTML or JSON export.\n\n';
     prompt += `Source: ${sourceUrl}\n`;
     prompt += `Total items: ${normalizedItems.length}\n\n`;
 
@@ -357,6 +359,8 @@
   return {
     CAPTURE_TYPE_ELEMENT,
     CAPTURE_TYPE_REGION,
+    FEEDBACK_STORAGE_PREFIX,
+    REGION_CAPTURE_SESSION_PREFIX,
     SUPPORTED_HOSTNAMES,
     SUPPORTED_MATCH_PATTERNS,
     SHORTCUT_LABEL,

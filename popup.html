@@ -215,6 +215,14 @@
       box-shadow: none;
     }
 
+    .btn.secondary {
+      margin-top: 9px;
+      background: rgba(255, 255, 255, 0.045);
+      border-color: var(--line-strong);
+      color: var(--text);
+      box-shadow: none;
+    }
+
     .status-grid {
       display: grid;
       gap: 8px;
@@ -354,8 +362,8 @@
     </header>
 
     <div class="notice-stack">
-      <div id="warning" class="warning" style="display: none;"></div>
-      <div id="info" class="info" style="display: none;"></div>
+      <div id="warning" class="warning" role="alert" style="display: none;"></div>
+      <div id="info" class="info" role="status" aria-live="polite" style="display: none;"></div>
     </div>
 
     <div class="section">
@@ -380,6 +388,7 @@
 
     <div class="section">
       <button class="btn" id="primary-action-btn" disabled>Start Element Mode</button>
+      <button class="btn secondary" id="history-btn">Open History &amp; Export</button>
     </div>
 
     <div class="section">

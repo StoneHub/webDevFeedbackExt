@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev Feedback History</title>
+  <link rel="stylesheet" href="history.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Dev Feedback Capture</p>
+        <h1>History &amp; Export</h1>
+        <p class="lede">Review every saved site and file capture. Region images stay embedded in JSON and HTML exports.</p>
+      </div>
+      <div class="metrics" aria-label="History totals">
+        <div><strong id="item-total">0</strong><span>items</span></div>
+        <div><strong id="group-total">0</strong><span>sites/files</span></div>
+      </div>
+    </header>
+
+    <section class="toolbar" aria-label="History controls">
+      <label class="search">
+        <span>Filter history</span>
+        <input id="history-search" type="search" placeholder="Search notes, titles, URLs, or selectors">
+      </label>
+      <div class="actions">
+        <button id="download-json">Download JSON</button>
+        <button id="download-html">Download HTML Report</button>
+        <button id="copy-markdown" class="secondary">Copy Markdown</button>
+        <button id="copy-ai" class="secondary">Copy AI Prompt</button>
+        <button id="clear-all" class="danger">Clear All</button>
+      </div>
+    </section>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <p id="error" class="status error" role="alert"></p>
+    <section id="history-groups" class="groups" aria-label="Saved feedback histories"></section>
+  </main>
+
+  <script src="shared.js"></script>
+  <script src="history.js"></script>
+</body>
+</html>

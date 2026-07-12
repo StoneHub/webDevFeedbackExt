@@ -10,8 +10,7 @@
     MAX_NOTE_LENGTH,
     buildFeedbackId,
     detectSourceKind,
-    makeStorageKey,
-    sanitizeFeedbackItems
+    makeStorageKey
   } = globalThis.DevFeedbackShared;
 
   const SESSION_PREFIX = 'dev-feedback-region-session-';
@@ -34,11 +33,11 @@
   document.getElementById('reset-btn').addEventListener('click', resetSelection);
   document.getElementById('cancel-btn').addEventListener('click', cancelCapture);
 
-  imageWrap.addEventListener('mousedown', startSelection);
+  imageWrap.addEventListener('pointerdown', startSelection);
   noteField.addEventListener('input', updateCaptureState);
   window.addEventListener('keydown', handleKeydown);
-  window.addEventListener('mousemove', updateSelection);
-  window.addEventListener('mouseup', finishSelection);
+  window.addEventListener('pointermove', updateSelection);
+  window.addEventListener('pointerup', finishSelection);
 
   init().catch((error) => {
     setStatus(error.message || 'Unable to load the capture session.', true);
@@ -50,7 +49,7 @@
       throw new Error('Missing region capture session id.');
     }
 
-    const result = await chrome.storage.local.get([`${SESSION_PREFIX}${sessionId}`]);
+    const result = await chrome.storage.session.get([`${SESSION_PREFIX}${sessionId}`]);
     session = result[`${SESSION_PREFIX}${sessionId}`];
 
     if (!session || !session.screenshotDataUrl) {
@@ -78,6 +77,7 @@
       startX: clamp(event.clientX - rect.left, 0, rect.width),
       startY: clamp(event.clientY - rect.top, 0, rect.height)
     };
+    imageWrap.setPointerCapture?.(event.pointerId);
 
     selection = {
       x: dragState.startX,
@@ -166,12 +166,7 @@
     const viewportRect = buildViewportRect(selection);
     const storageKey = makeStorageKey(session.pageUrl || session.rawTabUrl || '');
     try {
-      const existing = await chrome.storage.local.get([storageKey]);
-      const nextItems = sanitizeFeedbackItems(
-        existing[storageKey],
-        session.pageUrl || session.rawTabUrl || '',
-        session.pageTitle || ''
-      ).concat({
+      const item = {
         id: buildFeedbackId(),
         type: CAPTURE_TYPE_REGION,
         captureType: CAPTURE_TYPE_REGION,
@@ -190,9 +185,16 @@
         sourceKind: detectSourceKind(session.pageUrl || session.rawTabUrl || ''),
         note: note.slice(0, MAX_NOTE_LENGTH),
         timestamp: new Date().toISOString()
-      });
+      };
 
-      await persistFeedbackItems(storageKey, nextItems);
+      const result = await chrome.runtime.sendMessage({
+        action: 'add-feedback-item',
+        storageKey,
+        item
+      });
+      if (!result?.ok) {
+        throw new Error(result?.reason || 'Unable to save region feedback.');
+      }
       await chrome.runtime.sendMessage({ action: 'notify-feedback-updated', tabId: session.tabId });
       await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId });
 
@@ -220,7 +222,44 @@
     if (event.key === 'Escape') {
       event.preventDefault();
       cancelCapture();
+      return;
     }
+
+    if (event.target !== imageWrap) {
+      return;
+    }
+
+    const rect = imageWrap.getBoundingClientRect();
+    if ((event.key === 'Enter' || event.key === ' ') && !selection) {
+      event.preventDefault();
+      selection = {
+        x: Math.round(rect.width * 0.25),
+        y: Math.round(rect.height * 0.25),
+        width: Math.max(8, Math.round(rect.width * 0.5)),
+        height: Math.max(8, Math.round(rect.height * 0.5))
+      };
+      renderSelection();
+      updateCaptureState();
+      return;
+    }
+
+    if (!selection || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+      return;
+    }
+
+    event.preventDefault();
+    const delta = event.altKey ? 1 : 10;
+    const horizontal = event.key === 'ArrowLeft' ? -delta : event.key === 'ArrowRight' ? delta : 0;
+    const vertical = event.key === 'ArrowUp' ? -delta : event.key === 'ArrowDown' ? delta : 0;
+    if (event.shiftKey) {
+      selection.width = clamp(selection.width + horizontal, 8, rect.width - selection.x);
+      selection.height = clamp(selection.height + vertical, 8, rect.height - selection.y);
+    } else {
+      selection.x = clamp(selection.x + horizontal, 0, rect.width - selection.width);
+      selection.y = clamp(selection.y + vertical, 0, rect.height - selection.height);
+    }
+    renderSelection();
+    updateCaptureState();
   }
 
   function updateCaptureState() {
@@ -237,19 +276,6 @@
 
   function hasUnsavedWork() {
     return Boolean(noteField.value.trim() || (selection && selection.width >= 8 && selection.height >= 8));
-  }
-
-  function persistFeedbackItems(storageKey, nextItems) {
-    return new Promise((resolve, reject) => {
-      chrome.storage.local.set({ [storageKey]: nextItems }, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message || 'Unable to write extension storage.'));
-          return;
-        }
-
-        resolve();
-      });
-    });
   }
 
   function cropSelectedRegion() {
@@ -316,5 +342,6 @@
   function setStatus(message, isError) {
     statusLine.textContent = message;
     statusLine.classList.toggle('error', Boolean(isError));
+    statusLine.setAttribute('role', isError ? 'alert' : 'status');
   }
 })();

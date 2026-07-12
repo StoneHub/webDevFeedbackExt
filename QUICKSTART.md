@@ -2,6 +2,8 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
+The latest published ZIP is v1.2.0. The extension-owned History page described below is currently available from the unreleased v1.3 source checkout.
+
 ## 1. Load the extension
 
 1. Download the latest `dev-feedback-capture-v<version>.zip` asset from GitHub Releases.
@@ -34,11 +36,14 @@ Optional for local PDFs:
 
 ## 4. Export saved feedback
 
-From the in-page history panel on injectable pages, you can copy:
+Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
 
-- `JSON` for full payloads including crop image data
-- `Markdown` for issue trackers or docs
-- `AI Prompt` for a ready-to-paste numbered summary
+- Download `JSON` for full payloads including crop image data
+- Download a self-contained `HTML Report` with embedded region images
+- Copy `Markdown` for issue trackers or docs
+- Copy `AI Prompt` for ready-to-paste implementation instructions based on saved text and source context
+
+AI Prompt is text-only. Its numbered crop references correspond to the embedded images in the companion HTML or JSON download.
 
 ## Need Help?
 

@@ -42,6 +42,7 @@
     document.getElementById('shortcut-label').textContent = getShortcutLabel();
     bindCaptureModeInputs();
     document.getElementById('primary-action-btn').addEventListener('click', handlePrimaryAction);
+    document.getElementById('history-btn').addEventListener('click', openHistory);
 
     if (!globalThis.chrome?.tabs || !globalThis.chrome?.storage || !globalThis.chrome?.runtime) {
       document.getElementById('page-label').textContent = 'Extension preview';
@@ -80,6 +81,11 @@
 
     pageLabel.textContent = getEffectivePageUrl(currentTab.url || currentTab.pendingUrl || currentTab.title || 'Current tab');
     await refreshState();
+  }
+
+  async function openHistory() {
+    await chrome.tabs.create({ url: chrome.runtime.getURL('history.html') });
+    window.close();
   }
 
   async function refreshState() {
@@ -217,6 +223,20 @@
 
   async function startRegionCapture() {
     setWarning('');
+
+    try {
+      const contentResponse = await chrome.tabs.sendMessage(currentTabId, { action: 'start-region-capture' });
+      if (contentResponse?.ok) {
+        window.close();
+        return;
+      }
+      if (contentResponse?.reason) {
+        setWarning(contentResponse.reason);
+        return;
+      }
+    } catch (error) {
+      // The page has no injected UI, so capture directly from the service worker.
+    }
 
     let viewportMetrics = null;
     try {

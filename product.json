@@ -7,7 +7,7 @@
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "",
   "releaseUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases",
-  "downloadUrl": "",
+  "downloadUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases/download/v1.2.0/dev-feedback-capture-v1.2.0.zip",
   "supportUrl": "mailto:monroe@flyingchangesfarm.net",
   "license": "source-visible-all-rights-reserved",
   "platforms": [
@@ -16,7 +16,7 @@
     "Chromium"
   ],
   "requirements": [
-    "Download and unzip the latest GitHub Release asset once the first release is published",
+    "Download and unzip the latest GitHub Release asset",
     "Developer Mode in Chrome, Edge, or another Chromium browser",
     "Manual Load unpacked installation from the unzipped extension folder"
   ],
@@ -25,8 +25,8 @@
     "summary": "Feedback history is saved in local extension storage. Capture and export actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
-    "current": "Manual unpacked install from the repository until the first GitHub Release is published.",
-    "planned": "Versioned zip assets published through GitHub Releases.",
+    "current": "Versioned zip assets are published through GitHub Releases for manual unpacked installation.",
+    "planned": "Keep the catalog download link aligned with the latest published release.",
     "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
     "assetNamePattern": "dev-feedback-capture-v{version}.zip",
     "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."

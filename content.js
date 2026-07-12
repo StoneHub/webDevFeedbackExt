@@ -48,6 +48,7 @@
   let captureModal = null;
   let markerLayer = null;
   let decorationFrame = 0;
+  let modalReturnFocus = null;
 
   function init() {
     if (!document.body) {
@@ -102,7 +103,7 @@
     captureModal = document.createElement('div');
     captureModal.id = UI_IDS.modal;
     captureModal.innerHTML = `
-      <div class="dev-feedback-modal-content" role="dialog" aria-modal="true" aria-labelledby="dev-feedback-modal-title">
+      <div class="dev-feedback-modal-content" role="dialog" aria-modal="true" aria-labelledby="dev-feedback-modal-title" tabindex="-1">
         <h2 class="dev-feedback-modal-title" id="dev-feedback-modal-title">Capture Element Feedback</h2>
 
         <div class="dev-feedback-modal-section">
@@ -111,7 +112,7 @@
         </div>
 
         <div class="dev-feedback-modal-section">
-          <div class="dev-feedback-modal-section-title">What do you want changed?</div>
+          <label class="dev-feedback-modal-section-title" for="${UI_IDS.note}">What do you want changed?</label>
           <textarea
             class="dev-feedback-textarea"
             id="${UI_IDS.note}"
@@ -154,6 +155,28 @@
     if (event.key === 'Escape' && captureModal.classList.contains('visible')) {
       event.preventDefault();
       closeCaptureModal();
+      return;
+    }
+
+    if (event.key === 'Tab' && captureModal.classList.contains('visible')) {
+      trapModalFocus(event);
+    }
+  }
+
+  function trapModalFocus(event) {
+    const focusable = Array.from(captureModal.querySelectorAll('button, textarea, [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => !element.disabled);
+    if (!focusable.length) {
+      return;
+    }
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   }
 
@@ -358,6 +381,7 @@
   }
 
   function showCaptureModal() {
+    modalReturnFocus = document.activeElement;
     captureModal.classList.add('visible');
     const noteField = captureModal.querySelector(`#${UI_IDS.note}`);
     noteField.value = '';
@@ -371,6 +395,11 @@
       currentElement.classList.remove('dev-feedback-highlight');
       currentElement = null;
     }
+
+    if (modalReturnFocus?.isConnected && typeof modalReturnFocus.focus === 'function') {
+      modalReturnFocus.focus();
+    }
+    modalReturnFocus = null;
   }
 
   async function saveFeedback() {
@@ -391,7 +420,7 @@
       return;
     }
 
-    const nextItems = feedbackItems.concat({
+    const item = {
       id: buildFeedbackId(),
       type: CAPTURE_TYPE_ELEMENT,
       captureType: CAPTURE_TYPE_ELEMENT,
@@ -407,9 +436,10 @@
       position: elementInfo.position,
       note: note.slice(0, MAX_NOTE_LENGTH),
       timestamp: new Date().toISOString()
-    });
+    };
 
-    if (!(await persistFeedbackItems(nextItems))) {
+    const nextItems = await runFeedbackMutation('add-feedback-item', { item });
+    if (!nextItems) {
       return;
     }
 
@@ -421,7 +451,17 @@
   }
 
   async function startRegionCapture() {
+    const visibility = [feedbackPanel, captureModal, markerLayer].map((element) => element?.style.visibility || '');
+    [feedbackPanel, captureModal, markerLayer].forEach((element) => {
+      if (element) {
+        element.style.visibility = 'hidden';
+      }
+    });
+    clearDecorations();
+
     try {
+      await nextAnimationFrame();
+      await nextAnimationFrame();
       const response = await chrome.runtime.sendMessage({
         action: 'start-region-capture',
         viewportMetrics: getViewportMetrics()
@@ -429,13 +469,26 @@
 
       if (!response || !response.ok) {
         showNotification(response?.reason || 'Unable to start region capture.', 'error');
-        return;
+        return response || { ok: false, reason: 'Unable to start region capture.' };
       }
 
       showNotification('Region capture opened in a new tab.');
+      return response;
     } catch (error) {
       showNotification('Unable to start region capture.', 'error');
+      return { ok: false, reason: error.message || 'Unable to start region capture.' };
+    } finally {
+      [feedbackPanel, captureModal, markerLayer].forEach((element, index) => {
+        if (element) {
+          element.style.visibility = visibility[index];
+        }
+      });
+      scheduleDecorationRefresh();
     }
+  }
+
+  function nextAnimationFrame() {
+    return new Promise((resolve) => window.requestAnimationFrame(resolve));
   }
 
   function updateFeedbackPanel() {
@@ -474,6 +527,7 @@
     const deleteButton = document.createElement('button');
     deleteButton.className = 'dev-feedback-item-delete';
     deleteButton.title = 'Delete';
+    deleteButton.setAttribute('aria-label', `Delete feedback item ${index + 1}`);
     deleteButton.textContent = '×';
     deleteButton.addEventListener('click', () => {
       deleteFeedbackItem(index);
@@ -573,8 +627,9 @@
       return;
     }
 
-    const nextItems = feedbackItems.filter((_, itemIndex) => itemIndex !== index);
-    if (!(await persistFeedbackItems(nextItems))) {
+    const item = feedbackItems[index];
+    const nextItems = await runFeedbackMutation('delete-feedback-item', { itemId: item?.id });
+    if (!nextItems) {
       return;
     }
 
@@ -625,11 +680,12 @@
       return;
     }
 
-    if (!(await persistFeedbackItems([]))) {
+    const nextItems = await runFeedbackMutation('clear-feedback-items');
+    if (!nextItems) {
       return;
     }
 
-    feedbackItems = [];
+    feedbackItems = nextItems;
     updateFeedbackPanel();
     clearDecorations();
     showNotification('All feedback cleared.');
@@ -666,6 +722,8 @@
     const notification = document.createElement('div');
     notification.className = `dev-feedback-notification dev-feedback-notification-${type || 'success'}`;
     notification.textContent = message;
+    notification.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    notification.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
     document.body.appendChild(notification);
 
     requestAnimationFrame(() => {
@@ -678,37 +736,35 @@
     }, 2200);
   }
 
-  async function persistFeedbackItems(nextItems) {
+  async function runFeedbackMutation(action, details = {}) {
     const storageKey = makeStorageKey(window.location.href);
-
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ [storageKey]: nextItems }, () => {
-        if (chrome.runtime.lastError) {
-          console.error('Unable to persist feedback items:', chrome.runtime.lastError.message);
-          showNotification('Unable to save feedback right now.', 'error');
-          resolve(false);
-          return;
-        }
-
-        resolve(true);
-      });
-    });
+    try {
+      const response = await chrome.runtime.sendMessage({ action, storageKey, ...details });
+      if (!response?.ok) {
+        throw new Error(response?.reason || 'Unable to update feedback history.');
+      }
+      return sanitizeFeedbackItems(response.items, window.location.href, document.title);
+    } catch (error) {
+      console.error('Unable to update feedback items:', error.message);
+      showNotification('Unable to save feedback right now.', 'error');
+      return null;
+    }
   }
 
-  function loadFeedbackItems() {
+  async function loadFeedbackItems() {
     const storageKey = makeStorageKey(window.location.href);
-
-    chrome.storage.local.get([storageKey], (result) => {
-      if (chrome.runtime.lastError) {
-        console.error('Unable to load feedback items:', chrome.runtime.lastError.message);
-        showNotification('Unable to load saved feedback.', 'error');
-        return;
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'get-feedback-items', storageKey });
+      if (!response?.ok) {
+        throw new Error(response?.reason || 'Unable to load feedback history.');
       }
-
-      feedbackItems = sanitizeFeedbackItems(result[storageKey], window.location.href, document.title);
+      feedbackItems = sanitizeFeedbackItems(response.items, window.location.href, document.title);
       updateFeedbackPanel();
       scheduleDecorationRefresh();
-    });
+    } catch (error) {
+      console.error('Unable to load feedback items:', error.message);
+      showNotification('Unable to load saved feedback.', 'error');
+    }
   }
 
   function scheduleDecorationRefresh() {
@@ -863,6 +919,12 @@
 
     if (request.action === 'get-viewport-metrics') {
       sendResponse(getViewportMetrics());
+      return;
+    }
+
+    if (request.action === 'start-region-capture') {
+      startRegionCapture().then(sendResponse);
+      return true;
     }
   });
 })();

@@ -3,32 +3,75 @@
 
   importScripts('shared.js');
 
-  const { buildFeedbackId, canInjectIntoUrl, getEffectivePageUrl } = globalThis.DevFeedbackShared;
-  const REGION_CAPTURE_SESSION_PREFIX = 'dev-feedback-region-session-';
+  const {
+    FEEDBACK_STORAGE_PREFIX,
+    REGION_CAPTURE_SESSION_PREFIX,
+    buildFeedbackId,
+    canInjectIntoUrl,
+    sanitizeFeedbackItems,
+    getEffectivePageUrl
+  } = globalThis.DevFeedbackShared;
+  const REGION_SESSION_MAX_AGE_MS = 30 * 60 * 1000;
+  const mutationQueues = new Map();
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'ensure-content-script') {
-      ensureContentScript(request.tabId, request.url).then(sendResponse);
+      respondAsync(ensureContentScript(request.tabId, request.url), sendResponse);
       return true;
     }
 
     if (request.action === 'start-region-capture') {
       const tab = request.tab || sender.tab;
-      startRegionCapture(tab, request.viewportMetrics).then(sendResponse);
+      respondAsync(startRegionCapture(tab, request.viewportMetrics), sendResponse);
       return true;
     }
 
     if (request.action === 'notify-feedback-updated') {
-      notifyFeedbackUpdated(request.tabId).then(sendResponse);
+      respondAsync(notifyFeedbackUpdated(request.tabId), sendResponse);
       return true;
     }
 
     if (request.action === 'clear-region-session') {
-      clearRegionSession(request.sessionId).then(sendResponse);
+      respondAsync(clearRegionSession(request.sessionId), sendResponse);
+      return true;
+    }
+
+    if (request.action === 'list-feedback-history') {
+      respondAsync(listFeedbackHistory(), sendResponse);
+      return true;
+    }
+
+    if (request.action === 'get-feedback-items') {
+      respondAsync(getFeedbackItems(request.storageKey), sendResponse);
+      return true;
+    }
+
+    if (request.action === 'add-feedback-item') {
+      respondAsync(addFeedbackItem(request.storageKey, request.item), sendResponse);
+      return true;
+    }
+
+    if (request.action === 'delete-feedback-item') {
+      respondAsync(deleteFeedbackItem(request.storageKey, request.itemId), sendResponse);
+      return true;
+    }
+
+    if (request.action === 'clear-feedback-items') {
+      respondAsync(clearFeedbackItems(request.storageKey), sendResponse);
       return true;
     }
 
     return false;
+  });
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    clearRegionSessionsForEditorTab(tabId).catch((error) => {
+      console.debug('Unable to clear closed region editor session:', error.message);
+    });
+  });
+
+  sweepExpiredRegionSessions().catch((error) => {
+    console.debug('Unable to sweep expired region sessions:', error.message);
   });
 
   chrome.commands.onCommand.addListener((command) => {
@@ -87,10 +130,12 @@
       return { ok: false, reason: 'No active tab is available for capture.' };
     }
 
+    let storageKey = '';
     try {
+      await sweepExpiredRegionSessions();
       const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
       const sessionId = buildFeedbackId();
-      const storageKey = `${REGION_CAPTURE_SESSION_PREFIX}${sessionId}`;
+      storageKey = `${REGION_CAPTURE_SESSION_PREFIX}${sessionId}`;
       const pageUrl = getEffectivePageUrl(tab.url || '');
       const session = {
         sessionId,
@@ -104,13 +149,20 @@
         createdAt: new Date().toISOString()
       };
 
-      await chrome.storage.local.set({ [storageKey]: session });
-      await chrome.tabs.create({
+      await chrome.storage.session.set({ [storageKey]: session });
+      const editorTab = await chrome.tabs.create({
         url: chrome.runtime.getURL(`capture.html?session=${encodeURIComponent(sessionId)}`)
       });
+      await chrome.storage.session.set({
+        [storageKey]: { ...session, editorTabId: editorTab.id }
+      });
+      await chrome.tabs.get(editorTab.id);
 
       return { ok: true, sessionId };
     } catch (error) {
+      if (typeof storageKey === 'string') {
+        await chrome.storage.session.remove(storageKey).catch(() => {});
+      }
       return { ok: false, reason: error.message || 'Unable to capture the current tab.' };
     }
   }
@@ -134,8 +186,124 @@
       return { ok: false, reason: 'Missing region capture session id.' };
     }
 
-    await chrome.storage.local.remove(`${REGION_CAPTURE_SESSION_PREFIX}${sessionId}`);
+    await chrome.storage.session.remove(`${REGION_CAPTURE_SESSION_PREFIX}${sessionId}`);
     return { ok: true };
+  }
+
+  async function clearRegionSessionsForEditorTab(tabId) {
+    const sessions = await chrome.storage.session.get(null);
+    const keys = Object.entries(sessions)
+      .filter(([key, value]) => key.startsWith(REGION_CAPTURE_SESSION_PREFIX) && value?.editorTabId === tabId)
+      .map(([key]) => key);
+
+    if (keys.length) {
+      await chrome.storage.session.remove(keys);
+    }
+  }
+
+  async function sweepExpiredRegionSessions() {
+    const sessions = await chrome.storage.session.get(null);
+    const now = Date.now();
+    const expiredKeys = Object.entries(sessions)
+      .filter(([key, value]) => {
+        if (!key.startsWith(REGION_CAPTURE_SESSION_PREFIX)) {
+          return false;
+        }
+        const createdAt = Date.parse(value?.createdAt || '');
+        return !Number.isFinite(createdAt) || now - createdAt > REGION_SESSION_MAX_AGE_MS;
+      })
+      .map(([key]) => key);
+
+    if (expiredKeys.length) {
+      await chrome.storage.session.remove(expiredKeys);
+    }
+  }
+
+  async function listFeedbackHistory() {
+    const stored = await chrome.storage.local.get(null);
+    const histories = await Promise.all(Object.entries(stored).flatMap(([storageKey, value]) => {
+      if (!storageKey.startsWith(FEEDBACK_STORAGE_PREFIX) || !Array.isArray(value)) {
+        return [];
+      }
+      return [getFeedbackItems(storageKey).then((response) => ({ storageKey, items: response.items || [] }))];
+    }));
+
+    return { ok: true, histories };
+  }
+
+  async function getFeedbackItems(storageKey) {
+    if (!isFeedbackStorageKey(storageKey)) {
+      return { ok: false, reason: 'Invalid feedback storage key.' };
+    }
+    return enqueueFeedbackOperation(storageKey, async () => {
+      const stored = await chrome.storage.local.get([storageKey]);
+      const { items, needsMigration } = normalizeStoredFeedbackItems(stored[storageKey]);
+      if (needsMigration) {
+        await chrome.storage.local.set({ [storageKey]: items });
+      }
+      return { ok: true, items };
+    });
+  }
+
+  async function addFeedbackItem(storageKey, item) {
+    return mutateFeedbackItems(storageKey, (items) => items.concat(item));
+  }
+
+  async function deleteFeedbackItem(storageKey, itemId) {
+    if (!itemId) {
+      return { ok: false, reason: 'Missing feedback item id.' };
+    }
+    return mutateFeedbackItems(storageKey, (items) => items.filter((item) => item.id !== itemId));
+  }
+
+  async function clearFeedbackItems(storageKey) {
+    return mutateFeedbackItems(storageKey, () => []);
+  }
+
+  function mutateFeedbackItems(storageKey, mutate) {
+    if (!isFeedbackStorageKey(storageKey)) {
+      return Promise.resolve({ ok: false, reason: 'Invalid feedback storage key.' });
+    }
+
+    return enqueueFeedbackOperation(storageKey, async () => {
+      const stored = await chrome.storage.local.get([storageKey]);
+      const { items: currentItems } = normalizeStoredFeedbackItems(stored[storageKey]);
+      const nextItems = sanitizeFeedbackItems(mutate(currentItems));
+      await chrome.storage.local.set({ [storageKey]: nextItems });
+      return { ok: true, items: nextItems };
+    });
+  }
+
+  function enqueueFeedbackOperation(storageKey, operation) {
+    const previous = mutationQueues.get(storageKey) || Promise.resolve();
+    const current = previous.catch(() => {}).then(operation);
+
+    mutationQueues.set(storageKey, current);
+    const clearQueue = () => {
+      if (mutationQueues.get(storageKey) === current) {
+        mutationQueues.delete(storageKey);
+      }
+    };
+    current.then(clearQueue, clearQueue);
+    return current;
+  }
+
+  function isFeedbackStorageKey(storageKey) {
+    return typeof storageKey === 'string' && storageKey.startsWith(FEEDBACK_STORAGE_PREFIX);
+  }
+
+  function normalizeStoredFeedbackItems(rawItems) {
+    const normalized = sanitizeFeedbackItems(rawItems);
+    const needsMigration = !Array.isArray(rawItems) || rawItems.length !== normalized.length || rawItems.some((item) => (
+      !item || typeof item.id !== 'string' || !item.id || !item.type || !item.captureType
+    ));
+    return { items: normalized, needsMigration };
+  }
+
+  function respondAsync(promise, sendResponse) {
+    Promise.resolve(promise)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, reason: error.message || 'Extension operation failed.' }));
   }
 
   async function withActiveTab(callback) {

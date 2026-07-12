@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0 (Unreleased)
+
+- Added an extension-owned History page with filtering, item deletion, site clearing, and access to feedback from PDFs and non-injectable surfaces.
+- Added downloadable JSON and self-contained HTML reports with embedded region images alongside copyable Markdown and AI Prompt exports.
+- Updated public install and release metadata to reflect the published `v1.2.0` release.
+
 ## 1.2.0
 
 - Added region capture for pages and browser-rendered PDFs.

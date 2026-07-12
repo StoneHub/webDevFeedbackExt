@@ -69,11 +69,17 @@
       overflow: hidden;
       background: #0b0d0c;
       border: 1px solid var(--line);
+      touch-action: none;
     }
 
     .image-wrap img {
       display: block;
       max-width: 100%;
+    }
+
+    .image-wrap:focus-visible {
+      outline: 3px solid rgba(142, 216, 160, 0.5);
+      outline-offset: 3px;
     }
 
     .selection {
@@ -278,7 +284,7 @@
   <div class="shell">
     <div class="stage">
       <div class="frame">
-        <div class="image-wrap" id="image-wrap">
+        <div class="image-wrap" id="image-wrap" tabindex="0" role="application" aria-label="Region selector. Press Enter to create a selection, arrow keys to move it, and Shift plus arrow keys to resize it." aria-describedby="selection-summary">
           <img id="screenshot-image" alt="Captured viewport screenshot">
           <div class="selection" id="selection-box"></div>
         </div>
@@ -305,7 +311,7 @@
       </div>
 
       <div class="card">
-        <div class="label">Requested Change</div>
+        <label class="label" for="note-field">Requested Change</label>
         <textarea id="note-field" placeholder="Describe what should change in this region..."></textarea>
         <div class="counter" id="note-counter">0 / 2000</div>
       </div>
@@ -316,8 +322,8 @@
         <button class="danger" id="cancel-btn">Cancel</button>
       </div>
 
-      <p class="status" id="status-line"></p>
-      <p class="hint">Press Escape to cancel. Region crops can include sensitive visible page content and stay local until cleared.</p>
+      <p class="status" id="status-line" role="status" aria-live="polite"></p>
+      <p class="hint">Mouse, touch, or pen: draw a box. Keyboard: press Enter, then move with arrow keys or resize with Shift + arrow keys. Press Escape to cancel.</p>
     </aside>
   </div>
 

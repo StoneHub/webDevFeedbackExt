@@ -1,10 +1,11 @@
 # Dev Feedback Capture
 
-Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports two capture modes:
+Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports three workflows:
 
-> The source checkout contains the unreleased v1.4 Annotated Context work. The latest published download remains v1.2.0 until the v1.3/v1.4 manual browser gates and release decision are complete.
+> The source checkout contains the unreleased v1.5 Visual Edit work. The latest published download remains v1.2.0 until the deferred PDF/export and v1.5 manual browser gates are complete.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
+- `Visual` mode temporarily moves, resizes, rewrites, hides, reorders, or restyles one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
 - `Region` mode captures the visible viewport and compiles a crop, vector annotations, best-effort DOM anchors, requested change, and acceptance checks into one visual change spec.
 
 All feedback stays local in extension storage. Open History to review captures, use the legacy standalone exports, or download one AI Bundle with instructions, structured data, page context, and before/annotated images.
@@ -12,6 +13,8 @@ All feedback stays local in extension storage. Open History to review captures, 
 ## Features
 
 - Element capture with selector, text, styles, and note metadata
+- Reversible Visual Edit previews with move, resize, leaf-text rewrite, hide, sibling reorder, curated style, match-style, alignment, undo, redo, and reset
+- Original/proposed evidence plus explicit requested-mutation data; the live page is always restored
 - Visual Change Spec editor with crop, arrow, rectangle, ellipse, pin, text, blur/redact, color, undo, and redo
 - DOM-linked vector annotations with selector fallbacks, roles, surrounding text, geometry, and parent-layout context when the source DOM is available
 - Optional acceptance checks plus browser, viewport, scroll, zoom, DPR, and source metadata
@@ -65,18 +68,29 @@ Use this path when developing the extension or reviewing source changes:
 
 The cropped image, viewport rectangle, and source context are saved into the same local history as element captures. Open `History` from the popup to review captures from any supported source, including PDFs and pages where Element mode is unavailable.
 
+### Visual Edit Mode
+
+1. Open an injectable webpage and choose `Visual` in the popup.
+2. Start Visual Edit and select one element.
+3. Use the in-page inspector to preview curated mutations. Match Style and Align let you pick a second reference element without creating a multi-selection editor.
+4. Add the requested implementation change and optional acceptance criteria.
+5. Save the spec, or Cancel to discard it. Either path restores the original live page.
+
+Visual Edit does not change source files, persist mutations into the page, or replay saved edits automatically. It records intent so a developer or coding agent can implement the change in the correct source layer.
+
 ## Data Model
 
 Stored feedback items use a discriminated shape:
 
 - `type: "element"` items include selector, element info, and position.
+- v1.5 element items may also include a sanitized `changeRequest`, original/proposed element state, and local evidence images. Older element items normalize as visual suggestions without invented mutations.
 - `type: "region"` items include one evidence crop, vector annotations, DOM anchors when available, acceptance criteria, and page context. Annotated PNGs are rendered locally when the AI Bundle is built.
 
 Older element-only captures are still loaded and normalized automatically.
 
 ## Export Formats
 
-- `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, before/annotated PNG evidence, and `report.html` in one ZIP. The bundle is assembled locally.
+- `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, before/proposed/annotated PNG evidence when available, and `report.html` in one ZIP. The bundle is assembled locally.
 
 - `Download JSON` includes the full saved payload, including region image data URLs.
 - `Download HTML Report` creates a self-contained review with embedded region images.
@@ -106,6 +120,7 @@ The extension does not use static host permissions, always-on content scripts, t
 - `manifest.json`: Manifest V3 configuration
 - `background.js`: runtime injection and region-capture session orchestration
 - `content.js`: in-page panel and element capture
+- `visual-edit.js`: dependency-free reversible mutation engine used by Visual Edit Mode
 - `capture.html` / `capture.js`: screenshot region selection editor
 - `popup.html` / `popup.js`: mode switch, current-tab actions, and History entry point
 - `history.html` / `history.js`: extension-owned history review and export controls
@@ -124,7 +139,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`.
-3. Complete the manual unpacked-extension gate, then create and push a matching tag such as `v1.4.0`.
+3. Complete the manual unpacked-extension gate in `docs/manual-release-checklist.md`, then create and push a matching tag such as `v1.5.0`.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
@@ -132,6 +147,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 ## Limitations
 
 - Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
+- Visual Edit is intentionally limited to one normal-page DOM target. It does not traverse cross-origin frames, mutate source code, or support arbitrary CSS, responsive breakpoints, animation, or reparenting.
 - Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
 - Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
@@ -140,7 +156,6 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Roadmap
 
-- Add Visual Edit Mode for reversible move, resize, rewrite, hide, reorder, and restyle operations
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add import for saved histories

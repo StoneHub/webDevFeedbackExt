@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture",
-  "version": "1.4.0",
-  "description": "Compile live webpages and PDFs into implementation-ready visual change specs",
+  "version": "1.5.0",
+  "description": "Preview reversible page edits and compile implementation-ready visual change specs",
   "permissions": [
     "storage",
     "activeTab",

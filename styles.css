@@ -124,6 +124,24 @@
   font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.dev-feedback-visual-dirty {
+  display: none;
+  min-width: 28px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  background: #3b2c12;
+  border: 1px solid rgba(251, 191, 36, 0.44);
+  color: #ffe29a;
+  font: 800 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#dev-feedback-panel.visual-dirty .dev-feedback-visual-dirty {
+  display: inline-flex;
+}
+
 .dev-feedback-panel-controls {
   display: flex;
   gap: 6px;
@@ -161,6 +179,7 @@
 #dev-feedback-panel.collapsed .dev-feedback-panel-copy,
 #dev-feedback-panel.collapsed .dev-feedback-panel-actions,
 #dev-feedback-panel.collapsed .dev-feedback-items,
+#dev-feedback-panel.collapsed .dev-feedback-visual-inspector,
 #dev-feedback-panel.collapsed .dev-feedback-panel-footer {
   display: none;
 }
@@ -363,6 +382,242 @@
   background: rgba(0, 0, 0, 0.18);
   font-size: 11px;
   line-height: 1.35;
+}
+
+#dev-feedback-panel.visual-active .dev-feedback-panel-actions,
+#dev-feedback-panel.visual-active .dev-feedback-items,
+#dev-feedback-panel.visual-active .dev-feedback-panel-footer {
+  display: none;
+}
+
+.dev-feedback-visual-inspector {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 14px;
+  color: var(--df-text);
+}
+
+#dev-feedback-panel.visual-active .dev-feedback-visual-inspector {
+  display: block;
+}
+
+#dev-feedback-panel.visual-active.collapsed .dev-feedback-visual-inspector {
+  display: none;
+}
+
+.dev-feedback-visual-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0 8px;
+}
+
+.dev-feedback-visual-title {
+  max-width: 280px;
+  color: var(--df-text);
+  font: 750 13px/1.35 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-feedback-visual-status {
+  margin: 0 0 9px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(142, 216, 160, 0.22);
+  background: rgba(142, 216, 160, 0.07);
+  color: var(--df-muted);
+  font: 600 11px/1.4 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.dev-feedback-operation-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 4px;
+  margin-bottom: 8px;
+}
+
+.dev-feedback-operation-chip {
+  max-width: 100%;
+  padding: 5px 7px;
+  border: 1px solid rgba(142, 216, 160, 0.28);
+  border-radius: 999px;
+  background: var(--df-surface-high);
+  color: var(--df-accent);
+  font: 700 10px/1.2 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dev-feedback-visual-history,
+.dev-feedback-inline-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.dev-feedback-visual-history {
+  margin-bottom: 9px;
+}
+
+.dev-feedback-control-group {
+  min-width: 0;
+  margin: 0 0 9px;
+  padding: 9px;
+  border: 1px solid var(--df-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--df-text);
+}
+
+.dev-feedback-control-group:disabled {
+  opacity: 0.48;
+}
+
+.dev-feedback-control-group legend {
+  padding: 0 5px;
+  color: var(--df-faint);
+  font: 800 10px/1 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dev-feedback-inline-fields {
+  display: flex;
+  align-items: end;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.dev-feedback-inline-fields label,
+.dev-feedback-field-label {
+  color: var(--df-muted);
+  font: 700 10px/1.3 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.dev-feedback-field-label {
+  display: block;
+  margin: 7px 0 5px;
+}
+
+.dev-feedback-grow {
+  flex: 1 1 130px;
+}
+
+.dev-feedback-inline-fields input[type="number"],
+.dev-feedback-inline-fields select,
+.dev-feedback-compact-textarea {
+  border: 1px solid var(--df-line);
+  border-radius: 6px;
+  background: #0b0d0c;
+  color: var(--df-text);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.dev-feedback-inline-fields input[type="number"] {
+  display: block;
+  width: 68px;
+  margin-top: 4px;
+  padding: 7px;
+}
+
+.dev-feedback-inline-fields select {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 6px 7px;
+}
+
+.dev-feedback-inline-fields input[type="color"] {
+  width: 38px;
+  height: 34px;
+  padding: 3px;
+  border: 1px solid var(--df-line);
+  border-radius: 6px;
+  background: #0b0d0c;
+}
+
+.dev-feedback-inline-fields [hidden] {
+  display: none !important;
+}
+
+.dev-feedback-compact-textarea {
+  display: block;
+  width: 100%;
+  min-height: 58px;
+  padding: 8px;
+  resize: vertical;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dev-feedback-compact-textarea:focus,
+.dev-feedback-inline-fields input:focus,
+.dev-feedback-inline-fields select:focus {
+  outline: 2px solid rgba(142, 216, 160, 0.48);
+  outline-offset: 1px;
+}
+
+.dev-feedback-nudge-grid {
+  width: 102px;
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-areas: ". up ." "left . right" ". down .";
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.dev-feedback-nudge-grid button {
+  width: 30px;
+  height: 27px;
+  border: 1px solid var(--df-line);
+  border-radius: 6px;
+  background: var(--df-surface-high);
+  color: var(--df-text);
+  cursor: pointer;
+  font: 800 13px/1 Inter, sans-serif;
+}
+
+.dev-feedback-nudge-grid button:nth-child(1) { grid-area: up; }
+.dev-feedback-nudge-grid button:nth-child(2) { grid-area: left; }
+.dev-feedback-nudge-grid button:nth-child(3) { grid-area: right; }
+.dev-feedback-nudge-grid button:nth-child(4) { grid-area: down; }
+
+.dev-feedback-nudge-grid button:hover {
+  background: var(--df-surface-higher);
+  color: var(--df-accent);
+}
+
+.dev-feedback-full-width {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.dev-feedback-request-fields .dev-feedback-inline-actions {
+  margin-top: 9px;
+}
+
+.dev-feedback-visual-outline {
+  position: fixed !important;
+  border: 2px solid #8ed8a0 !important;
+  outline: 1px solid rgba(7, 18, 11, 0.8) !important;
+  outline-offset: 1px !important;
+  color: #07120b !important;
+  background: rgba(142, 216, 160, 0.08) !important;
+  pointer-events: none !important;
+  z-index: 999999 !important;
+  font: 800 10px/1 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+.dev-feedback-visual-outline::before {
+  content: "";
 }
 
 #dev-feedback-modal {

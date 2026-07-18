@@ -27,7 +27,8 @@ const extensionFiles = [
   'popup.html',
   'popup.js',
   'shared.js',
-  'styles.css'
+  'styles.css',
+  'visual-edit.js'
 ];
 
 const crcTable = Array.from({ length: 256 }, (_, index) => {

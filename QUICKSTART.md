@@ -2,7 +2,7 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-The latest published ZIP is v1.2.0. The Visual Change Spec editor and AI Bundle described below are currently available from the unreleased v1.4 source checkout.
+The latest published ZIP is v1.2.0. Visual Edit Mode, the annotated Region editor, and the AI Bundle described below are available from the unreleased v1.5 source checkout.
 
 ## 1. Load the extension
 
@@ -27,7 +27,16 @@ Optional for local PDFs:
 5. Click a page element, add your note, and save it.
 6. The in-page capture list starts collapsed. Use **+** to expand it and **−** to collapse it again.
 
-## 3. Compile a visual change spec
+## 3. Preview a visual edit
+
+1. Open an injectable webpage and choose `Visual` in the extension popup.
+2. Click `Start Visual Edit`, then select one page element.
+3. Preview move, resize, text, visibility, order, style, match-style, or alignment changes.
+4. Use Undo, Redo, or Reset as needed.
+5. Add the implementation note and optional acceptance checks, then save the spec.
+6. The live page is restored; the original/proposed evidence and requested mutations remain in local History.
+
+## 4. Compile an annotated region spec
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
@@ -37,7 +46,7 @@ Optional for local PDFs:
 6. Describe the requested change and optionally add one acceptance check per line.
 7. Save the visual change spec.
 
-## 4. Export saved feedback
+## 5. Export saved feedback
 
 Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
 

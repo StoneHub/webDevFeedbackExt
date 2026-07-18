@@ -1,6 +1,14 @@
 # Changelog
 
-## 1.4.0 (Unreleased)
+## 1.5.0 (Unreleased)
+
+- Added Visual Edit Mode for reversible move, resize, leaf-text rewrite, hide, sibling reorder, curated style, match-style, and alignment previews.
+- Added bounded undo/redo and guaranteed page restoration on Save, Cancel, mode exit, and navigation.
+- Stored requested mutations separately from visual suggestions while preserving existing element and region capture compatibility.
+- Added original/proposed element evidence to local History, standalone reports, and the AI Bundle without adding permissions or network services.
+- Kept the compact capture list and added a focused in-page edit inspector rather than a detached window.
+
+## 1.4.0 (Source checkpoint)
 
 - Reframed Region capture as a Visual Change Spec editor with crop, arrow, rectangle, ellipse, numbered pin, text, blur/redact, color, undo, and redo tools.
 - Persisted annotations as structured viewport vectors with best-effort DOM selectors, roles, surrounding text, geometry, and parent-layout context.

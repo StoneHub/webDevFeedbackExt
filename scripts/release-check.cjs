@@ -23,6 +23,7 @@ const requiredFiles = [
   'popup.js',
   'shared.js',
   'styles.css',
+  'visual-edit.js',
   'icon16.png',
   'icon48.png',
   'icon128.png'
@@ -35,7 +36,8 @@ const shippedJavaScriptFiles = [
   'content.js',
   'history.js',
   'popup.js',
-  'shared.js'
+  'shared.js',
+  'visual-edit.js'
 ];
 
 requiredFiles.forEach((file) => {

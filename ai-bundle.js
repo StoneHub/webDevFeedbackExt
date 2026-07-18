@@ -52,12 +52,12 @@
     });
 
     const feedbackPayload = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       exportedAt,
       histories: feedbackHistories
     };
     const pageContextPayload = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt,
       pages: Array.from(pageContexts.values())
     };
@@ -102,11 +102,14 @@
   }
 
   function buildImageEntries(record, number, globalIndex, options, entries) {
+    const imagePaths = {};
+
     if (record.item.type !== 'region') {
-      return {};
+      addElementEvidenceEntry(record, 'before', number, imagePaths, entries);
+      addElementEvidenceEntry(record, 'proposed', number, imagePaths, entries);
+      return imagePaths;
     }
 
-    const imagePaths = {};
     const before = decodeImageSource(record.item.screenshot);
     if (record.item.screenshot?.dataUrl && !before) {
       throw new Error(`Invalid before image data for feedback item ${record.item.id}.`);
@@ -127,6 +130,29 @@
     }
 
     return imagePaths;
+  }
+
+  function addElementEvidenceEntry(record, kind, number, imagePaths, entries) {
+    const item = record.item;
+    const source = item.evidence?.[kind];
+    const rawEvidence = record.rawItem?.evidence;
+    const rawSource = rawEvidence && typeof rawEvidence === 'object'
+      ? rawEvidence[kind] ?? rawEvidence[`${kind}DataUrl`]
+      : null;
+    if (!source?.dataUrl) {
+      if (rawSource) {
+        throw new Error(`Invalid ${kind} image data for feedback item ${item.id}.`);
+      }
+      return;
+    }
+
+    const decoded = decodeImageSource(source);
+    if (!decoded || decoded.extension !== 'png') {
+      throw new Error(`Invalid ${kind} image data for feedback item ${item.id}.`);
+    }
+
+    imagePaths[kind] = `${number}-${kind}.png`;
+    entries.push({ name: imagePaths[kind], data: decoded.bytes });
   }
 
   function resolveAnnotatedImage(rawItem, item, globalIndex, options) {
@@ -151,15 +177,41 @@
   }
 
   function buildFeedbackItem(item, imagePaths) {
-    if (item.type !== 'region') {
-      return { ...item };
+    if (item.type === 'region') {
+      return {
+        ...item,
+        screenshot: { mimeType: item.screenshot?.mimeType || 'image/png' },
+        imagePaths
+      };
     }
 
+    const { evidence, ...feedbackItem } = item;
+    const bundledEvidence = buildBundledEvidence(evidence, imagePaths);
     return {
-      ...item,
-      screenshot: { mimeType: item.screenshot?.mimeType || 'image/png' },
-      imagePaths
+      ...feedbackItem,
+      ...(bundledEvidence ? { evidence: bundledEvidence } : {}),
+      ...(Object.keys(imagePaths).length ? { imagePaths } : {})
     };
+  }
+
+  function buildBundledEvidence(evidence, imagePaths) {
+    if (!evidence || typeof evidence !== 'object') {
+      return null;
+    }
+
+    const result = {};
+    ['before', 'proposed'].forEach((kind) => {
+      const asset = evidence[kind];
+      if (!asset || !imagePaths[kind]) {
+        return;
+      }
+      result[kind] = {
+        mimeType: 'image/png',
+        source: asset.source || { kind: 'unknown' },
+        path: imagePaths[kind]
+      };
+    });
+    return Object.keys(result).length ? result : null;
   }
 
   function buildItemContext(item, number, shared) {
@@ -173,6 +225,8 @@
       type: item.type,
       capturedAt: item.timestamp,
       note: item.note,
+      changeRequest: item.changeRequest,
+      acceptance: item.acceptance || [],
       pageContext
     };
 
@@ -181,11 +235,12 @@
       contextItem.devicePixelRatio = item.devicePixelRatio;
       contextItem.imagePaths = item.imagePaths;
       contextItem.annotationCount = item.annotations?.length || 0;
-      contextItem.acceptance = item.acceptance || [];
     } else {
       contextItem.selector = item.selector;
       contextItem.elementInfo = item.elementInfo;
+      contextItem.proposedElementInfo = item.proposedElementInfo;
       contextItem.position = item.position;
+      contextItem.imagePaths = item.imagePaths || {};
     }
 
     return { pageUrl, pageTitle, sourceKind, pageContext, item: contextItem };
@@ -205,22 +260,40 @@
       history.items.forEach((item) => {
         number += 1;
         lines.push(`## Item ${number}`, '');
-        lines.push(`Source: ${item.pageContext?.url || item.tabContext?.url || item.pageUrl || 'unknown'}`);
-        lines.push(`Type: ${item.type}`);
+        lines.push(`Source: ${escapeMarkdownText(item.pageContext?.url || item.tabContext?.url || item.pageUrl || 'unknown')}`);
+        lines.push(`Type: ${escapeMarkdownText(item.type)}`);
+        lines.push(`Request kind: ${getRequestKindLabel(item)}`);
+        if (item.changeRequest?.kind === 'requested-mutation') {
+          lines.push('Requested mutations:');
+          item.changeRequest.requestedMutations.forEach((mutation) => {
+            lines.push(`- ${escapeMarkdownText(formatMutationSummary(mutation))}`);
+          });
+        } else {
+          lines.push(`Visual suggestion: ${escapeMarkdownText(item.changeRequest?.summary || item.note)}`);
+        }
+        lines.push(`Before evidence: ${formatPromptEvidence(item.imagePaths?.before)}`);
+        lines.push(`Proposed evidence: ${formatPromptEvidence(item.imagePaths?.proposed)}`);
+        lines.push(`Annotated guidance: ${formatPromptEvidence(item.imagePaths?.annotated)}`);
         if (item.type === 'region') {
-          const images = [item.imagePaths?.before, item.imagePaths?.annotated].filter(Boolean);
-          lines.push(`Evidence: ${images.length ? images.map((path) => `\`${path}\``).join(' and ') : 'no image available'}`);
           lines.push(`Viewport rect: x=${item.viewportRect.x}, y=${item.viewportRect.y}, width=${item.viewportRect.width}, height=${item.viewportRect.height}`);
           item.annotations.forEach((annotation, annotationIndex) => {
             const anchor = annotation.target?.selectors?.join(' or ');
-            lines.push(`Annotation ${annotationIndex + 1}: ${annotation.type}${anchor ? ` anchored to ${anchor}` : ' (visual only)'}`);
+            lines.push(`Annotation ${annotationIndex + 1}: ${escapeMarkdownText(annotation.type)}${anchor ? ` anchored to ${escapeMarkdownText(anchor)}` : ' (visual only)'}`);
           });
         } else {
-          lines.push(`Selector: ${item.selector}`);
-          lines.push(`Element: ${item.elementInfo.tag}${item.elementInfo.role ? `, role=${item.elementInfo.role}` : ''}`);
+          lines.push(`Selector: ${escapeMarkdownText(item.selector)}`);
+          lines.push(`Original element: ${escapeMarkdownText(item.elementInfo.tag)}${item.elementInfo.role ? `, role=${escapeMarkdownText(item.elementInfo.role)}` : ''}`);
+          if (item.proposedElementInfo) {
+            lines.push(`Proposed element: ${escapeMarkdownText(item.proposedElementInfo.tag)}${item.proposedElementInfo.role ? `, role=${escapeMarkdownText(item.proposedElementInfo.role)}` : ''}`);
+          }
         }
-        lines.push(`Requested change: ${item.note}`);
-        item.acceptance.forEach((criterion) => lines.push(`Acceptance: ${criterion}`));
+        lines.push(`Summary: ${escapeMarkdownText(item.changeRequest?.summary || item.note)}`);
+        lines.push('Acceptance criteria (unverified):');
+        if (item.acceptance.length) {
+          item.acceptance.forEach((criterion) => lines.push(`- [ ] ${escapeMarkdownText(criterion)}`));
+        } else {
+          lines.push('- None supplied');
+        }
         lines.push('');
       });
     });
@@ -232,23 +305,88 @@
     const sections = feedbackPayload.histories.map((history) => {
       const items = history.items.map((item) => {
         globalIndex += 1;
-        const images = item.type === 'region'
-          ? ['before', 'annotated'].flatMap((kind) => {
-              const path = item.imagePaths?.[kind];
-              return path
-                ? [`<figure><img src="${escapeHtml(path)}" alt="Item ${globalIndex} ${kind} capture"><figcaption>${escapeHtml(kind === 'before' ? 'Before' : 'Annotated')}</figcaption></figure>`]
-                : [];
-            }).join('')
-          : '';
+        const images = buildBundleEvidenceFigures(item, globalIndex);
         const locator = item.type === 'region'
           ? formatRect(item.viewportRect)
           : item.selector;
-        return `<article><h3>Item ${globalIndex}: ${escapeHtml(item.type)}</h3><p>${escapeHtml(item.note)}</p>${images}<dl><dt>Source</dt><dd>${escapeHtml(item.tabContext?.url || item.pageUrl)}</dd><dt>Locator</dt><dd>${escapeHtml(locator)}</dd><dt>Captured</dt><dd>${escapeHtml(item.timestamp)}</dd></dl></article>`;
+        const request = buildRequestHtml(item);
+        const evidence = buildEvidenceSummaryHtml(item);
+        const acceptance = buildAcceptanceHtml(item.acceptance);
+        return `<article><h3>Item ${globalIndex}: ${escapeHtml(item.type)}</h3>${request}${images}${evidence}${acceptance}<dl><dt>Source</dt><dd>${escapeHtml(item.pageContext?.url || item.tabContext?.url || item.pageUrl)}</dd><dt>Locator</dt><dd>${escapeHtml(locator)}</dd><dt>Captured</dt><dd>${escapeHtml(item.timestamp)}</dd></dl></article>`;
       }).join('');
       return `<section><h2>${escapeHtml(getHistoryLabel(history))}</h2>${items}</section>`;
     }).join('');
 
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dev Feedback AI Bundle</title><style>body{max-width:1040px;margin:40px auto;padding:0 20px;font:16px/1.5 system-ui;color:#182019}section{margin:36px 0}article{border:1px solid #ccd7ce;border-radius:10px;padding:18px;margin:14px 0}figure{margin:16px 0}img{display:block;max-width:100%;max-height:560px;border-radius:7px}figcaption{margin-top:6px;color:#526056;font-size:14px}dl{display:grid;grid-template-columns:100px 1fr;gap:6px}dt{font-weight:700}dd{margin:0;overflow-wrap:anywhere}</style></head><body><h1>Dev Feedback AI Bundle</h1><p>Exported ${escapeHtml(exportedAt)}. Image files are stored beside this report.</p>${sections}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dev Feedback AI Bundle</title><style>body{max-width:1040px;margin:40px auto;padding:0 20px;font:16px/1.5 system-ui;color:#182019}section{margin:36px 0}article{border:1px solid #ccd7ce;border-radius:10px;padding:18px;margin:14px 0}.evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:16px 0}figure{margin:0}img{display:block;width:100%;max-height:560px;object-fit:contain;border-radius:7px;background:#eef2ef}figcaption{margin-top:6px;color:#526056;font-size:14px}.request-kind{font-weight:700}.mutation-list,.acceptance-list{padding-left:22px}dl{display:grid;grid-template-columns:140px 1fr;gap:6px}dt{font-weight:700}dd{margin:0;overflow-wrap:anywhere}</style></head><body><h1>Dev Feedback AI Bundle</h1><p>Exported ${escapeHtml(exportedAt)}. Image files are stored beside this report.</p>${sections}</body></html>`;
+  }
+
+  function buildBundleEvidenceFigures(item, itemNumber) {
+    const kinds = item.type === 'region'
+      ? [['before', 'Original (Before)'], ['annotated', 'Annotated guidance']]
+      : [['before', 'Original (Before)'], ['proposed', 'Proposed']];
+    const figures = kinds.flatMap(([kind, label]) => {
+      const path = item.imagePaths?.[kind];
+      return path
+        ? [`<figure><img src="${escapeHtml(path)}" alt="Item ${itemNumber} ${escapeHtml(label)}"><figcaption>${escapeHtml(label)}</figcaption></figure>`]
+        : [];
+    });
+    return figures.length ? `<div class="evidence-grid">${figures.join('')}</div>` : '';
+  }
+
+  function buildRequestHtml(item) {
+    const summary = escapeHtml(item.changeRequest?.summary || item.note);
+    if (item.changeRequest?.kind !== 'requested-mutation') {
+      return `<p class="request-kind">Visual suggestion</p><p>${summary}</p>`;
+    }
+    const mutations = item.changeRequest.requestedMutations
+      .map((mutation) => `<li>${escapeHtml(formatMutationSummary(mutation))}</li>`)
+      .join('');
+    return `<p class="request-kind">Requested mutation</p><p>${summary}</p><ul class="mutation-list">${mutations}</ul>`;
+  }
+
+  function buildEvidenceSummaryHtml(item) {
+    return `<dl><dt>Before evidence</dt><dd>${escapeHtml(item.imagePaths?.before || 'Not supplied')}</dd><dt>Proposed evidence</dt><dd>${escapeHtml(item.imagePaths?.proposed || 'Not supplied')}</dd><dt>Annotated guidance</dt><dd>${escapeHtml(item.imagePaths?.annotated || 'Not supplied')}</dd></dl>`;
+  }
+
+  function buildAcceptanceHtml(acceptance) {
+    const criteria = Array.isArray(acceptance) ? acceptance : [];
+    if (!criteria.length) {
+      return '<h4>Acceptance criteria (unverified)</h4><p>None supplied.</p>';
+    }
+    return `<h4>Acceptance criteria (unverified)</h4><ul class="acceptance-list">${criteria.map((criterion) => `<li>${escapeHtml(criterion)}</li>`).join('')}</ul>`;
+  }
+
+  function getRequestKindLabel(item) {
+    return item.changeRequest?.kind === 'requested-mutation'
+      ? 'Requested mutation'
+      : 'Visual suggestion';
+  }
+
+  function formatMutationSummary(mutation) {
+    const target = mutation?.target || {};
+    const identity = target.selectors?.[0]
+      || target.role
+      || target.tag
+      || target.text
+      || formatRect(target.rect);
+    const parameters = mutation?.parameters && Object.keys(mutation.parameters).length
+      ? `; parameters=${JSON.stringify(mutation.parameters)}`
+      : '';
+    return `${mutation?.action || 'change'} -> ${identity || 'unknown target'}${parameters}`;
+  }
+
+  function formatPromptEvidence(path) {
+    return path ? `\`${path}\`` : 'not supplied';
+  }
+
+  function escapeMarkdownText(value) {
+    return String(value || '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/\\/g, '\\\\')
+      .replace(/`/g, '\\`')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   function getHistoryLabel(history) {

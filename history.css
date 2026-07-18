@@ -46,18 +46,30 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 48px); letter-spacing: -0.035em; }
 .group-title h2 { margin: 0 0 4px; font-size: 17px; overflow-wrap: anywhere; }
 .group-title p { margin: 0; color: var(--faint); font-size: 12px; }
 .items { display: grid; }
-.item { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 16px; padding: 16px 18px; border-top: 1px solid var(--line); align-items: start; }
+.item { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) auto; gap: 16px; padding: 16px 18px; border-top: 1px solid var(--line); align-items: start; }
 .item:first-child { border-top: 0; }
-.thumbnail { width: 96px; height: 72px; object-fit: cover; border-radius: 7px; border: 1px solid var(--line); background: #080a09; }
+.evidence-preview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.evidence-preview figure { min-width: 0; margin: 0; }
+.evidence-preview figcaption { margin-top: 5px; color: var(--faint); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: 0.06em; }
+.thumbnail { display: block; width: 100%; height: 88px; object-fit: cover; border-radius: 7px; border: 1px solid var(--line); background: #080a09; }
+.thumbnail.placeholder { grid-column: 1 / -1; max-width: 96px; height: 72px; }
 .type { color: var(--accent); font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: 0.09em; }
 .note { margin: 6px 0; white-space: pre-wrap; line-height: 1.45; }
+.mutation-list { margin: 8px 0; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.acceptance { margin: 8px 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .meta { color: var(--faint); font-size: 12px; overflow-wrap: anywhere; }
 .empty { padding: 52px 24px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
 
 @media (max-width: 720px) {
   .hero { align-items: start; flex-direction: column; }
-  .item { grid-template-columns: 72px minmax(0, 1fr); }
-  .thumbnail { width: 72px; height: 58px; }
+  .item { grid-template-columns: minmax(130px, 180px) minmax(0, 1fr); }
+  .thumbnail { height: 68px; }
   .item > button { grid-column: 1 / -1; }
   .group-header { align-items: start; flex-direction: column; }
+}
+
+@media (max-width: 500px) {
+  .item { grid-template-columns: 1fr; }
+  .evidence-preview { max-width: 320px; }
+  .item > button { grid-column: 1; }
 }

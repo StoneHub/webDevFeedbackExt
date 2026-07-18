@@ -31,6 +31,19 @@
   const MAC_SHORTCUT_LABEL = 'Command+Shift+F';
   const MAX_NOTE_LENGTH = 2000;
   const MAX_ACCEPTANCE_CRITERIA = 12;
+  const FEEDBACK_SPEC_VERSION = 2;
+  const REQUEST_KIND_MUTATION = 'requested-mutation';
+  const REQUEST_KIND_VISUAL_SUGGESTION = 'visual-suggestion';
+  const MAX_REQUESTED_MUTATIONS = 24;
+  const MUTATION_ACTIONS = Object.freeze([
+    'move',
+    'resize',
+    'rewrite',
+    'hide',
+    'reorder',
+    'restyle',
+    'replace'
+  ]);
   const CAPTURE_TYPE_ELEMENT = 'element';
   const CAPTURE_TYPE_REGION = 'region';
   const FEEDBACK_STORAGE_PREFIX = 'dev-feedback-';
@@ -121,7 +134,14 @@
   }
 
   function normalizeFeedbackItem(item, fallbackUrl, fallbackTitle) {
-    if (!item || typeof item !== 'object' || typeof item.note !== 'string') {
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
+
+    const rawSummary = typeof item.changeRequest?.summary === 'string'
+      ? item.changeRequest.summary
+      : item.note;
+    if (typeof rawSummary !== 'string') {
       return null;
     }
 
@@ -129,7 +149,12 @@
     const effectiveUrl = getEffectivePageUrl(pageUrl);
     const pageTitle = typeof item.pageTitle === 'string' ? item.pageTitle : String(fallbackTitle || '');
     const timestamp = isValidDate(item.timestamp) ? item.timestamp : new Date().toISOString();
-    const note = item.note.slice(0, MAX_NOTE_LENGTH);
+    const note = (typeof item.note === 'string' ? item.note : rawSummary).slice(0, MAX_NOTE_LENGTH);
+    const changeRequest = sanitizeChangeRequest(item.changeRequest, rawSummary);
+    const evidence = sanitizeEvidence(item.evidence);
+    const proposedElementInfo = item.proposedElementInfo && typeof item.proposedElementInfo === 'object'
+      ? sanitizeElementInfo(item.proposedElementInfo)
+      : null;
     const id = typeof item.id === 'string' ? item.id : buildFeedbackId();
 
     if (
@@ -140,6 +165,7 @@
     ) {
       const tabContext = sanitizeTabContext(item.tabContext, effectiveUrl, pageTitle);
       return {
+        specVersion: FEEDBACK_SPEC_VERSION,
         id,
         type: CAPTURE_TYPE_REGION,
         captureType: CAPTURE_TYPE_REGION,
@@ -151,6 +177,7 @@
         annotations: sanitizeAnnotations(item.annotations),
         acceptance: sanitizeAcceptance(item.acceptance),
         pageContext: sanitizePageContext(item.pageContext, effectiveUrl, pageTitle),
+        changeRequest,
         tabContext,
         sourceKind: sanitizeSourceKind(item.sourceKind, tabContext.url || effectiveUrl),
         note,
@@ -163,28 +190,36 @@
     }
 
     return {
+      specVersion: FEEDBACK_SPEC_VERSION,
       id,
       type: CAPTURE_TYPE_ELEMENT,
       captureType: CAPTURE_TYPE_ELEMENT,
       selector: item.selector,
       pageUrl: effectiveUrl,
       pageTitle,
-      elementInfo: {
-        tag: typeof item.elementInfo?.tag === 'string' ? item.elementInfo.tag : 'unknown',
-        classes: Array.isArray(item.elementInfo?.classes)
-          ? item.elementInfo.classes.filter((value) => typeof value === 'string')
-          : [],
-        text: typeof item.elementInfo?.text === 'string' ? item.elementInfo.text : '',
-        styles: sanitizeStyles(item.elementInfo?.styles),
-        role: sanitizeString(item.elementInfo?.role, 120),
-        surroundingText: sanitizeString(item.elementInfo?.surroundingText, 500),
-        parentLayout: sanitizeParentLayout(item.elementInfo?.parentLayout)
-      },
+      elementInfo: sanitizeElementInfo(item.elementInfo),
+      ...(proposedElementInfo ? { proposedElementInfo } : {}),
       position: sanitizePosition(item.position),
       pageContext: sanitizePageContext(item.pageContext, effectiveUrl, pageTitle),
+      changeRequest,
       acceptance: sanitizeAcceptance(item.acceptance),
+      ...(evidence ? { evidence } : {}),
       note,
       timestamp
+    };
+  }
+
+  function sanitizeElementInfo(elementInfo) {
+    return {
+      tag: typeof elementInfo?.tag === 'string' ? elementInfo.tag : 'unknown',
+      classes: Array.isArray(elementInfo?.classes)
+        ? elementInfo.classes.filter((value) => typeof value === 'string')
+        : [],
+      text: typeof elementInfo?.text === 'string' ? elementInfo.text : '',
+      styles: sanitizeStyles(elementInfo?.styles),
+      role: sanitizeString(elementInfo?.role, 120),
+      surroundingText: sanitizeString(elementInfo?.surroundingText, 500),
+      parentLayout: sanitizeParentLayout(elementInfo?.parentLayout)
     };
   }
 
@@ -197,15 +232,21 @@
       'background-color',
       'color',
       'font-size',
+      'font-weight',
       'width',
       'height',
       'margin',
-      'padding'
+      'padding',
+      'gap',
+      'border-radius',
+      'display',
+      'opacity'
     ];
 
     return allowedKeys.reduce((result, key) => {
-      if (typeof styles[key] === 'string') {
-        result[key] = styles[key];
+      const value = sanitizeString(styles[key], 200);
+      if (value && !/(?:url\s*\(|expression\s*\(|@import|[<>])/i.test(value)) {
+        result[key] = value;
       }
       return result;
     }, {});
@@ -333,6 +374,185 @@
     };
   }
 
+  function sanitizeChangeRequest(changeRequest, fallbackSummary) {
+    const summary = sanitizeString(
+      typeof changeRequest?.summary === 'string' ? changeRequest.summary : fallbackSummary,
+      MAX_NOTE_LENGTH
+    );
+    const rawMutations = Array.isArray(changeRequest?.requestedMutations)
+      ? changeRequest.requestedMutations
+      : Array.isArray(changeRequest?.mutations)
+        ? changeRequest.mutations
+        : [];
+    const requestedMutations = rawMutations
+      .slice(0, MAX_REQUESTED_MUTATIONS)
+      .flatMap((mutation, index) => {
+        const normalized = sanitizeRequestedMutation(mutation, index);
+        return normalized ? [normalized] : [];
+      });
+    const explicitlyRequestedMutation = changeRequest?.kind === REQUEST_KIND_MUTATION;
+    const kind = explicitlyRequestedMutation && requestedMutations.length
+      ? REQUEST_KIND_MUTATION
+      : REQUEST_KIND_VISUAL_SUGGESTION;
+
+    return {
+      kind,
+      summary,
+      requestedMutations: kind === REQUEST_KIND_MUTATION ? requestedMutations : []
+    };
+  }
+
+  function sanitizeRequestedMutation(mutation, index = 0) {
+    if (!mutation || typeof mutation !== 'object' || !MUTATION_ACTIONS.includes(mutation.action)) {
+      return null;
+    }
+
+    const target = sanitizeMutationTarget(mutation.target);
+    if (!target) {
+      return null;
+    }
+
+    const parameters = sanitizeMutationParameters(mutation.action, mutation.parameters);
+    if (!Object.keys(parameters).length) {
+      return null;
+    }
+
+    return {
+      id: sanitizeString(mutation.id, 120) || `mutation-${index + 1}`,
+      action: mutation.action,
+      target,
+      parameters
+    };
+  }
+
+  function sanitizeMutationTarget(target) {
+    const normalized = sanitizeAnnotationTarget(target);
+    if (!normalized) {
+      return null;
+    }
+
+    const hasRect = normalized.rect.width > 0 && normalized.rect.height > 0;
+    const hasIdentity = normalized.selectors.length
+      || normalized.tag
+      || normalized.role
+      || normalized.text
+      || normalized.surroundingText;
+    return hasRect || hasIdentity ? normalized : null;
+  }
+
+  function sanitizeMutationParameters(action, parameters) {
+    const raw = parameters && typeof parameters === 'object' ? parameters : {};
+    const result = {};
+
+    if (action === 'move') {
+      copyBoundedNumber(result, raw, 'x', -100000, 100000);
+      copyBoundedNumber(result, raw, 'y', -100000, 100000);
+      copyBoundedNumber(result, raw, 'deltaX', -100000, 100000);
+      copyBoundedNumber(result, raw, 'deltaY', -100000, 100000);
+    } else if (action === 'resize') {
+      copyBoundedNumber(result, raw, 'width', 0, 100000);
+      copyBoundedNumber(result, raw, 'height', 0, 100000);
+    } else if (action === 'rewrite' || action === 'replace') {
+      const rawText = typeof raw.text === 'string' ? raw.text : raw.replacementText;
+      if (typeof rawText === 'string') {
+        result.text = sanitizeString(rawText, MAX_NOTE_LENGTH);
+      }
+    } else if (action === 'hide') {
+      result.hidden = raw.hidden !== false;
+    } else if (action === 'reorder') {
+      copyBoundedNumber(result, raw, 'index', 0, 10000, true);
+      copySafeSelector(result, raw, 'beforeSelector');
+      copySafeSelector(result, raw, 'afterSelector');
+    } else if (action === 'restyle') {
+      const styles = sanitizeMutationStyles(raw.styles);
+      if (Object.keys(styles).length) {
+        result.styles = styles;
+      }
+    }
+
+    return result;
+  }
+
+  function sanitizeMutationStyles(styles) {
+    if (!styles || typeof styles !== 'object') {
+      return {};
+    }
+
+    const allowedKeys = [
+      'background-color', 'color', 'font-size', 'font-weight', 'width', 'height',
+      'margin', 'padding', 'display', 'gap', 'align-items', 'justify-content',
+      'border', 'border-radius', 'opacity'
+    ];
+    return allowedKeys.reduce((result, key) => {
+      const value = sanitizeString(styles[key], 200);
+      if (value && !/(?:url\s*\(|expression\s*\(|@import|[<>])/i.test(value)) {
+        result[key] = value;
+      }
+      return result;
+    }, {});
+  }
+
+  function copyBoundedNumber(result, source, key, min, max, integer) {
+    if (!Number.isFinite(source[key])) {
+      return;
+    }
+    const value = Math.min(Math.max(source[key], min), max);
+    result[key] = integer ? Math.round(value) : value;
+  }
+
+  function copySafeSelector(result, source, key) {
+    const value = sanitizeString(source[key], 500);
+    if (value) {
+      result[key] = value;
+    }
+  }
+
+  function sanitizeEvidence(evidence) {
+    if (!evidence || typeof evidence !== 'object') {
+      return null;
+    }
+
+    const sourceMetadata = evidence.source && typeof evidence.source === 'object' ? evidence.source : {};
+    const before = sanitizeEvidenceAsset(
+      evidence.before ?? evidence.beforeDataUrl,
+      sourceMetadata.before ?? evidence.beforeSource ?? 'captured'
+    );
+    const proposed = sanitizeEvidenceAsset(
+      evidence.proposed ?? evidence.proposedDataUrl,
+      sourceMetadata.proposed ?? evidence.proposedSource ?? 'rendered-preview'
+    );
+    return before || proposed ? { before, proposed } : null;
+  }
+
+  function sanitizeEvidenceAsset(asset, fallbackSource) {
+    const rawDataUrl = typeof asset === 'string' ? asset : asset?.dataUrl;
+    if (!/^data:image\/png;base64,/i.test(rawDataUrl || '')) {
+      return null;
+    }
+
+    return {
+      mimeType: 'image/png',
+      dataUrl: rawDataUrl,
+      source: sanitizeEvidenceSource(
+        typeof asset === 'object' ? asset.source : fallbackSource,
+        fallbackSource
+      )
+    };
+  }
+
+  function sanitizeEvidenceSource(source, fallback) {
+    const allowedKinds = ['captured', 'rendered-preview', 'uploaded-reference', 'imported', 'unknown'];
+    const rawKind = typeof source === 'string' ? source : source?.kind;
+    const fallbackKind = typeof fallback === 'string' ? fallback : fallback?.kind;
+    const kind = allowedKinds.includes(rawKind)
+      ? rawKind
+      : allowedKinds.includes(fallbackKind)
+        ? fallbackKind
+        : 'unknown';
+    const label = sanitizeString(typeof source === 'object' ? source.label : '', 200);
+    return label ? { kind, label } : { kind };
+  }
+
   function sanitizeParentLayout(parentLayout) {
     if (!parentLayout || typeof parentLayout !== 'object') {
       return {};
@@ -414,22 +634,33 @@
     const sourceUrl = getEffectivePageUrl(rawUrl);
     const normalizedItems = sanitizeFeedbackItems(items, rawUrl);
     const exportedAt = options?.exportedAt || new Date().toLocaleString();
-    let markdown = `# Feedback for ${sourceUrl}\n\n`;
-    markdown += `**Date:** ${exportedAt}\n\n`;
+    let markdown = `# Feedback for ${escapeMarkdownText(sourceUrl)}\n\n`;
+    markdown += `**Date:** ${escapeMarkdownText(exportedAt)}\n\n`;
     markdown += `**Total Items:** ${normalizedItems.length}\n\n`;
     markdown += '---\n\n';
 
     normalizedItems.forEach((item, index) => {
-      markdown += `## ${index + 1}. ${item.type === CAPTURE_TYPE_REGION ? 'Region Capture' : item.elementInfo.tag}\n\n`;
-      markdown += `**Type:** ${item.type}\n\n`;
+      markdown += `## ${index + 1}. ${item.type === CAPTURE_TYPE_REGION ? 'Region Capture' : escapeMarkdownText(item.elementInfo.tag)}\n\n`;
+      markdown += `**Type:** ${escapeMarkdownText(item.type)}\n\n`;
+      markdown += `**Request Kind:** ${formatRequestKind(item.changeRequest.kind)}\n\n`;
+
+      if (item.changeRequest.kind === REQUEST_KIND_MUTATION) {
+        markdown += '**Requested Mutations:**\n\n';
+        item.changeRequest.requestedMutations.forEach((mutation) => {
+          markdown += `- ${escapeMarkdownText(formatRequestedMutation(mutation))}\n`;
+        });
+        markdown += '\n';
+      } else {
+        markdown += `**Visual Suggestion:** ${escapeMarkdownText(item.changeRequest.summary)}\n\n`;
+      }
 
       if (item.type === CAPTURE_TYPE_REGION) {
-        markdown += `**Source:** ${item.sourceKind}\n\n`;
+        markdown += `**Source:** ${escapeMarkdownText(item.sourceKind)}\n\n`;
         markdown += `**Viewport Rect:** x: ${item.viewportRect.x}, y: ${item.viewportRect.y}, width: ${item.viewportRect.width}, height: ${item.viewportRect.height}\n\n`;
-        markdown += `**Page:** ${item.tabContext.url || item.pageUrl}\n\n`;
+        markdown += `**Page:** ${escapeMarkdownText(item.tabContext.url || item.pageUrl)}\n\n`;
 
         if (item.tabContext.title) {
-          markdown += `**Title:** ${item.tabContext.title}\n\n`;
+          markdown += `**Title:** ${escapeMarkdownText(item.tabContext.title)}\n\n`;
         }
 
         markdown += `**Crop Stored:** ${item.screenshot.dataUrl ? 'yes' : 'no'}\n\n`;
@@ -437,37 +668,42 @@
 
         item.annotations.forEach((annotation, annotationIndex) => {
           const target = annotation.target?.selectors?.[0] || 'visual-only';
-          markdown += `- ${annotationIndex + 1}. ${annotation.type} -> ${target}\n`;
+          markdown += `- ${annotationIndex + 1}. ${escapeMarkdownText(annotation.type)} -> ${escapeMarkdownText(target)}\n`;
         });
 
         if (item.annotations.length) {
           markdown += '\n';
         }
       } else {
-        markdown += `**Selector:** \`${item.selector}\`\n\n`;
-        markdown += `**Classes:** ${item.elementInfo.classes.join(', ') || 'none'}\n\n`;
-        markdown += `**Text:** ${item.elementInfo.text || '(empty)'}\n\n`;
+        markdown += `**Selector:** \`${escapeMarkdownText(item.selector)}\`\n\n`;
+        markdown += `**Classes:** ${escapeMarkdownText(item.elementInfo.classes.join(', ') || 'none')}\n\n`;
+        markdown += `**Text:** ${escapeMarkdownText(item.elementInfo.text || '(empty)')}\n\n`;
         markdown += `**Position:** x: ${item.position.x}, y: ${item.position.y}\n\n`;
         markdown += '**Styles:**\n';
 
         Object.entries(item.elementInfo.styles).forEach(([key, value]) => {
-          markdown += `- ${key}: ${value}\n`;
+          markdown += `- ${escapeMarkdownText(key)}: ${escapeMarkdownText(value)}\n`;
         });
 
         markdown += '\n';
       }
 
       if (item.pageUrl) {
-        markdown += `**Captured On:** ${item.pageUrl}\n\n`;
+        markdown += `**Captured On:** ${escapeMarkdownText(item.pageUrl)}\n\n`;
       }
 
+      const evidence = summarizeEvidence(item);
+      markdown += `**Before Evidence:** ${evidence.before}\n\n`;
+      markdown += `**Proposed Evidence:** ${evidence.proposed}\n\n`;
+      markdown += `**Annotated Guidance:** ${evidence.annotated}\n\n`;
+
       markdown += '**Requested Changes:**\n\n';
-      markdown += `${item.note}\n\n`;
+      markdown += `${escapeMarkdownText(item.note)}\n\n`;
 
       if (item.acceptance.length) {
-        markdown += '**Acceptance Criteria:**\n\n';
+        markdown += '**Acceptance Criteria (Unverified):**\n\n';
         item.acceptance.forEach((criterion) => {
-          markdown += `- [ ] ${criterion}\n`;
+          markdown += `- [ ] ${escapeMarkdownText(criterion)}\n`;
         });
         markdown += '\n';
       }
@@ -488,6 +724,15 @@
     normalizedItems.forEach((item, index) => {
       prompt += `Item ${index + 1}\n`;
       prompt += `Type: ${item.type}\n`;
+      prompt += `Request kind: ${formatRequestKind(item.changeRequest.kind)}\n`;
+
+      if (item.changeRequest.kind === REQUEST_KIND_MUTATION) {
+        item.changeRequest.requestedMutations.forEach((mutation, mutationIndex) => {
+          prompt += `Requested mutation ${mutationIndex + 1}: ${formatRequestedMutation(mutation)}\n`;
+        });
+      } else {
+        prompt += `Visual suggestion: ${item.changeRequest.summary}\n`;
+      }
 
       if (item.type === CAPTURE_TYPE_REGION) {
         prompt += `Evidence: ${item.screenshot.dataUrl ? 'stored in local history; use Download AI Bundle for exact image files' : 'no image available'}\n`;
@@ -511,14 +756,72 @@
         prompt += `Page URL: ${item.pageUrl}\n`;
       }
 
+      const evidence = summarizeEvidence(item);
+      prompt += `Before evidence: ${evidence.before}\n`;
+      prompt += `Proposed evidence: ${evidence.proposed}\n`;
+      prompt += `Annotated guidance: ${evidence.annotated}\n`;
+
       prompt += `Requested change: ${item.note}\n`;
       item.acceptance.forEach((criterion) => {
-        prompt += `Acceptance: ${criterion}\n`;
+        prompt += `Acceptance: ${criterion} (unverified)\n`;
       });
       prompt += `Captured at: ${formatTimestamp(item.timestamp)}\n\n`;
     });
 
     return prompt.trim();
+  }
+
+  function formatRequestKind(kind) {
+    return kind === REQUEST_KIND_MUTATION ? 'Requested mutation' : 'Visual suggestion';
+  }
+
+  function escapeMarkdownText(value) {
+    return String(value ?? '')
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\\/g, '\\\\')
+      .replace(/([`*_{}\[\]()#+.!|\-])/g, '\\$1');
+  }
+
+  function formatRequestedMutation(mutation) {
+    const selector = mutation.target?.selectors?.[0];
+    const identity = selector
+      || mutation.target?.role
+      || mutation.target?.tag
+      || mutation.target?.text
+      || formatMutationRect(mutation.target?.rect);
+    const parameters = Object.keys(mutation.parameters || {}).length
+      ? `; parameters=${JSON.stringify(mutation.parameters)}`
+      : '';
+    return `${mutation.action} -> ${identity || 'unknown target'}${parameters}`;
+  }
+
+  function formatMutationRect(rect) {
+    return rect?.width > 0 && rect?.height > 0
+      ? `rect(${rect.x}, ${rect.y}, ${rect.width}, ${rect.height})`
+      : '';
+  }
+
+  function summarizeEvidence(item) {
+    const beforeStored = item.type === CAPTURE_TYPE_REGION
+      ? Boolean(item.screenshot?.dataUrl)
+      : Boolean(item.evidence?.before?.dataUrl);
+    const proposedStored = Boolean(item.evidence?.proposed?.dataUrl);
+    const proposedMetadataStored = item.type === CAPTURE_TYPE_ELEMENT
+      && Boolean(item.proposedElementInfo);
+    const annotatedAvailable = item.type === CAPTURE_TYPE_REGION
+      && Boolean(item.screenshot?.annotatedDataUrl || item.annotations?.length);
+    return {
+      before: beforeStored ? 'stored locally' : 'not supplied',
+      proposed: proposedStored
+        ? 'stored locally as an explicit proposed reference'
+        : proposedMetadataStored
+          ? 'proposed element metadata stored locally; no proposed image supplied'
+          : 'not supplied',
+      annotated: annotatedAvailable ? 'available as supporting evidence' : 'not supplied'
+    };
   }
 
   function formatTimestamp(isoString) {
@@ -529,14 +832,19 @@
   return {
     CAPTURE_TYPE_ELEMENT,
     CAPTURE_TYPE_REGION,
+    FEEDBACK_SPEC_VERSION,
     FEEDBACK_STORAGE_PREFIX,
+    MUTATION_ACTIONS,
     REGION_CAPTURE_SESSION_PREFIX,
+    REQUEST_KIND_MUTATION,
+    REQUEST_KIND_VISUAL_SUGGESTION,
     SUPPORTED_HOSTNAMES,
     SUPPORTED_MATCH_PATTERNS,
     SHORTCUT_LABEL,
     MAC_SHORTCUT_LABEL,
     MAX_NOTE_LENGTH,
     MAX_ACCEPTANCE_CRITERIA,
+    MAX_REQUESTED_MUTATIONS,
     buildAiPromptExport,
     buildFeedbackId,
     buildMarkdownExport,
@@ -549,6 +857,12 @@
     normalizeFeedbackItem,
     makeStorageKey,
     normalizeHostname,
-    sanitizeFeedbackItems
+    sanitizeChangeRequest,
+    sanitizeElementInfo,
+    sanitizeEvidence,
+    sanitizeFeedbackItems,
+    sanitizeMutationParameters,
+    sanitizeMutationTarget,
+    sanitizeRequestedMutation
   };
 });

@@ -108,35 +108,34 @@
   function createItem(history, item, groupLabel) {
     const article = document.createElement('article');
     article.className = 'item';
-
-    if (item.type === CAPTURE_TYPE_REGION && (item.screenshot?.annotatedDataUrl || item.screenshot?.dataUrl)) {
-      const image = document.createElement('img');
-      image.className = 'thumbnail';
-      image.loading = 'lazy';
-      image.src = item.screenshot.annotatedDataUrl || item.screenshot.dataUrl;
-      image.alt = `Captured region for ${item.pageTitle || groupLabel}`;
-      article.appendChild(image);
-    } else {
-      const placeholder = document.createElement('div');
-      placeholder.className = 'thumbnail';
-      placeholder.setAttribute('aria-hidden', 'true');
-      article.appendChild(placeholder);
-    }
+    article.appendChild(createEvidencePreview(item, groupLabel));
 
     const body = document.createElement('div');
     const type = document.createElement('div');
     type.className = 'type';
-    type.textContent = item.type === CAPTURE_TYPE_REGION
+    const captureLabel = item.type === CAPTURE_TYPE_REGION
       ? `Region · ${item.annotations.length} annotation${item.annotations.length === 1 ? '' : 's'}`
       : 'Element';
+    type.textContent = `${captureLabel} · ${getRequestKindLabel(item)}`;
     const note = document.createElement('p');
     note.className = 'note';
-    note.textContent = item.note;
+    note.textContent = item.changeRequest?.summary || item.note;
+    const mutationList = createMutationList(item);
     const meta = document.createElement('div');
     meta.className = 'meta';
     const detail = item.type === CAPTURE_TYPE_REGION ? item.pageUrl : `${item.selector} · ${item.pageUrl}`;
     meta.textContent = `${formatTimestamp(item.timestamp)} · ${detail}`;
-    body.append(type, note, meta);
+    body.append(type, note);
+    if (mutationList) {
+      body.appendChild(mutationList);
+    }
+    if (item.acceptance?.length) {
+      const acceptance = document.createElement('p');
+      acceptance.className = 'acceptance';
+      acceptance.textContent = `Acceptance criteria (unverified): ${item.acceptance.join(' · ')}`;
+      body.appendChild(acceptance);
+    }
+    body.appendChild(meta);
 
     const deleteButton = document.createElement('button');
     deleteButton.className = 'danger';
@@ -147,6 +146,58 @@
     return article;
   }
 
+  function createEvidencePreview(item, groupLabel) {
+    const preview = document.createElement('div');
+    preview.className = 'evidence-preview';
+    const evidence = item.type === CAPTURE_TYPE_REGION
+      ? [
+          ['Original', item.screenshot?.dataUrl, 'captured region'],
+          ['Annotated', item.screenshot?.annotatedDataUrl, 'annotated region']
+        ]
+      : [
+          ['Original', item.evidence?.before?.dataUrl, 'original element'],
+          ['Proposed', item.evidence?.proposed?.dataUrl, 'proposed element']
+        ];
+
+    evidence.forEach(([label, dataUrl, description]) => {
+      if (!dataUrl) {
+        return;
+      }
+      const figure = document.createElement('figure');
+      const image = document.createElement('img');
+      image.className = 'thumbnail';
+      image.loading = 'lazy';
+      image.src = dataUrl;
+      image.alt = `${description} for ${item.pageTitle || groupLabel}`;
+      const caption = document.createElement('figcaption');
+      caption.textContent = label;
+      figure.append(image, caption);
+      preview.appendChild(figure);
+    });
+
+    if (!preview.childElementCount) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'thumbnail placeholder';
+      placeholder.setAttribute('aria-hidden', 'true');
+      preview.appendChild(placeholder);
+    }
+    return preview;
+  }
+
+  function createMutationList(item) {
+    if (item.changeRequest?.kind !== 'requested-mutation' || !item.changeRequest.requestedMutations.length) {
+      return null;
+    }
+    const list = document.createElement('ul');
+    list.className = 'mutation-list';
+    item.changeRequest.requestedMutations.forEach((mutation) => {
+      const entry = document.createElement('li');
+      entry.textContent = formatMutationSummary(mutation);
+      list.appendChild(entry);
+    });
+    return list;
+  }
+
   function getFilteredHistories() {
     if (!searchQuery) {
       return histories;
@@ -154,6 +205,9 @@
     return histories.flatMap((history) => {
       const items = history.items.filter((item) => [
         item.note,
+        item.changeRequest?.kind,
+        item.changeRequest?.summary,
+        buildMutationSearchText(item),
         item.pageTitle,
         item.pageUrl,
         item.selector,
@@ -234,14 +288,20 @@
   async function validateHistoryImages() {
     for (const history of histories) {
       for (const item of history.items) {
-        if (item.type !== CAPTURE_TYPE_REGION) {
-          continue;
-        }
-        if (item.screenshot?.dataUrl) {
-          await decodeEvidenceImage(item.screenshot.dataUrl, `${item.id} before`);
-        }
-        if (item.screenshot?.annotatedDataUrl) {
-          await decodeEvidenceImage(item.screenshot.annotatedDataUrl, `${item.id} annotated`);
+        if (item.type === CAPTURE_TYPE_REGION) {
+          if (item.screenshot?.dataUrl) {
+            await decodeEvidenceImage(item.screenshot.dataUrl, `${item.id} before`);
+          }
+          if (item.screenshot?.annotatedDataUrl) {
+            await decodeEvidenceImage(item.screenshot.annotatedDataUrl, `${item.id} annotated`);
+          }
+        } else {
+          if (item.evidence?.before?.dataUrl) {
+            await decodeEvidenceImage(item.evidence.before.dataUrl, `${item.id} before`);
+          }
+          if (item.evidence?.proposed?.dataUrl) {
+            await decodeEvidenceImage(item.evidence.proposed.dataUrl, `${item.id} proposed`);
+          }
         }
       }
     }
@@ -421,17 +481,91 @@
   function buildHtmlReport(annotatedImages = new Map()) {
     const sections = histories.map((history) => {
       const items = history.items.map((item, index) => {
-        const imageUrl = item.screenshot?.annotatedDataUrl || annotatedImages.get(item.id) || item.screenshot?.dataUrl;
-        const image = item.type === CAPTURE_TYPE_REGION && imageUrl
-          ? `<img src="${imageUrl}" alt="Annotated region ${index + 1}">`
-          : '';
+        const evidence = buildStandaloneEvidenceHtml(item, index + 1, annotatedImages);
         const locator = item.type === CAPTURE_TYPE_REGION ? item.pageUrl : item.selector;
-        return `<article><h3>${index + 1}. ${escapeHtml(item.type)}</h3>${image}<p>${escapeHtml(item.note)}</p><dl><dt>Source</dt><dd>${escapeHtml(item.pageUrl)}</dd><dt>Locator</dt><dd>${escapeHtml(locator)}</dd><dt>Captured</dt><dd>${escapeHtml(formatTimestamp(item.timestamp))}</dd></dl></article>`;
+        const request = buildStandaloneRequestHtml(item);
+        const acceptance = buildStandaloneAcceptanceHtml(item.acceptance);
+        return `<article><h3>${index + 1}. ${escapeHtml(item.type)}</h3>${request}${evidence}${acceptance}<dl><dt>Source</dt><dd>${escapeHtml(item.pageUrl)}</dd><dt>Locator</dt><dd>${escapeHtml(locator)}</dd><dt>Captured</dt><dd>${escapeHtml(formatTimestamp(item.timestamp))}</dd></dl></article>`;
       }).join('');
       return `<section><h2>${escapeHtml(getGroupLabel(history))}</h2>${items}</section>`;
     }).join('');
 
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dev Feedback Report</title><style>body{max-width:960px;margin:40px auto;padding:0 20px;font:16px/1.5 system-ui;color:#182019}section{margin:36px 0}article{border:1px solid #ccd7ce;border-radius:10px;padding:18px;margin:14px 0}img{display:block;max-width:100%;max-height:560px;border-radius:7px}dl{display:grid;grid-template-columns:100px 1fr;gap:6px}dt{font-weight:700}dd{margin:0;overflow-wrap:anywhere}</style></head><body><h1>Dev Feedback Report</h1><p>Exported ${escapeHtml(new Date().toLocaleString())}. Region images are embedded in this file.</p>${sections}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dev Feedback Report</title><style>body{max-width:1040px;margin:40px auto;padding:0 20px;font:16px/1.5 system-ui;color:#182019}section{margin:36px 0}article{border:1px solid #ccd7ce;border-radius:10px;padding:18px;margin:14px 0}.evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:16px 0}figure{margin:0}img{display:block;width:100%;max-height:560px;object-fit:contain;border-radius:7px;background:#eef2ef}figcaption{margin-top:6px;color:#526056;font-size:14px}.request-kind{font-weight:700}.mutation-list,.acceptance-list{padding-left:22px}dl{display:grid;grid-template-columns:100px 1fr;gap:6px}dt{font-weight:700}dd{margin:0;overflow-wrap:anywhere}</style></head><body><h1>Dev Feedback Report</h1><p>Exported ${escapeHtml(new Date().toLocaleString())}. Original, proposed, and annotated evidence remain explicitly labeled.</p>${sections}</body></html>`;
+  }
+
+  function buildStandaloneEvidenceHtml(item, itemNumber, annotatedImages) {
+    const evidence = item.type === CAPTURE_TYPE_REGION
+      ? [
+          ['Original (Before)', item.screenshot?.dataUrl],
+          ['Annotated guidance', item.screenshot?.annotatedDataUrl || annotatedImages.get(item.id)]
+        ]
+      : [
+          ['Original (Before)', item.evidence?.before?.dataUrl],
+          ['Proposed', item.evidence?.proposed?.dataUrl]
+        ];
+    const figures = evidence.flatMap(([label, dataUrl]) => dataUrl
+      ? [`<figure><img src="${escapeHtml(dataUrl)}" alt="Item ${itemNumber} ${escapeHtml(label)}"><figcaption>${escapeHtml(label)}</figcaption></figure>`]
+      : []);
+    return figures.length ? `<div class="evidence-grid">${figures.join('')}</div>` : '';
+  }
+
+  function buildStandaloneRequestHtml(item) {
+    const summary = escapeHtml(item.changeRequest?.summary || item.note);
+    if (item.changeRequest?.kind !== 'requested-mutation') {
+      return `<p class="request-kind">Visual suggestion</p><p>${summary}</p>`;
+    }
+    const mutations = item.changeRequest.requestedMutations
+      .map((mutation) => `<li>${escapeHtml(formatMutationSummary(mutation))}</li>`)
+      .join('');
+    return `<p class="request-kind">Requested mutation</p><p>${summary}</p><ul class="mutation-list">${mutations}</ul>`;
+  }
+
+  function buildStandaloneAcceptanceHtml(acceptance) {
+    if (!acceptance?.length) {
+      return '<h4>Acceptance criteria (unverified)</h4><p>None supplied.</p>';
+    }
+    return `<h4>Acceptance criteria (unverified)</h4><ul class="acceptance-list">${acceptance.map((criterion) => `<li>${escapeHtml(criterion)}</li>`).join('')}</ul>`;
+  }
+
+  function getRequestKindLabel(item) {
+    return item.changeRequest?.kind === 'requested-mutation'
+      ? 'Requested mutation'
+      : 'Visual suggestion';
+  }
+
+  function formatMutationSummary(mutation) {
+    const target = mutation?.target || {};
+    const identity = target.selectors?.[0]
+      || target.role
+      || target.tag
+      || target.text
+      || formatMutationRect(target.rect);
+    const parameters = mutation?.parameters && Object.keys(mutation.parameters).length
+      ? `; parameters=${JSON.stringify(mutation.parameters)}`
+      : '';
+    return `${mutation?.action || 'change'} -> ${identity || 'unknown target'}${parameters}`;
+  }
+
+  function formatMutationRect(rect) {
+    return rect?.width > 0 && rect?.height > 0
+      ? `rect(${rect.x}, ${rect.y}, ${rect.width}, ${rect.height})`
+      : '';
+  }
+
+  function buildMutationSearchText(item) {
+    if (!Array.isArray(item.changeRequest?.requestedMutations)) {
+      return '';
+    }
+    return item.changeRequest.requestedMutations.map((mutation) => [
+      mutation.id,
+      mutation.action,
+      mutation.target?.selectors?.join(' '),
+      mutation.target?.tag,
+      mutation.target?.role,
+      mutation.target?.text,
+      mutation.target?.surroundingText,
+      JSON.stringify(mutation.parameters || {})
+    ].join(' ')).join(' ');
   }
 
   function downloadFile(filename, contents, type) {

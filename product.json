@@ -2,7 +2,7 @@
   "slug": "dev-feedback-capture",
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
-  "summary": "Local-first Chromium extension for compiling pages, PDFs, and browser-visible UI into implementation-ready visual change specs.",
+  "summary": "Local-first Chromium extension for previewing reversible page edits and compiling implementation-ready visual change specs.",
   "status": "preview",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "",
@@ -33,6 +33,7 @@
   },
   "highlights": [
     "Element capture with selectors and notes",
+    "Reversible visual edit previews with original versus proposed evidence",
     "Annotated region specs with DOM anchors and acceptance checks",
     "Local AI Bundle export with structured context and evidence images"
   ],

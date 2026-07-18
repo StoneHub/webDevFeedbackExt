@@ -123,7 +123,7 @@
 
     .mode-switch {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
       gap: 6px;
       padding: 4px;
       border: 1px solid var(--line);
@@ -143,8 +143,8 @@
 
     .mode-label {
       display: block;
-      min-height: 72px;
-      padding: 10px 11px;
+      min-height: 84px;
+      padding: 10px 9px;
       border-radius: 6px;
       color: var(--muted);
       cursor: pointer;
@@ -178,6 +178,11 @@
 
     .mode-option input:checked + .mode-label strong {
       color: #07120b;
+    }
+
+    .mode-option input:disabled + .mode-label {
+      opacity: 0.48;
+      cursor: not-allowed;
     }
 
     .btn {
@@ -377,6 +382,13 @@
           </span>
         </label>
         <label class="mode-option">
+          <input type="radio" name="capture-mode" value="visual">
+          <span class="mode-label">
+            <strong>Visual</strong>
+            <span>Preview reversible element edits.</span>
+          </span>
+        </label>
+        <label class="mode-option">
           <input type="radio" name="capture-mode" value="region">
           <span class="mode-label">
             <strong>Region</strong>
@@ -414,10 +426,9 @@
     <div class="section">
       <div class="section-title">Quick Start</div>
       <ol class="instructions">
-        <li><span>Pick <strong>Element</strong> for clickable DOM capture or <strong>Region</strong> for PDFs and screenshots.</span></li>
-        <li><span>Use the primary button to start the selected workflow on the current tab.</span></li>
-        <li><span>Region capture opens a separate editor tab where you draw the box and add the note.</span></li>
-        <li><span>Re-open the page later to re-export JSON, Markdown, or the AI prompt from the history panel.</span></li>
+        <li><span>Use <strong>Element</strong> for notes, <strong>Visual</strong> for reversible previews, or <strong>Region</strong> for crops and PDFs.</span></li>
+        <li><span>Start the selected workflow, then pick or crop the part you want changed.</span></li>
+        <li><span>Review saved specs and download implementation exports from History.</span></li>
       </ol>
     </div>
 

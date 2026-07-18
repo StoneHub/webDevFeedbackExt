@@ -261,7 +261,7 @@
 
   function downloadJson() {
     downloadFile('dev-feedback-history.json', JSON.stringify(buildExportPayload(), null, 2), 'application/json');
-    setStatus('JSON export downloaded.');
+    setStatus('JSON export downloaded. A local MCP companion can import this explicit handoff.');
   }
 
   async function downloadAiBundle() {

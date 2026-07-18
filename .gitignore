@@ -9,5 +9,9 @@ Thumbs.db
 *.swo
 *~
 
+# Node dependencies and local agent state
+node_modules/
+.dev-feedback/
+
 # Release package output
 dist/

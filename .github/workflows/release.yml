@@ -21,6 +21,9 @@ jobs:
         with:
           node-version: "22"
 
+      - name: Install locked dependencies
+        run: npm ci
+
       - name: Validate release version
         run: |
           VERSION="$(node -p "require('./package.json').version")"

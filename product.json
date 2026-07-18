@@ -2,7 +2,7 @@
   "slug": "dev-feedback-capture",
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
-  "summary": "Local-first Chromium extension for previewing reversible page edits and compiling implementation-ready visual change specs.",
+  "summary": "Local-first Chromium extension and project-scoped MCP companion for actionable visual change specs.",
   "status": "preview",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "",
@@ -18,11 +18,12 @@
   "requirements": [
     "Download and unzip the latest GitHub Release asset",
     "Developer Mode in Chrome, Edge, or another Chromium browser",
-    "Manual Load unpacked installation from the unzipped extension folder"
+    "Manual Load unpacked installation from the unzipped extension folder",
+    "Optional MCP companion: Node.js 18 or newer, npm install, and an MCP-compatible local client"
   ],
   "privacy": {
     "storage": "local-first",
-    "summary": "Feedback history is saved in local extension storage. Capture and export actions are user-triggered, and no cloud sync or hosted AI integration is included."
+    "summary": "Feedback stays in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
     "current": "Versioned zip assets are published through GitHub Releases for manual unpacked installation.",
@@ -35,7 +36,8 @@
     "Element capture with selectors and notes",
     "Reversible visual edit previews with original versus proposed evidence",
     "Annotated region specs with DOM anchors and acceptance checks",
-    "Local AI Bundle export with structured context and evidence images"
+    "Local AI Bundle export with structured context and evidence images",
+    "Project-scoped stdio MCP companion for local coding agents"
   ],
   "screenshots": []
 }

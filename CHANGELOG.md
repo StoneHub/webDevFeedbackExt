@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.0 (In development)
+
+- Added a project-scoped local MCP companion over stdio with list, get, create, import, evidence, implementation-brief, and revision-checked status tools.
+- Added an ignored `.dev-feedback` sidecar with atomic JSON records, an append-only event trail, validated local evidence, and explicit project/inbox path boundaries.
+- Reused the existing History JSON export as the first explicit extension-to-agent handoff without reading Chromium internals, opening a localhost port, or adding extension permissions.
+- Kept source editing and browser control outside the MCP server; the connected coding agent uses its existing project tools and records bounded implementation status separately.
+
 ## 1.5.0 (Unreleased)
 
 - Added Visual Edit Mode for reversible move, resize, leaf-text rewrite, hide, sibling reorder, curated style, match-style, and alignment previews.

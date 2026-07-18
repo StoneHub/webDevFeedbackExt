@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture",
-  "version": "1.5.0",
-  "description": "Preview reversible page edits and compile implementation-ready visual change specs",
+  "version": "1.6.0",
+  "description": "Capture visual change specs and hand them to a project-scoped local MCP agent",
   "permissions": [
     "storage",
     "activeTab",

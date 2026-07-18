@@ -2,7 +2,7 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-The latest published ZIP is v1.2.0. Visual Edit Mode, the annotated Region editor, and the AI Bundle described below are available from the unreleased v1.5 source checkout.
+The latest published ZIP is v1.2.0. The local MCP companion is in development in the v1.6 source checkout; Visual Edit Mode, the annotated Region editor, and the AI Bundle remain unreleased source features.
 
 ## 1. Load the extension
 
@@ -51,12 +51,21 @@ Optional for local PDFs:
 Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
 
 - Download one `AI Bundle` ZIP with `prompt.md`, structured feedback and page context, before/annotated PNGs, and `report.html`
-- Download `JSON` for full payloads including crop image data
+- Download `JSON for MCP` for full payloads including crop image data
 - Download a self-contained `HTML Report` with embedded region images
 - Copy `Markdown` for issue trackers or docs
 - Copy `AI Prompt` for ready-to-paste implementation instructions based on saved text and source context
 
 AI Prompt is text-only. Use AI Bundle when the implementation handoff needs its numbered evidence images.
+
+## 6. Give a local agent project-scoped feedback
+
+1. In History, choose `Download JSON for MCP`.
+2. Configure the MCP companion with the absolute target project path and the folder containing that export.
+3. Ask the agent to call `dev_feedback_import` with the exact JSON path. If the export contains multiple site/file groups, also provide the exact `storageKey` shown by the first rejected import.
+4. The agent can call `dev_feedback_list`, `dev_feedback_get`, and `dev_feedback_build_brief`, implement changes with its normal project tools, then record progress with `dev_feedback_status_update`.
+
+Setup and security boundaries are in `docs/mcp-local-agent.md`.
 
 ## Need Help?
 

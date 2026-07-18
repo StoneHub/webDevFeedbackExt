@@ -2,7 +2,7 @@
 
 Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports three workflows:
 
-> The source checkout contains the unreleased v1.5 Visual Edit work. The latest published download remains v1.2.0 until the deferred PDF/export and v1.5 manual browser gates are complete.
+> The source checkout contains the in-development v1.6 local MCP companion on top of the unreleased v1.5 Visual Edit work. The latest published download remains v1.2.0 until the deferred browser and agent-handoff gates are complete.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode temporarily moves, resizes, rewrites, hides, reorders, or restyles one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
@@ -22,6 +22,7 @@ All feedback stays local in extension storage. Open History to review captures, 
 - PDF-friendly screenshot workflow for local and hosted PDFs
 - Extension-owned History page that works even when the source page cannot accept injected UI
 - One downloadable AI Bundle ZIP plus standalone JSON and self-contained HTML reports
+- Project-scoped local MCP companion over stdio; no cloud or localhost service
 - Copyable Markdown and implementation-prompt exports
 - Collapsed-by-default, draggable in-page capture list for quick review without covering the page
 
@@ -92,10 +93,16 @@ Older element-only captures are still loaded and normalized automatically.
 
 - `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, before/proposed/annotated PNG evidence when available, and `report.html` in one ZIP. The bundle is assembled locally.
 
-- `Download JSON` includes the full saved payload, including region image data URLs.
+- `Download JSON for MCP` includes the full saved payload, including region image data URLs, for explicit local import.
 - `Download HTML Report` creates a self-contained review with embedded region images.
 - `Copy Markdown` creates a readable text review for issues or docs.
 - `Copy AI Prompt` creates numbered implementation instructions from the saved requirements, anchors, and acceptance checks. Download the AI Bundle when images are needed.
+
+## Local MCP Agent Companion
+
+v1.6 includes a separate Node MCP server under `mcp/`. A local coding agent can import an explicit History JSON export into the target project's ignored `.dev-feedback` sidecar, then list/get feedback, read evidence resources, create agent-authored feedback, build an implementation brief, and record revision-checked status.
+
+The companion does not read Chromium's internal storage, open a network port, control the browser, execute shell commands, or edit source code. The connected agent uses its normal browser and coding tools. Tool results and evidence are still delivered to that MCP client, so cloud-backed clients may transmit captured data under their provider policies. See [docs/mcp-local-agent.md](docs/mcp-local-agent.md) for setup and the trust boundary.
 
 ## Permissions
 
@@ -121,6 +128,7 @@ The extension does not use static host permissions, always-on content scripts, t
 - `background.js`: runtime injection and region-capture session orchestration
 - `content.js`: in-page panel and element capture
 - `visual-edit.js`: dependency-free reversible mutation engine used by Visual Edit Mode
+- `mcp/`: project-scoped stdio MCP companion and filesystem sidecar store
 - `capture.html` / `capture.js`: screenshot region selection editor
 - `popup.html` / `popup.js`: mode switch, current-tab actions, and History entry point
 - `history.html` / `history.js`: extension-owned history review and export controls
@@ -138,8 +146,8 @@ The extension does not use static host permissions, always-on content scripts, t
 ### Release Process
 
 1. Confirm `package.json` and `manifest.json` versions match.
-2. Run `npm test`, `npm run check`, and `npm run package`.
-3. Complete the manual unpacked-extension gate in `docs/manual-release-checklist.md`, then create and push a matching tag such as `v1.5.0`.
+2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
+3. Complete the manual unpacked-extension and MCP handoff gates in `docs/manual-release-checklist.md`, then create and push a matching tag such as `v1.6.0`.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
@@ -158,7 +166,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
-- Add import for saved histories
+- Add user-triggered import back into extension History
 - Add optional provider-specific AI handoff after the provider/auth shape is defined
 
 ## License

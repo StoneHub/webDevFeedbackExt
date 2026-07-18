@@ -24,6 +24,11 @@ const requiredFiles = [
   'shared.js',
   'styles.css',
   'visual-edit.js',
+  'mcp/cli.mjs',
+  'mcp/server.mjs',
+  'mcp/store.mjs',
+  'docs/mcp-local-agent.md',
+  'docs/v1.6-local-mcp-plan.html',
   'icon16.png',
   'icon48.png',
   'icon128.png'
@@ -40,12 +45,30 @@ const shippedJavaScriptFiles = [
   'visual-edit.js'
 ];
 
+const companionJavaScriptFiles = [
+  'mcp/cli.mjs',
+  'mcp/server.mjs',
+  'mcp/store.mjs'
+];
+
 requiredFiles.forEach((file) => {
   const absolutePath = path.join(rootDir, file);
   assert.equal(fs.existsSync(absolutePath), true, `Missing required release file: ${file}`);
 });
 
 shippedJavaScriptFiles.forEach((file) => {
+  const result = spawnSync(process.execPath, ['--check', path.join(rootDir, file)], {
+    encoding: 'utf8'
+  });
+
+  assert.equal(
+    result.status,
+    0,
+    `Syntax check failed for ${file}:\n${result.stderr || result.stdout}`
+  );
+});
+
+companionJavaScriptFiles.forEach((file) => {
   const result = spawnSync(process.execPath, ['--check', path.join(rootDir, file)], {
     encoding: 'utf8'
   });
@@ -67,5 +90,9 @@ assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared
 assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');
 assert.equal(productJson.distribution.latestReleaseApi, 'https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest');
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
+assert.equal(packageJson.dependencies['@modelcontextprotocol/sdk'], '1.29.0');
+assert.equal(packageJson.dependencies.zod, '4.4.3');
+assert.equal(packageJson.scripts['test:mcp'], 'node --test test/mcp.test.mjs');
+assert.equal(packageJson.scripts.mcp, 'node mcp/cli.mjs');
 
 console.log('Release check passed.');

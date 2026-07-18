@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Region Capture</title>
+  <title>Visual Change Spec</title>
   <style>
     :root {
       --bg: #101211;
@@ -77,6 +77,16 @@
       max-width: 100%;
     }
 
+    .annotation-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      pointer-events: none;
+    }
+
     .image-wrap:focus-visible {
       outline: 3px solid rgba(142, 216, 160, 0.5);
       outline-offset: 3px;
@@ -84,6 +94,7 @@
 
     .selection {
       position: absolute;
+      z-index: 2;
       border: 2px solid var(--accent);
       background: rgba(142, 216, 160, 0.13);
       box-shadow: 0 0 0 9999px rgba(7, 8, 7, 0.46);
@@ -162,6 +173,84 @@
       color: var(--text);
     }
 
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 7px;
+    }
+
+    .tool-button {
+      min-height: 38px;
+      padding: 8px 6px;
+      background: var(--surface-high);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .tool-button:hover:not(:disabled) {
+      color: var(--text);
+      background: var(--surface-higher);
+      border-color: rgba(142, 216, 160, 0.32);
+    }
+
+    .tool-button.active,
+    .tool-button[aria-pressed="true"] {
+      color: #07120b;
+      background: var(--accent);
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 2px rgba(142, 216, 160, 0.13);
+    }
+
+    .tool-settings {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+      gap: 7px;
+      margin-top: 9px;
+      align-items: stretch;
+    }
+
+    .history-button {
+      min-height: 38px;
+      padding: 8px 10px;
+      background: var(--surface-high);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .color-control {
+      min-width: 58px;
+      min-height: 38px;
+      display: grid;
+      grid-template-columns: auto 30px;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 6px 4px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      background: var(--surface-high);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    input[type="color"] {
+      width: 30px;
+      height: 28px;
+      padding: 2px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="color"]:focus-visible {
+      outline: 2px solid rgba(142, 216, 160, 0.5);
+      outline-offset: 1px;
+    }
+
     textarea {
       width: 100%;
       min-height: 138px;
@@ -225,6 +314,10 @@
       transform: none;
     }
 
+    button:disabled:hover {
+      transform: none;
+    }
+
     .primary {
       background: linear-gradient(180deg, #7ed693, #57b874);
       border-color: rgba(142, 216, 160, 0.48);
@@ -277,6 +370,35 @@
       .frame {
         min-height: 52vh;
       }
+
+      .sidebar {
+        padding-bottom: 28px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .stage,
+      .sidebar {
+        padding: 12px;
+      }
+
+      .frame {
+        min-height: 42vh;
+        padding: 8px;
+      }
+
+      .tool-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .tool-settings {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .color-control {
+        grid-column: 1 / -1;
+        grid-template-columns: 1fr 30px;
+      }
     }
   </style>
 </head>
@@ -284,9 +406,10 @@
   <div class="shell">
     <div class="stage">
       <div class="frame">
-        <div class="image-wrap" id="image-wrap" tabindex="0" role="application" aria-label="Region selector. Press Enter to create a selection, arrow keys to move it, and Shift plus arrow keys to resize it." aria-describedby="selection-summary">
+        <div class="image-wrap" id="image-wrap" tabindex="0" role="application" aria-label="Visual change editor. Draw a crop, then add arrows, shapes, pins, text, or blur annotations." aria-describedby="selection-summary editor-hint">
           <img id="screenshot-image" alt="Captured viewport screenshot">
           <div class="selection" id="selection-box"></div>
+          <svg class="annotation-layer" id="annotation-layer" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
         </div>
       </div>
     </div>
@@ -295,8 +418,8 @@
       <header class="sidebar-header">
         <div class="mark" aria-hidden="true">&lt;/&gt;</div>
         <div>
-          <h1>Region Capture</h1>
-          <p class="lede">Draw a crop, describe the requested change, and save it to local history.</p>
+          <h1>Visual Change Spec</h1>
+          <p class="lede">Crop the evidence, mark the exact change, and save an implementation-ready visual spec locally.</p>
         </div>
       </header>
 
@@ -306,24 +429,51 @@
       </div>
 
       <div class="card">
-        <div class="label">Selection</div>
-        <div class="value" id="selection-summary">Draw a box on the screenshot.</div>
+        <div class="label">Crop</div>
+        <div class="value" id="selection-summary">Choose Crop, then draw a box on the screenshot.</div>
+      </div>
+
+      <div class="card">
+        <div class="label" id="annotation-tools-label">Annotation Tools</div>
+        <div class="tool-grid" role="toolbar" aria-labelledby="annotation-tools-label">
+          <button class="tool-button active" type="button" data-tool="crop" aria-pressed="true">Crop</button>
+          <button class="tool-button" type="button" data-tool="arrow" aria-pressed="false">Arrow</button>
+          <button class="tool-button" type="button" data-tool="rectangle" aria-pressed="false">Rectangle</button>
+          <button class="tool-button" type="button" data-tool="ellipse" aria-pressed="false">Ellipse</button>
+          <button class="tool-button" type="button" data-tool="pin" aria-pressed="false">Pin</button>
+          <button class="tool-button" type="button" data-tool="text" aria-pressed="false">Text</button>
+          <button class="tool-button" type="button" data-tool="blur" aria-pressed="false">Blur</button>
+        </div>
+        <div class="tool-settings">
+          <button class="history-button" type="button" id="undo-btn" disabled>Undo</button>
+          <button class="history-button" type="button" id="redo-btn" disabled>Redo</button>
+          <label class="color-control" for="annotation-color">
+            Color
+            <input id="annotation-color" type="color" value="#8ed8a0" aria-label="Annotation color">
+          </label>
+        </div>
       </div>
 
       <div class="card">
         <label class="label" for="note-field">Requested Change</label>
-        <textarea id="note-field" placeholder="Describe what should change in this region..."></textarea>
+        <textarea id="note-field" placeholder="Describe the implementation change shown by your annotations..."></textarea>
         <div class="counter" id="note-counter">0 / 2000</div>
       </div>
 
+      <div class="card">
+        <label class="label" for="acceptance-field">Acceptance Check (Optional)</label>
+        <textarea id="acceptance-field" maxlength="2000" placeholder="What should be visibly true when this change is complete?"></textarea>
+        <div class="counter" id="acceptance-counter">0 / 12 criteria</div>
+      </div>
+
       <div class="actions">
-        <button class="primary" id="save-btn">Save Region Feedback</button>
-        <button class="secondary" id="reset-btn">Reset Selection</button>
+        <button class="primary" id="save-btn">Save Visual Change Spec</button>
+        <button class="secondary" id="reset-btn">Reset Crop &amp; Annotations</button>
         <button class="danger" id="cancel-btn">Cancel</button>
       </div>
 
       <p class="status" id="status-line" role="status" aria-live="polite"></p>
-      <p class="hint">Mouse, touch, or pen: draw a box. Keyboard: press Enter, then move with arrow keys or resize with Shift + arrow keys. Press Escape to cancel.</p>
+      <p class="hint" id="editor-hint">Start with Crop, then choose a tool and draw inside it. Arrow points at a target; Pin numbers a callout; Blur hides sensitive detail. Use Undo or Redo for annotation changes. Press Escape to cancel.</p>
     </aside>
   </div>
 

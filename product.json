@@ -2,7 +2,7 @@
   "slug": "dev-feedback-capture",
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
-  "summary": "Chromium extension for capturing structured feedback on pages, PDFs, and browser-visible UI.",
+  "summary": "Local-first Chromium extension for compiling pages, PDFs, and browser-visible UI into implementation-ready visual change specs.",
   "status": "preview",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "",
@@ -33,8 +33,8 @@
   },
   "highlights": [
     "Element capture with selectors and notes",
-    "Region capture for screenshots and PDFs",
-    "Local history with JSON, Markdown, and AI prompt exports"
+    "Annotated region specs with DOM anchors and acceptance checks",
+    "Local AI Bundle export with structured context and evidence images"
   ],
   "screenshots": []
 }

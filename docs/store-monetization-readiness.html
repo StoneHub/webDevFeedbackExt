@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev Feedback Capture - Store and Monetization Readiness</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f5f7f5;
+      --panel: #ffffff;
+      --text: #17201a;
+      --muted: #526057;
+      --line: #ccd6ce;
+      --accent: #23643a;
+      --soft: #e8f3ea;
+      --warn: #7a4a00;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #111612;
+        --panel: #19201b;
+        --text: #edf4ee;
+        --muted: #b0bdb3;
+        --line: #36443a;
+        --accent: #86d49a;
+        --soft: #203827;
+        --warn: #f4c36f;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--text); font: 16px/1.55 system-ui, sans-serif; }
+    main { max-width: 980px; margin: 0 auto; padding: 48px 24px 72px; }
+    header, section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin: 0 0 18px; }
+    h1, h2 { margin-top: 0; line-height: 1.2; }
+    h1 { margin-bottom: 8px; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+    h2 { font-size: 1.25rem; }
+    p:last-child, ul:last-child { margin-bottom: 0; }
+    .decision { border-left: 5px solid var(--accent); background: var(--soft); }
+    .eyebrow { color: var(--accent); font-size: .78rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    .muted { color: var(--muted); }
+    .gate { color: var(--warn); font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-top: 1px solid var(--line); padding: 11px 8px; text-align: left; vertical-align: top; }
+    th { width: 29%; }
+    code { background: var(--soft); border-radius: 5px; padding: .12rem .35rem; }
+    a { color: var(--accent); }
+    li + li { margin-top: .45rem; }
+    .columns { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .columns > div { border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+    @media print {
+      :root { color-scheme: light; --page: #fff; --panel: #fff; --text: #111; --muted: #444; --line: #bbb; --accent: #245b34; --soft: #eef5ef; --warn: #6a4000; }
+      main { max-width: none; padding: 0; }
+      header, section { break-inside: avoid; box-shadow: none; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="decision">
+      <div class="eyebrow">Recommended release path</div>
+      <h1>Ship v1.4 free and local-first</h1>
+      <p>Keep payments, accounts, licensing, network sync, and new browser permissions out of v1.4. Complete the store identity, privacy, listing, and runtime gates first; design a paid product as a later web-service lane.</p>
+    </header>
+
+    <section>
+      <h2>Publisher identity</h2>
+      <table>
+        <tr><th>Durable owner</th><td><code>monroe@flyingchangesfarm.net</code>, provided it is an active Google or Google Workspace account with Payments available. The developer-account email cannot be changed later.</td></tr>
+        <tr><th>Display name</th><td><strong>FlyingChanges Code</strong></td></tr>
+        <tr><th>Backup</th><td>After registration, optionally invite the <strong>monroesawesome</strong> Google account as an <strong>Admin</strong>. Use it as primary only if Monroe chooses personal rather than business continuity.</td></tr>
+        <tr><th>Publisher quota</th><td>A registered developer receives a publisher and may create one additional publisher. Publisher creation has a one-activation-per-account-lifetime quota, so do not create or delete one casually.</td></tr>
+        <tr><th>Roles</th><td>Viewer, Item Manager, Editor, and Admin.</td></tr>
+      </table>
+      <p class="gate">Monroe decision: confirm the durable owner account and whether the backup Admin should be invited.</p>
+    </section>
+
+    <section>
+      <h2>Account and submission gates</h2>
+      <ul>
+        <li>Accept the Chrome Web Store Developer Agreement and pay the one-time registration fee shown in the dashboard. Official documentation does not publish a fixed amount, so this artifact does not hardcode one.</li>
+        <li>Declare trader or non-trader status. Trader verification may expose verified business and contact details publicly.</li>
+        <li>Provide an accurate description, extension icons, listing screenshots, category/language details, support and contact information, privacy-policy URL, and complete data-use disclosures.</li>
+        <li>Disclose screenshots, page content, and browsing activity as user data even though v1.4 processes and stores them only on the device.</li>
+        <li>Keep the manifest at the current minimal permissions: <code>storage</code>, <code>activeTab</code>, and <code>scripting</code>; no host permissions.</li>
+      </ul>
+      <p class="gate">External action gate: do not register, pay, upload, publish, or change account state without Monroe's approval.</p>
+    </section>
+
+    <section>
+      <h2>Listing and asset checklist</h2>
+      <div class="columns">
+        <div>
+          <strong>Creative assets</strong>
+          <ul>
+            <li>Final 128 px store icon and packaged 16/48/128 px icons</li>
+            <li>At least one accurate product screenshot showing Element, Region annotations/redact, History, and export</li>
+            <li>Optional promotional images only after the core listing is ready</li>
+          </ul>
+        </div>
+        <div>
+          <strong>Copy and support</strong>
+          <ul>
+            <li>Concise single-purpose description: compiling visual change specs from browser-visible surfaces</li>
+            <li>Install/use instructions, version notes, support email or support page</li>
+            <li>Privacy policy that explains local capture, storage, deletion, exports, and absence of network transmission</li>
+          </ul>
+        </div>
+        <div>
+          <strong>Review proof</strong>
+          <ul>
+            <li>Unpacked Edge/Chromium runtime proof for Element, Region, PDF, History, and every export</li>
+            <li>Evidence that redact permanently removes source pixels from both “before” and annotated exports</li>
+            <li>Old-history compatibility and package verification</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Future paid-product lane - separate from v1.4</h2>
+      <p>Chrome Web Store Payments is deprecated. Any paid edition needs an external processor plus a separate account/service boundary for authentication, entitlements, licensing records, refunds, support, tax handling, and failure recovery.</p>
+      <p><strong>Recommended later shape:</strong> a small web account service using Stripe Checkout and Customer Portal, with the extension contacting it only after a separately reviewed permission, privacy, security, and offline-behavior design. Declare any external paid features in the store listing. A physical address is required for items offering purchases, subscriptions, or paid additional features.</p>
+      <p class="muted">Do not add a payment SDK, auth, network sync, or new permission to the v1.4 extension.</p>
+    </section>
+
+    <section>
+      <h2>Official references</h2>
+      <ul>
+        <li><a href="https://developer.chrome.com/docs/webstore/register">Developer registration</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/set-up-account">Account and publisher setup</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/share-ownership">Publisher ownership and roles</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/cws-payments-deprecation">Chrome Web Store Payments deprecation</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq">User-data policy FAQ</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/program-policies/trader-verification-faq">Trader verification FAQ</a></li>
+      </ul>
+      <p class="muted">Prepared for v1.4 readiness review on July 18, 2026. This is a decision artifact, not proof of registration or publication.</p>
+    </section>
+  </main>
+</body>
+</html>

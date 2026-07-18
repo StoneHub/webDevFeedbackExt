@@ -19,6 +19,7 @@
   const searchElement = document.getElementById('history-search');
 
   document.getElementById('download-json').addEventListener('click', downloadJson);
+  document.getElementById('download-ai-bundle').addEventListener('click', downloadAiBundle);
   document.getElementById('download-html').addEventListener('click', downloadHtmlReport);
   document.getElementById('copy-markdown').addEventListener('click', copyMarkdown);
   document.getElementById('copy-ai').addEventListener('click', copyAiPrompt);
@@ -108,11 +109,11 @@
     const article = document.createElement('article');
     article.className = 'item';
 
-    if (item.type === CAPTURE_TYPE_REGION && item.screenshot?.dataUrl) {
+    if (item.type === CAPTURE_TYPE_REGION && (item.screenshot?.annotatedDataUrl || item.screenshot?.dataUrl)) {
       const image = document.createElement('img');
       image.className = 'thumbnail';
       image.loading = 'lazy';
-      image.src = item.screenshot.dataUrl;
+      image.src = item.screenshot.annotatedDataUrl || item.screenshot.dataUrl;
       image.alt = `Captured region for ${item.pageTitle || groupLabel}`;
       article.appendChild(image);
     } else {
@@ -125,7 +126,9 @@
     const body = document.createElement('div');
     const type = document.createElement('div');
     type.className = 'type';
-    type.textContent = item.type === CAPTURE_TYPE_REGION ? 'Region' : 'Element';
+    type.textContent = item.type === CAPTURE_TYPE_REGION
+      ? `Region · ${item.annotations.length} annotation${item.annotations.length === 1 ? '' : 's'}`
+      : 'Element';
     const note = document.createElement('p');
     note.className = 'note';
     note.textContent = item.note;
@@ -207,9 +210,183 @@
     setStatus('JSON export downloaded.');
   }
 
-  function downloadHtmlReport() {
-    downloadFile('dev-feedback-report.html', buildHtmlReport(), 'text/html');
-    setStatus('Self-contained HTML report downloaded.');
+  async function downloadAiBundle() {
+    setError('');
+    const button = document.getElementById('download-ai-bundle');
+    button.disabled = true;
+    setStatus('Building local AI bundle...');
+    try {
+      await validateHistoryImages();
+      const annotatedImages = await collectAnnotatedImages();
+      const bundle = globalThis.DevFeedbackBundle.buildAiBundle(histories, {
+        exportedAt: new Date().toISOString(),
+        annotatedImages
+      });
+      downloadBlob(bundle.filename, new Blob([bundle.bytes], { type: 'application/zip' }));
+      setStatus(`AI bundle downloaded with ${bundle.entryNames.length} files.`);
+    } catch (error) {
+      setError(error.message || 'Unable to build the AI bundle.');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function validateHistoryImages() {
+    for (const history of histories) {
+      for (const item of history.items) {
+        if (item.type !== CAPTURE_TYPE_REGION) {
+          continue;
+        }
+        if (item.screenshot?.dataUrl) {
+          await decodeEvidenceImage(item.screenshot.dataUrl, `${item.id} before`);
+        }
+        if (item.screenshot?.annotatedDataUrl) {
+          await decodeEvidenceImage(item.screenshot.annotatedDataUrl, `${item.id} annotated`);
+        }
+      }
+    }
+  }
+
+  async function collectAnnotatedImages() {
+    const annotatedImages = new Map();
+    for (const history of histories) {
+      for (const item of history.items) {
+        if (item.type === CAPTURE_TYPE_REGION && item.screenshot?.dataUrl && !item.screenshot.annotatedDataUrl) {
+          annotatedImages.set(item.id, await renderAnnotatedEvidence(item));
+        }
+      }
+    }
+    return annotatedImages;
+  }
+
+  function decodeEvidenceImage(dataUrl, label) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error(`Unable to decode ${label} evidence image.`));
+      image.src = dataUrl;
+    });
+  }
+
+  function renderAnnotatedEvidence(item) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0);
+          const rect = item.viewportRect;
+          const scaleX = image.naturalWidth / Math.max(1, rect.width);
+          const scaleY = image.naturalHeight / Math.max(1, rect.height);
+          item.annotations
+            .filter((annotation) => annotation.type === 'blur')
+            .forEach((annotation) => redactEvidenceRect(context, annotation.rect, rect, scaleX, scaleY));
+          context.save();
+          context.scale(scaleX, scaleY);
+          context.translate(-rect.x, -rect.y);
+          item.annotations.forEach((annotation) => drawEvidenceAnnotation(context, annotation));
+          context.restore();
+          resolve(canvas.toDataURL('image/png'));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      image.onerror = () => reject(new Error(`Unable to decode evidence image for ${item.id}.`));
+      image.src = item.screenshot.dataUrl;
+    });
+  }
+
+  function redactEvidenceRect(context, annotationRect, cropRect, scaleX, scaleY) {
+    const left = Math.max(cropRect.x, annotationRect.x);
+    const top = Math.max(cropRect.y, annotationRect.y);
+    const right = Math.min(cropRect.x + cropRect.width, annotationRect.x + annotationRect.width);
+    const bottom = Math.min(cropRect.y + cropRect.height, annotationRect.y + annotationRect.height);
+    const x = Math.round((left - cropRect.x) * scaleX);
+    const y = Math.round((top - cropRect.y) * scaleY);
+    const width = Math.round((right - left) * scaleX);
+    const height = Math.round((bottom - top) * scaleY);
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+
+    context.save();
+    context.fillStyle = '#191919';
+    context.fillRect(x, y, width, height);
+    context.restore();
+  }
+
+  function drawEvidenceAnnotation(context, annotation) {
+    const color = annotation.color || '#ff3b30';
+    context.strokeStyle = color;
+    context.fillStyle = color;
+    context.lineWidth = 4;
+    context.lineCap = 'round';
+
+    if (annotation.type === 'arrow') {
+      context.beginPath();
+      context.moveTo(annotation.start.x, annotation.start.y);
+      context.lineTo(annotation.end.x, annotation.end.y);
+      context.stroke();
+      const angle = Math.atan2(annotation.end.y - annotation.start.y, annotation.end.x - annotation.start.x);
+      context.beginPath();
+      context.moveTo(annotation.end.x, annotation.end.y);
+      context.lineTo(annotation.end.x - 14 * Math.cos(angle - Math.PI / 6), annotation.end.y - 14 * Math.sin(angle - Math.PI / 6));
+      context.lineTo(annotation.end.x - 14 * Math.cos(angle + Math.PI / 6), annotation.end.y - 14 * Math.sin(angle + Math.PI / 6));
+      context.closePath();
+      context.fill();
+    } else if (annotation.type === 'rectangle') {
+      context.strokeRect(annotation.rect.x, annotation.rect.y, annotation.rect.width, annotation.rect.height);
+    } else if (annotation.type === 'ellipse') {
+      context.beginPath();
+      context.ellipse(annotation.rect.x + annotation.rect.width / 2, annotation.rect.y + annotation.rect.height / 2, annotation.rect.width / 2, annotation.rect.height / 2, 0, 0, Math.PI * 2);
+      context.stroke();
+    } else if (annotation.type === 'blur') {
+      context.save();
+      context.setLineDash([8, 5]);
+      context.strokeRect(annotation.rect.x, annotation.rect.y, annotation.rect.width, annotation.rect.height);
+      context.restore();
+      context.fillStyle = '#fff';
+      context.font = '800 14px system-ui';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText('REDACTED', annotation.rect.x + annotation.rect.width / 2, annotation.rect.y + annotation.rect.height / 2);
+    } else if (annotation.type === 'pin') {
+      context.beginPath();
+      context.arc(annotation.point.x, annotation.point.y, 15, 0, Math.PI * 2);
+      context.fill();
+      context.fillStyle = '#fff';
+      context.font = '800 15px system-ui';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillText(String(annotation.number), annotation.point.x, annotation.point.y + 1);
+    } else if (annotation.type === 'text') {
+      context.font = '800 18px system-ui';
+      context.lineWidth = 4;
+      context.strokeStyle = '#fff';
+      context.strokeText(annotation.text, annotation.point.x, annotation.point.y);
+      context.fillStyle = color;
+      context.fillText(annotation.text, annotation.point.x, annotation.point.y);
+    }
+  }
+
+  async function downloadHtmlReport() {
+    setError('');
+    const button = document.getElementById('download-html');
+    button.disabled = true;
+    setStatus('Building self-contained HTML report...');
+    try {
+      await validateHistoryImages();
+      const annotatedImages = await collectAnnotatedImages();
+      downloadFile('dev-feedback-report.html', buildHtmlReport(annotatedImages), 'text/html');
+      setStatus('Self-contained HTML report downloaded.');
+    } catch (error) {
+      setError(error.message || 'Unable to build the HTML report.');
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function copyMarkdown() {
@@ -218,8 +395,9 @@
   }
 
   async function copyAiPrompt() {
-    const prompt = histories.map((history) => buildAiPromptExport(getGroupSource(history), history.items)).join('\n\n---\n\n');
-    await copyText(prompt, 'AI prompt copied. Use the HTML or JSON export for companion crops.');
+    const allItems = histories.flatMap((history) => history.items);
+    const prompt = buildAiPromptExport(getGroupSource(histories[0]), allItems);
+    await copyText(prompt, 'AI prompt copied. Download the AI Bundle to include evidence images.');
   }
 
   async function copyText(value, successMessage) {
@@ -240,11 +418,12 @@
     };
   }
 
-  function buildHtmlReport() {
+  function buildHtmlReport(annotatedImages = new Map()) {
     const sections = histories.map((history) => {
       const items = history.items.map((item, index) => {
-        const image = item.type === CAPTURE_TYPE_REGION && item.screenshot?.dataUrl
-          ? `<img src="${item.screenshot.dataUrl}" alt="Captured region ${index + 1}">`
+        const imageUrl = item.screenshot?.annotatedDataUrl || annotatedImages.get(item.id) || item.screenshot?.dataUrl;
+        const image = item.type === CAPTURE_TYPE_REGION && imageUrl
+          ? `<img src="${imageUrl}" alt="Annotated region ${index + 1}">`
           : '';
         const locator = item.type === CAPTURE_TYPE_REGION ? item.pageUrl : item.selector;
         return `<article><h3>${index + 1}. ${escapeHtml(item.type)}</h3>${image}<p>${escapeHtml(item.note)}</p><dl><dt>Source</dt><dd>${escapeHtml(item.pageUrl)}</dd><dt>Locator</dt><dd>${escapeHtml(locator)}</dd><dt>Captured</dt><dd>${escapeHtml(formatTimestamp(item.timestamp))}</dd></dl></article>`;
@@ -256,7 +435,11 @@
   }
 
   function downloadFile(filename, contents, type) {
-    const url = URL.createObjectURL(new Blob([contents], { type }));
+    downloadBlob(filename, new Blob([contents], { type }));
+  }
+
+  function downloadBlob(filename, blob) {
+    const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = filename;
@@ -291,7 +474,7 @@
   }
 
   function setActionAvailability(enabled) {
-    ['download-json', 'download-html', 'copy-markdown', 'copy-ai', 'clear-all'].forEach((id) => {
+    ['download-ai-bundle', 'download-json', 'download-html', 'copy-markdown', 'copy-ai', 'clear-all'].forEach((id) => {
       document.getElementById(id).disabled = !enabled;
     });
   }

@@ -73,6 +73,10 @@
   min-width: 0;
 }
 
+.dev-feedback-panel-copy {
+  min-width: 0;
+}
+
 .dev-feedback-panel-mark {
   width: 34px;
   height: 34px;
@@ -120,6 +124,13 @@
   font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.dev-feedback-panel-controls {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.dev-feedback-panel-toggle,
 .dev-feedback-panel-close {
   width: 28px;
   height: 28px;
@@ -131,9 +142,32 @@
   font: 700 13px/1 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+.dev-feedback-panel-toggle:hover,
 .dev-feedback-panel-close:hover {
   background: var(--df-surface-high);
   color: var(--df-text);
+}
+
+#dev-feedback-panel.collapsed {
+  width: auto;
+  max-height: none;
+}
+
+#dev-feedback-panel.collapsed .dev-feedback-panel-header {
+  padding: 8px;
+  align-items: center;
+}
+
+#dev-feedback-panel.collapsed .dev-feedback-panel-copy,
+#dev-feedback-panel.collapsed .dev-feedback-panel-actions,
+#dev-feedback-panel.collapsed .dev-feedback-items,
+#dev-feedback-panel.collapsed .dev-feedback-panel-footer {
+  display: none;
+}
+
+#dev-feedback-panel.collapsed .dev-feedback-panel-mark {
+  width: 30px;
+  height: 30px;
 }
 
 .dev-feedback-panel-actions {
@@ -571,6 +605,11 @@
     left: 14px;
     right: 14px;
     bottom: 14px;
+    width: auto;
+  }
+
+  #dev-feedback-panel.collapsed {
+    left: auto;
     width: auto;
   }
 

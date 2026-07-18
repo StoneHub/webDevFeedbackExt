@@ -12,6 +12,7 @@ const zipName = `dev-feedback-capture-v${version}.zip`;
 const outputPath = path.join(distDir, zipName);
 
 const extensionFiles = [
+  'ai-bundle.js',
   'background.js',
   'capture.html',
   'capture.js',

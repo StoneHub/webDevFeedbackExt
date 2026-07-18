@@ -7,6 +7,7 @@ const { spawnSync } = require('node:child_process');
 const rootDir = path.join(__dirname, '..');
 const packageJson = readJson(path.join(rootDir, 'package.json'));
 const expectedFiles = [
+  'ai-bundle.js',
   'background.js',
   'capture.html',
   'capture.js',

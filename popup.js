@@ -148,7 +148,7 @@
       if ((currentTab?.url || '').startsWith('file://')) {
         setInfo('If region capture fails on a local PDF, enable "Allow access to file URLs" on the extension first.');
       } else {
-        setInfo('Region capture takes a viewport screenshot and opens an editor tab for drawing the crop.');
+        setInfo('Region capture opens the Visual Change Spec editor for cropping, DOM-linked annotations, and acceptance checks.');
       }
       return;
     }
@@ -251,7 +251,9 @@
         id: currentTab.id,
         windowId: currentTab.windowId,
         url: currentTab.url,
-        title: currentTab.title
+        title: currentTab.title,
+        width: currentTab.width,
+        height: currentTab.height
       },
       viewportMetrics
     });

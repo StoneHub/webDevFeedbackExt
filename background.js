@@ -36,6 +36,11 @@
       return true;
     }
 
+    if (request.action === 'resolve-annotation-target') {
+      respondAsync(resolveAnnotationTarget(request.tabId, request.point, request.pageContext), sendResponse);
+      return true;
+    }
+
     if (request.action === 'list-feedback-history') {
       respondAsync(listFeedbackHistory(), sendResponse);
       return true;
@@ -133,6 +138,18 @@
     let storageKey = '';
     try {
       await sweepExpiredRegionSessions();
+      let resolvedViewportMetrics = viewportMetrics;
+      if (!resolvedViewportMetrics && canInjectIntoUrl(tab.url || '')) {
+        const injected = await ensureContentScript(tab.id, tab.url || '');
+        if (injected.ok) {
+          resolvedViewportMetrics = await sendTabMessage(tab.id, { action: 'get-viewport-metrics' }).catch(() => null);
+        }
+      }
+      resolvedViewportMetrics = resolvedViewportMetrics || {
+        width: tab.width,
+        height: tab.height,
+        devicePixelRatio: null
+      };
       const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
       const sessionId = buildFeedbackId();
       storageKey = `${REGION_CAPTURE_SESSION_PREFIX}${sessionId}`;
@@ -144,10 +161,12 @@
         pageUrl,
         rawTabUrl: tab.url || '',
         pageTitle: tab.title || '',
-        viewportMetrics: sanitizeViewportMetrics(viewportMetrics),
+        viewportMetrics: sanitizeViewportMetrics(resolvedViewportMetrics),
         screenshotDataUrl,
         createdAt: new Date().toISOString()
       };
+
+      session.viewportMetrics.zoom = await chrome.tabs.getZoom(tab.id).catch(() => 1);
 
       await chrome.storage.session.set({ [storageKey]: session });
       const editorTab = await chrome.tabs.create({
@@ -179,6 +198,23 @@
     }
 
     return { ok: true };
+  }
+
+  async function resolveAnnotationTarget(tabId, point, pageContext) {
+    if (!tabId) {
+      return { ok: true, target: null, reason: 'The source tab is no longer available.' };
+    }
+
+    try {
+      const response = await sendTabMessage(tabId, {
+        action: 'resolve-dom-target',
+        point,
+        pageContext
+      });
+      return response?.ok ? response : { ok: true, target: null, reason: response?.reason || 'No DOM target found.' };
+    } catch (error) {
+      return { ok: true, target: null, reason: 'DOM anchoring is unavailable for this page.' };
+    }
   }
 
   async function clearRegionSession(sessionId) {
@@ -319,9 +355,14 @@
     return {
       width: Number.isFinite(viewportMetrics?.width) ? viewportMetrics.width : 0,
       height: Number.isFinite(viewportMetrics?.height) ? viewportMetrics.height : 0,
+      scrollX: Number.isFinite(viewportMetrics?.scrollX) ? viewportMetrics.scrollX : 0,
+      scrollY: Number.isFinite(viewportMetrics?.scrollY) ? viewportMetrics.scrollY : 0,
       devicePixelRatio: Number.isFinite(viewportMetrics?.devicePixelRatio) && viewportMetrics.devicePixelRatio > 0
         ? viewportMetrics.devicePixelRatio
-        : 1
+        : null,
+      zoom: Number.isFinite(viewportMetrics?.zoom) && viewportMetrics.zoom > 0 ? viewportMetrics.zoom : 1,
+      userAgent: typeof viewportMetrics?.userAgent === 'string' ? viewportMetrics.userAgent.slice(0, 500) : navigator.userAgent,
+      language: typeof viewportMetrics?.language === 'string' ? viewportMetrics.language.slice(0, 80) : navigator.language
     };
   }
 })();

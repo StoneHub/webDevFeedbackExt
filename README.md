@@ -1,24 +1,26 @@
 # Dev Feedback Capture
 
-Dev Feedback Capture is a Chromium extension for collecting structured UI feedback from live pages, PDFs, and other browser-visible surfaces. It supports two capture modes:
+Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports two capture modes:
 
-> The source checkout contains the unreleased v1.3 History & Reliability work. The latest published download remains v1.2.0 until the v1.3 manual browser gate and release are complete.
+> The source checkout contains the unreleased v1.4 Annotated Context work. The latest published download remains v1.2.0 until the v1.3/v1.4 manual browser gates and release decision are complete.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
-- `Region` mode captures the visible viewport, opens a screenshot editor, and lets you draw a crop around any area, including browser-rendered PDFs.
+- `Region` mode captures the visible viewport and compiles a crop, vector annotations, best-effort DOM anchors, requested change, and acceptance checks into one visual change spec.
 
-All feedback stays local in extension storage. Open the extension-owned History page from the popup to review captures, copy Markdown or implementation instructions, and download JSON or a self-contained HTML report.
+All feedback stays local in extension storage. Open History to review captures, use the legacy standalone exports, or download one AI Bundle with instructions, structured data, page context, and before/annotated images.
 
 ## Features
 
 - Element capture with selector, text, styles, and note metadata
-- Region capture with cropped screenshot, viewport rectangle, and note metadata
+- Visual Change Spec editor with crop, arrow, rectangle, ellipse, pin, text, blur/redact, color, undo, and redo
+- DOM-linked vector annotations with selector fallbacks, roles, surrounding text, geometry, and parent-layout context when the source DOM is available
+- Optional acceptance checks plus browser, viewport, scroll, zoom, DPR, and source metadata
 - Works on arbitrary sites through explicit user-triggered activation
 - PDF-friendly screenshot workflow for local and hosted PDFs
 - Extension-owned History page that works even when the source page cannot accept injected UI
-- Downloadable JSON and self-contained HTML reports with embedded region images
+- One downloadable AI Bundle ZIP plus standalone JSON and self-contained HTML reports
 - Copyable Markdown and implementation-prompt exports
-- Draggable in-page history panel for quick review on injectable pages
+- Collapsed-by-default, draggable in-page capture list for quick review without covering the page
 
 ## Installation
 
@@ -49,14 +51,17 @@ Use this path when developing the extension or reviewing source changes:
 3. Click `Start Element Mode` or use `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 4. Hover and click a page element.
 5. Add your note in the modal and save it.
+6. Use **+** on the compact capture chip to expand the saved-item list and **−** to collapse it again.
 
 ### Region Mode
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
 3. Click `Capture Region`.
-4. In the editor tab, drag a box over the screenshot.
-5. Add your note and save it.
+4. Use Crop to define the evidence area.
+5. Add arrows, shapes, numbered pins, text, or blur/redact marks. Undo and redo operate on the visual spec.
+6. Describe the requested change and optionally add one acceptance criterion per line.
+7. Save the spec to local history.
 
 The cropped image, viewport rectangle, and source context are saved into the same local history as element captures. Open `History` from the popup to review captures from any supported source, including PDFs and pages where Element mode is unavailable.
 
@@ -65,16 +70,18 @@ The cropped image, viewport rectangle, and source context are saved into the sam
 Stored feedback items use a discriminated shape:
 
 - `type: "element"` items include selector, element info, and position.
-- `type: "region"` items include viewport rectangle, screenshot crop, source kind, and tab context.
+- `type: "region"` items include one evidence crop, vector annotations, DOM anchors when available, acceptance criteria, and page context. Annotated PNGs are rendered locally when the AI Bundle is built.
 
 Older element-only captures are still loaded and normalized automatically.
 
 ## Export Formats
 
+- `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, before/annotated PNG evidence, and `report.html` in one ZIP. The bundle is assembled locally.
+
 - `Download JSON` includes the full saved payload, including region image data URLs.
 - `Download HTML Report` creates a self-contained review with embedded region images.
 - `Copy Markdown` creates a readable text review for issues or docs.
-- `Copy AI Prompt` creates numbered, copy-ready implementation instructions from the saved text and source context. The numbered crop images are available in the companion HTML or JSON download.
+- `Copy AI Prompt` creates numbered implementation instructions from the saved requirements, anchors, and acceptance checks. Download the AI Bundle when images are needed.
 
 ## Permissions
 
@@ -101,9 +108,11 @@ The extension does not use static host permissions, always-on content scripts, t
 - `content.js`: in-page panel and element capture
 - `capture.html` / `capture.js`: screenshot region selection editor
 - `popup.html` / `popup.js`: mode switch, current-tab actions, and History entry point
-- `history.html` / `history.js`: extension-owned history review and exports
+- `history.html` / `history.js`: extension-owned history review and export controls
+- `ai-bundle.js`: local, dependency-free AI Bundle assembly and ZIP creation
 - `shared.js`: shared helpers, normalization, and export formatting
 - `styles.css`: injected in-page UI styles
+- `docs/store-monetization-readiness.html`: local store identity, listing, privacy, and future paid-product decision artifact
 
 ### Local Checks
 
@@ -115,7 +124,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`.
-3. Create and push a matching tag such as `v1.3.0`.
+3. Complete the manual unpacked-extension gate, then create and push a matching tag such as `v1.4.0`.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
@@ -123,12 +132,16 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 ## Limitations
 
 - Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
-- Region mode stores text exports and crop data in local storage; very large capture histories will increase storage usage.
+- Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
+- Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
+- DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
 - Region mode captures the current viewport only, not full-page stitched screenshots.
 - Cross-origin iframe DOM capture remains limited by browser security rules.
 
 ## Roadmap
 
+- Add Visual Edit Mode for reversible move, resize, rewrite, hide, reorder, and restyle operations
+- Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add import for saved histories
 - Add optional provider-specific AI handoff after the provider/auth shape is defined

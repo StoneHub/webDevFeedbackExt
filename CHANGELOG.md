@@ -1,6 +1,16 @@
 # Changelog
 
-## 1.3.0 (Unreleased)
+## 1.4.0 (Unreleased)
+
+- Reframed Region capture as a Visual Change Spec editor with crop, arrow, rectangle, ellipse, numbered pin, text, blur/redact, color, undo, and redo tools.
+- Persisted annotations as structured viewport vectors with best-effort DOM selectors, roles, surrounding text, geometry, and parent-layout context.
+- Added optional acceptance checks and richer browser, viewport, scroll, zoom, DPR, source, and page metadata.
+- Added one local AI Bundle ZIP containing `prompt.md`, `feedback.json`, `page-context.json`, before/annotated PNG evidence, and `report.html`; annotated PNGs are generated on export instead of duplicated in history storage.
+- Applied blur/redact masks to the saved evidence crop so exported “before” images cannot recover masked pixels.
+- Made the in-page capture list collapsed by default with explicit expand/collapse controls.
+- Preserved existing local-history item shapes and standalone JSON, HTML, Markdown, and prompt exports.
+
+## 1.3.0
 
 - Added an extension-owned History page with filtering, item deletion, site clearing, and access to feedback from PDFs and non-injectable surfaces.
 - Added downloadable JSON and self-contained HTML reports with embedded region images alongside copyable Markdown and AI Prompt exports.

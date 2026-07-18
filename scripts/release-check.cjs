@@ -10,6 +10,7 @@ const productJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'product.json'
 const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
+  'ai-bundle.js',
   'background.js',
   'capture.html',
   'capture.js',
@@ -28,6 +29,7 @@ const requiredFiles = [
 ];
 
 const shippedJavaScriptFiles = [
+  'ai-bundle.js',
   'background.js',
   'capture.js',
   'content.js',

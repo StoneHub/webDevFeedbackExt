@@ -43,6 +43,7 @@
   let feedbackItems = [];
   let currentElement = null;
   let isDragging = false;
+  let panelCollapsed = true;
   let dragOffset = { x: 0, y: 0 };
   let feedbackPanel = null;
   let captureModal = null;
@@ -66,17 +67,21 @@
   function createFeedbackPanel() {
     feedbackPanel = document.createElement('div');
     feedbackPanel.id = UI_IDS.panel;
+    feedbackPanel.classList.add('collapsed');
     feedbackPanel.innerHTML = `
       <div class="dev-feedback-panel-header">
         <div class="dev-feedback-panel-header-title">
           <span class="dev-feedback-panel-mark" aria-hidden="true">&lt;/&gt;</span>
-          <span>
+          <span class="dev-feedback-panel-copy">
             <span class="dev-feedback-panel-name">Dev Feedback Capture</span>
             <span class="dev-feedback-panel-subtitle">Local page review history</span>
           </span>
           <span class="dev-feedback-count">0</span>
         </div>
-        <button class="dev-feedback-panel-close" id="dev-feedback-panel-close" title="Stop element mode" aria-label="Stop element mode">x</button>
+        <div class="dev-feedback-panel-controls">
+          <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Expand capture list" aria-label="Expand capture list" aria-expanded="false">+</button>
+          <button class="dev-feedback-panel-close" id="dev-feedback-panel-close" title="Stop element mode" aria-label="Stop element mode">x</button>
+        </div>
       </div>
       <div class="dev-feedback-panel-actions">
         <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-json">JSON</button>
@@ -91,12 +96,32 @@
     document.body.appendChild(feedbackPanel);
 
     feedbackPanel.querySelector('.dev-feedback-panel-header').addEventListener('mousedown', startDragging);
+    feedbackPanel.querySelector('#dev-feedback-panel-toggle').addEventListener('click', togglePanelCollapsed);
     feedbackPanel.querySelector('#dev-feedback-panel-close').addEventListener('click', () => setFeedbackMode(false));
     feedbackPanel.querySelector('#dev-feedback-copy-json').addEventListener('click', copyAsJSON);
     feedbackPanel.querySelector('#dev-feedback-copy-markdown').addEventListener('click', copyAsMarkdown);
     feedbackPanel.querySelector('#dev-feedback-copy-ai').addEventListener('click', copyAsAiPrompt);
     feedbackPanel.querySelector('#dev-feedback-capture-region').addEventListener('click', startRegionCapture);
     feedbackPanel.querySelector('#dev-feedback-clear').addEventListener('click', clearAllFeedback);
+  }
+
+  function togglePanelCollapsed() {
+    panelCollapsed = !panelCollapsed;
+    feedbackPanel.classList.toggle('collapsed', panelCollapsed);
+    const button = feedbackPanel.querySelector('#dev-feedback-panel-toggle');
+    button.textContent = panelCollapsed ? '+' : '−';
+    button.title = panelCollapsed ? 'Expand capture list' : 'Collapse capture list';
+    button.setAttribute('aria-label', button.title);
+    button.setAttribute('aria-expanded', String(!panelCollapsed));
+    window.requestAnimationFrame(clampPanelToViewport);
+  }
+
+  function clampPanelToViewport() {
+    const rect = feedbackPanel.getBoundingClientRect();
+    feedbackPanel.style.left = `${clamp(rect.left, 8, Math.max(8, window.innerWidth - rect.width - 8))}px`;
+    feedbackPanel.style.top = `${clamp(rect.top, 8, Math.max(8, window.innerHeight - rect.height - 8))}px`;
+    feedbackPanel.style.right = 'auto';
+    feedbackPanel.style.bottom = 'auto';
   }
 
   function createCaptureModal() {
@@ -261,18 +286,78 @@
 
   function captureElement(element) {
     currentElement = element;
-
-    const elementInfo = {
-      selector: getElementSelector(element),
-      tag: element.tagName.toLowerCase(),
-      classes: Array.from(element.classList).filter((className) => !className.startsWith('dev-feedback')),
-      text: (element.innerText || element.textContent || '').trim().slice(0, 100),
-      styles: pickTrackedStyles(window.getComputedStyle(element)),
-      position: getElementPosition(element)
-    };
+    const elementInfo = buildElementSnapshot(element);
 
     displayElementInfo(elementInfo);
     showCaptureModal();
+  }
+
+  function buildElementSnapshot(element) {
+    const computedStyles = window.getComputedStyle(element);
+    return {
+      selector: getElementSelector(element),
+      selectors: getElementSelectors(element),
+      tag: element.tagName.toLowerCase(),
+      role: getElementRole(element),
+      classes: Array.from(element.classList).filter((className) => !className.startsWith('dev-feedback')),
+      text: (element.innerText || element.textContent || '').trim().slice(0, 280),
+      surroundingText: (element.parentElement?.innerText || element.parentElement?.textContent || '').trim().slice(0, 500),
+      styles: pickTrackedStyles(computedStyles),
+      parentLayout: pickParentLayout(element.parentElement),
+      position: getElementPosition(element),
+      rect: getViewportRect(element)
+    };
+  }
+
+  function getElementSelectors(element) {
+    const selectors = [getElementSelector(element)];
+    ['data-testid', 'data-test', 'data-qa', 'name'].forEach((attribute) => {
+      const value = element.getAttribute(attribute);
+      if (value) {
+        selectors.push(`${element.tagName.toLowerCase()}[${attribute}="${escapeAttributeValue(value)}"]`);
+      }
+    });
+    if (element.getAttribute('aria-label')) {
+      selectors.push(`${element.tagName.toLowerCase()}[aria-label="${escapeAttributeValue(element.getAttribute('aria-label'))}"]`);
+    }
+    return Array.from(new Set(selectors)).slice(0, 4);
+  }
+
+  function escapeAttributeValue(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function getElementRole(element) {
+    const explicitRole = element.getAttribute('role');
+    if (explicitRole) {
+      return explicitRole;
+    }
+    return ({ A: 'link', BUTTON: 'button', INPUT: 'input', SELECT: 'combobox', TEXTAREA: 'textbox' })[element.tagName] || '';
+  }
+
+  function pickParentLayout(parent) {
+    if (!parent) {
+      return {};
+    }
+    const styles = window.getComputedStyle(parent);
+    return {
+      display: styles.display,
+      direction: styles.flexDirection,
+      gridTemplateColumns: styles.gridTemplateColumns,
+      gap: styles.gap,
+      alignItems: styles.alignItems,
+      justifyContent: styles.justifyContent
+    };
+  }
+
+  function getViewportRect(element) {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: Math.round(rect.left),
+      y: Math.round(rect.top),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height)
+    };
   }
 
   function pickTrackedStyles(computedStyles) {
@@ -431,9 +516,13 @@
         tag: elementInfo.tag,
         classes: elementInfo.classes,
         text: elementInfo.text,
-        styles: elementInfo.styles
+        styles: elementInfo.styles,
+        role: elementInfo.role,
+        surroundingText: elementInfo.surroundingText,
+        parentLayout: elementInfo.parentLayout
       },
       position: elementInfo.position,
+      pageContext: buildPageContext(),
       note: note.slice(0, MAX_NOTE_LENGTH),
       timestamp: new Date().toISOString()
     };
@@ -883,7 +972,71 @@
     return {
       width: window.innerWidth,
       height: window.innerHeight,
-      devicePixelRatio: window.devicePixelRatio || 1
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+      devicePixelRatio: window.devicePixelRatio || 1,
+      userAgent: window.navigator.userAgent,
+      language: window.navigator.language
+    };
+  }
+
+  function buildPageContext() {
+    const viewport = getViewportMetrics();
+    return {
+      url: window.location.href,
+      title: document.title,
+      sourceKind: 'web-page',
+      viewport: {
+        width: viewport.width,
+        height: viewport.height,
+        scrollX: viewport.scrollX,
+        scrollY: viewport.scrollY,
+        devicePixelRatio: viewport.devicePixelRatio,
+        zoom: 1
+      },
+      browser: {
+        userAgent: viewport.userAgent,
+        language: viewport.language
+      }
+    };
+  }
+
+  function resolveDomTarget(point, expectedContext) {
+    const expectedViewport = expectedContext?.viewport || {};
+    if (
+      expectedContext?.url && expectedContext.url !== window.location.href ||
+      Math.abs((expectedViewport.scrollX || 0) - window.scrollX) > 2 ||
+      Math.abs((expectedViewport.scrollY || 0) - window.scrollY) > 2 ||
+      Math.abs((expectedViewport.width || window.innerWidth) - window.innerWidth) > 2 ||
+      Math.abs((expectedViewport.height || window.innerHeight) - window.innerHeight) > 2 ||
+      Math.abs((expectedViewport.devicePixelRatio || window.devicePixelRatio) - window.devicePixelRatio) > 0.02
+    ) {
+      return { ok: false, reason: 'The source page changed or moved after the screenshot was captured.' };
+    }
+
+    const x = Number(point?.x);
+    const y = Number(point?.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+      return { ok: false, reason: 'Invalid annotation target point.' };
+    }
+
+    const target = document.elementsFromPoint(x, y).find((element) => !isOurElement(element));
+    if (!target) {
+      return { ok: true, target: null };
+    }
+
+    const snapshot = buildElementSnapshot(target);
+    return {
+      ok: true,
+      target: {
+        selectors: snapshot.selectors,
+        tag: snapshot.tag,
+        role: snapshot.role,
+        text: snapshot.text,
+        rect: snapshot.rect,
+        surroundingText: snapshot.surroundingText,
+        parentLayout: snapshot.parentLayout
+      }
     };
   }
 
@@ -919,6 +1072,11 @@
 
     if (request.action === 'get-viewport-metrics') {
       sendResponse(getViewportMetrics());
+      return;
+    }
+
+    if (request.action === 'resolve-dom-target') {
+      sendResponse(resolveDomTarget(request.point, request.pageContext));
       return;
     }
 

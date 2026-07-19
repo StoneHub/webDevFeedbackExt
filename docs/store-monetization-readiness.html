@@ -60,20 +60,20 @@
   <main>
     <header class="decision">
       <div class="eyebrow">Recommended release path</div>
-      <h1>Ship v1.4 free and local-first</h1>
-      <p>Keep payments, accounts, licensing, network sync, and new browser permissions out of v1.4. Complete the store identity, privacy, listing, and runtime gates first; design a paid product as a later web-service lane.</p>
+      <h1>Ship v1.6 free and local-first</h1>
+      <p>Keep payments, accounts, licensing, network sync, and new browser permissions out of v1.6. The first Store submission was sent for review on July 19, 2026; design a paid product as a later web-service lane.</p>
     </header>
 
     <section>
       <h2>Publisher identity</h2>
       <table>
-        <tr><th>Durable owner</th><td><code>monroe@flyingchangesfarm.net</code>, provided it is an active Google or Google Workspace account with Payments available. The developer-account email cannot be changed later.</td></tr>
+        <tr><th>Durable owner</th><td><code>monroe@flyingchangesfarm.net</code>; registered owner and verified public contact. The developer-account email cannot be changed later.</td></tr>
         <tr><th>Display name</th><td><strong>FlyingChanges Code</strong></td></tr>
         <tr><th>Backup</th><td>After registration, optionally invite the <strong>monroesawesome</strong> Google account as an <strong>Admin</strong>. Use it as primary only if Monroe chooses personal rather than business continuity.</td></tr>
         <tr><th>Publisher quota</th><td>A registered developer receives a publisher and may create one additional publisher. Publisher creation has a one-activation-per-account-lifetime quota, so do not create or delete one casually.</td></tr>
         <tr><th>Roles</th><td>Viewer, Item Manager, Editor, and Admin.</td></tr>
       </table>
-      <p class="gate">Monroe decision: confirm the durable owner account and whether the backup Admin should be invited.</p>
+      <p class="gate">Current status: durable owner confirmed, publisher created, contact verified, non-trader selected, and the first item submitted. Inviting the backup Admin remains optional.</p>
     </section>
 
     <section>
@@ -82,10 +82,10 @@
         <li>Accept the Chrome Web Store Developer Agreement and pay the one-time registration fee shown in the dashboard. Official documentation does not publish a fixed amount, so this artifact does not hardcode one.</li>
         <li>Declare trader or non-trader status. Trader verification may expose verified business and contact details publicly.</li>
         <li>Provide an accurate description, extension icons, listing screenshots, category/language details, support and contact information, privacy-policy URL, and complete data-use disclosures.</li>
-        <li>Disclose screenshots, page content, and browsing activity as user data even though v1.4 processes and stores them only on the device.</li>
+        <li>Disclose screenshots, page content, and browsing activity as user data even though v1.6 processes and stores them only on the device.</li>
         <li>Keep the manifest at the current minimal permissions: <code>storage</code>, <code>activeTab</code>, and <code>scripting</code>; no host permissions.</li>
       </ul>
-      <p class="gate">External action gate: do not register, pay, upload, publish, or change account state without Monroe's approval.</p>
+      <p class="gate">External action gate: do not replace the active submission, change publication timing, publish a paid feature, or change account ownership without Monroe's approval.</p>
     </section>
 
     <section>
@@ -95,7 +95,7 @@
           <strong>Creative assets</strong>
           <ul>
             <li>Final 128 px store icon and packaged 16/48/128 px icons</li>
-            <li>At least one accurate product screenshot showing Element, Region annotations/redact, History, and export</li>
+            <li>One valid 1280x800 screenshot is in the initial submission; replace it after review with a fresh v1.6 set covering Element, Region annotations/redact, History, and export</li>
             <li>Optional promotional images only after the core listing is ready</li>
           </ul>
         </div>
@@ -119,10 +119,10 @@
     </section>
 
     <section>
-      <h2>Future paid-product lane - separate from v1.4</h2>
+      <h2>Future paid-product lane - separate from v1.6</h2>
       <p>Chrome Web Store Payments is deprecated. Any paid edition needs an external processor plus a separate account/service boundary for authentication, entitlements, licensing records, refunds, support, tax handling, and failure recovery.</p>
       <p><strong>Recommended later shape:</strong> a small web account service using Stripe Checkout and Customer Portal, with the extension contacting it only after a separately reviewed permission, privacy, security, and offline-behavior design. Declare any external paid features in the store listing. A physical address is required for items offering purchases, subscriptions, or paid additional features.</p>
-      <p class="muted">Do not add a payment SDK, auth, network sync, or new permission to the v1.4 extension.</p>
+      <p class="muted">Do not add a payment SDK, auth, network sync, or new permission to the submitted v1.6 extension.</p>
     </section>
 
     <section>
@@ -135,7 +135,7 @@
         <li><a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq">User-data policy FAQ</a></li>
         <li><a href="https://developer.chrome.com/docs/webstore/program-policies/trader-verification-faq">Trader verification FAQ</a></li>
       </ul>
-      <p class="muted">Prepared for v1.4 readiness review on July 18, 2026. This is a decision artifact, not proof of registration or publication.</p>
+      <p class="muted">Prepared on July 18, 2026 and updated after the first v1.6 Store submission on July 19, 2026. This records readiness and submission state; it is not proof of approval, publication, or deferred runtime verification.</p>
     </section>
   </main>
 </body>

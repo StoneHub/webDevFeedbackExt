@@ -1,6 +1,8 @@
-# Chrome Web Store Submission Draft
+# Chrome Web Store Submission Record
 
-Status: Draft only. Do not submit or publish until the runtime and asset gates pass.
+Status: Submitted for Chrome Web Store review on July 19, 2026. The publisher contact email is verified, the data-use certifications are complete, and the review/publication result is pending.
+
+The submitted package is v1.6.0. Store submission does not prove the deferred PDF/export or local MCP runtime gates in `docs/manual-release-checklist.md`; do not describe the release as runtime-verified until those checks pass.
 
 ## Ready inputs
 
@@ -11,6 +13,48 @@ Status: Draft only. Do not submit or publish until the runtime and asset gates p
 - Privacy policy: `https://monroes.tech/software/dev-feedback-capture/privacy/`
 - Support email: `monroe@flyingchangesfarm.net`
 - Single purpose: Capture structured, local visual change specifications from the current browser-visible page or PDF and export them for implementation.
+
+## Submitted privacy practices copy
+
+These values were entered in the Chrome Web Store Privacy practices tab and are retained here for reviewer follow-up and future releases.
+
+### Single purpose
+
+> Capture structured, local visual change specifications from the current browser-visible page or PDF and export them for implementation.
+
+### Permission justifications
+
+`activeTab`
+
+> Used only after the user starts a capture. It grants temporary access to the current tab so the extension can identify the selected page, capture the visible viewport, or start Element, Visual, or Region mode.
+
+`scripting`
+
+> Used only after a user action to inject the capture overlay or visual-edit interface into the current tab. The extension does not use always-on content scripts.
+
+`storage`
+
+> Stores feedback history, annotations, local evidence, and extension preferences on the user's device so captures remain available in History until the user deletes them or removes the extension.
+
+### Remote code
+
+Select that the extension does not use remote code, then use:
+
+> Dev Feedback Capture does not use remote code. All executable JavaScript is packaged with the extension. It does not load scripts, WebAssembly, or executable logic from external servers.
+
+### Data-use disclosures
+
+Disclose the following Chrome Web Store categories even though the data stays local until the user explicitly exports it:
+
+- Website content: selected elements, visible screenshots, page context, and PDF content used for a capture.
+- Web history: the URL and title of the page or PDF the user explicitly captures.
+- User activity: user-triggered selections, region coordinates, and annotation interactions used to create a capture.
+
+Use this privacy-policy URL:
+
+`https://monroes.tech/software/dev-feedback-capture/privacy/`
+
+The publisher reviewed and checked the three Developer Program Policies data-use certifications before submitting the item on July 19, 2026.
 
 ## Store screenshot plan
 
@@ -82,10 +126,16 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 - Add captions; narration is optional.
 - Export a high-quality master, then upload the final video to YouTube for the optional Store listing video field.
 
-## Remaining dashboard decisions
+## Submission record and follow-up
 
-- Confirm trader/non-trader declaration.
-- Choose the final category and distribution regions.
-- Complete website-content, browsing-activity, and user-generated-content disclosures as applicable.
-- Add permission justifications for `storage`, `activeTab`, and `scripting`.
-- Submit for review with deferred publishing; keep the item staged until the approved package and listing are rechecked.
+- Publisher: `FlyingChanges Code`; durable owner and verified public contact: `monroe@flyingchangesfarm.net`.
+- Store item ID: `hhdmfaaplpiokafjieefpgoppckijafc`.
+- Submitted package: `dist/dev-feedback-capture-v1.6.0.zip`.
+- Category: Developer Tools; language: English (United States).
+- The single purpose, permission justifications, no-remote-code declaration, data-use categories, privacy-policy URL, homepage, and support URL were saved before submission.
+- One valid 1280x800 screenshot was submitted. Replace it with the fresh v1.6 set above in a later listing update after the current review resolves; avoid changing the active submission unless a reviewer requests it.
+- Monitor the verified contact email and dashboard for approval or a focused reviewer request.
+- Confirm the dashboard's publication timing choice before an approved item goes live; that setting was not independently recorded here.
+- Complete the deferred PDF/export and v1.6 MCP manual gates before calling the Store release runtime-verified.
+- The feature video, 440x280 promotional tile, and backup publisher Admin remain optional follow-up work.
+- Keep payments, authentication, network sync, and additional permissions out of this v1.6 submission.

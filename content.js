@@ -43,20 +43,8 @@
     OFF: 'off',
     ELEMENT: 'element',
     VISUAL_PICK: 'visual-pick',
-    VISUAL_EDIT: 'visual-edit',
-    VISUAL_MATCH: 'visual-match',
-    VISUAL_ALIGN: 'visual-align'
+    VISUAL_EDIT: 'visual-edit'
   });
-
-  const MATCH_STYLE_PROPERTIES = Object.freeze([
-    'color',
-    'background-color',
-    'font-size',
-    'font-weight',
-    'border-radius',
-    'padding',
-    'gap'
-  ]);
 
   let feedbackMode = false;
   let interactionMode = INTERACTION_MODES.OFF;
@@ -77,8 +65,8 @@
   let visualBeforeViewport = null;
   let visualInitialContext = null;
   let visualLastRect = null;
-  let visualHidden = false;
   let visualBusy = false;
+  let visualGesture = null;
 
   function init() {
     if (!document.body) {
@@ -137,74 +125,11 @@
           <button class="dev-feedback-btn dev-feedback-btn-tertiary" id="dev-feedback-visual-reset" type="button">Reset</button>
         </div>
 
-        <fieldset class="dev-feedback-control-group">
-          <legend>Move</legend>
-          <div class="dev-feedback-nudge-grid" aria-label="Move selected element">
-            <button type="button" data-nudge-x="0" data-nudge-y="-1" aria-label="Move up one pixel">↑</button>
-            <button type="button" data-nudge-x="-1" data-nudge-y="0" aria-label="Move left one pixel">←</button>
-            <button type="button" data-nudge-x="1" data-nudge-y="0" aria-label="Move right one pixel">→</button>
-            <button type="button" data-nudge-x="0" data-nudge-y="1" aria-label="Move down one pixel">↓</button>
-          </div>
-          <div class="dev-feedback-inline-fields">
-            <label>X <input id="dev-feedback-move-x" type="number" value="0" step="1"></label>
-            <label>Y <input id="dev-feedback-move-y" type="number" value="0" step="1"></label>
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-apply-move" type="button">Move</button>
-          </div>
-        </fieldset>
-
-        <fieldset class="dev-feedback-control-group">
-          <legend>Resize</legend>
-          <div class="dev-feedback-inline-fields">
-            <label>W <input id="dev-feedback-width" type="number" min="1" max="100000" step="1"></label>
-            <label>H <input id="dev-feedback-height" type="number" min="1" max="100000" step="1"></label>
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-apply-size" type="button">Apply</button>
-          </div>
-        </fieldset>
-
-        <fieldset class="dev-feedback-control-group">
-          <legend>Text and visibility</legend>
-          <label class="dev-feedback-field-label" for="dev-feedback-visual-text">Visible text</label>
-          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-visual-text" maxlength="2000"></textarea>
-          <div class="dev-feedback-inline-actions">
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-apply-text" type="button">Apply text</button>
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-toggle-hide" type="button">Hide</button>
-          </div>
-        </fieldset>
-
-        <fieldset class="dev-feedback-control-group">
-          <legend>Order and alignment</legend>
-          <div class="dev-feedback-inline-actions">
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" data-reorder="previous" type="button">Earlier</button>
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" data-reorder="next" type="button">Later</button>
-          </div>
-          <div class="dev-feedback-inline-fields">
-            <label class="dev-feedback-grow">Align
-              <select id="dev-feedback-align-kind">
-                <option value="left">Left</option><option value="center-x">Center X</option><option value="right">Right</option>
-                <option value="top">Top</option><option value="center-y">Center Y</option><option value="bottom">Bottom</option>
-              </select>
-            </label>
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-pick-align" type="button">Pick reference</button>
-          </div>
-        </fieldset>
-
-        <fieldset class="dev-feedback-control-group">
-          <legend>Style</legend>
-          <div class="dev-feedback-inline-fields">
-            <label class="dev-feedback-grow">Property
-              <select id="dev-feedback-style-property">
-                <option value="color">Text color</option><option value="background-color">Background</option>
-                <option value="font-size">Font size</option><option value="font-weight">Font weight</option>
-                <option value="border-radius">Corner radius</option><option value="padding">Padding</option><option value="gap">Gap</option>
-              </select>
-            </label>
-            <input id="dev-feedback-style-color" type="color" value="#5b55c5" aria-label="Style color">
-            <input id="dev-feedback-style-number" type="number" min="0" max="1000" value="16" aria-label="Style value in pixels">
-            <select id="dev-feedback-style-weight" aria-label="Font weight"><option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option></select>
-            <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-apply-style" type="button">Apply</button>
-          </div>
-          <button class="dev-feedback-btn dev-feedback-btn-secondary dev-feedback-full-width" id="dev-feedback-pick-match" type="button">Match style from another element</button>
-        </fieldset>
+        <div class="dev-feedback-direct-edit-guide" aria-label="Direct editing instructions">
+          <strong>Direct edit</strong>
+          <span>Drag the outline to move the selected element.</span>
+          <span>Drag the corner handle to resize it.</span>
+        </div>
 
         <fieldset class="dev-feedback-control-group dev-feedback-request-fields">
           <legend>Save change spec</legend>
@@ -259,87 +184,12 @@
   }
 
   function bindVisualInspector() {
-    feedbackPanel.querySelectorAll('[data-nudge-x]').forEach((button) => {
-      button.addEventListener('click', (event) => {
-        const scale = event.shiftKey ? 10 : 1;
-        runVisualCommand(() => visualSession.nudge(
-          Number(button.dataset.nudgeX) * scale,
-          Number(button.dataset.nudgeY) * scale
-        ));
-      });
-    });
-    feedbackPanel.querySelector('#dev-feedback-apply-move').addEventListener('click', () => {
-      const dx = Number(feedbackPanel.querySelector('#dev-feedback-move-x').value);
-      const dy = Number(feedbackPanel.querySelector('#dev-feedback-move-y').value);
-      if (!dx && !dy) {
-        showNotification('Enter a non-zero X or Y movement.', 'error');
-        return;
-      }
-      runVisualCommand(() => visualSession.nudge(dx, dy));
-    });
-    feedbackPanel.querySelector('#dev-feedback-apply-size').addEventListener('click', () => {
-      const width = Number(feedbackPanel.querySelector('#dev-feedback-width').value);
-      const height = Number(feedbackPanel.querySelector('#dev-feedback-height').value);
-      if (!(width > 0) || !(height > 0)) {
-        showNotification('Width and height must be greater than zero.', 'error');
-        return;
-      }
-      runVisualCommand(() => visualSession.commitStyle('Resize element', {
-        width: `${width}px`,
-        height: `${height}px`,
-        'box-sizing': 'border-box'
-      }, 'resize'));
-    });
-    feedbackPanel.querySelector('#dev-feedback-apply-text').addEventListener('click', () => {
-      runVisualCommand(() => visualSession.commitText(feedbackPanel.querySelector('#dev-feedback-visual-text').value));
-    });
-    feedbackPanel.querySelector('#dev-feedback-toggle-hide').addEventListener('click', () => {
-      runVisualCommand(() => visualSession.commitHide(!visualHidden), () => {
-        visualHidden = !visualHidden;
-      });
-    });
-    feedbackPanel.querySelectorAll('[data-reorder]').forEach((button) => {
-      button.addEventListener('click', () => runVisualCommand(() => visualSession.commitReorder(button.dataset.reorder)));
-    });
-    feedbackPanel.querySelector('#dev-feedback-style-property').addEventListener('change', syncStyleControl);
-    feedbackPanel.querySelector('#dev-feedback-apply-style').addEventListener('click', applyCuratedStyle);
-    feedbackPanel.querySelector('#dev-feedback-pick-match').addEventListener('click', () => beginReferencePick(INTERACTION_MODES.VISUAL_MATCH));
-    feedbackPanel.querySelector('#dev-feedback-pick-align').addEventListener('click', () => beginReferencePick(INTERACTION_MODES.VISUAL_ALIGN));
     feedbackPanel.querySelector('#dev-feedback-visual-pick-again').addEventListener('click', pickAnotherVisualTarget);
     feedbackPanel.querySelector('#dev-feedback-visual-undo').addEventListener('click', () => runVisualCommand(() => visualSession.undo()));
     feedbackPanel.querySelector('#dev-feedback-visual-redo').addEventListener('click', () => runVisualCommand(() => visualSession.redo()));
     feedbackPanel.querySelector('#dev-feedback-visual-reset').addEventListener('click', resetVisualSession);
     feedbackPanel.querySelector('#dev-feedback-save-visual').addEventListener('click', saveVisualSpec);
     feedbackPanel.querySelector('#dev-feedback-cancel-visual').addEventListener('click', cancelVisualEdit);
-    syncStyleControl();
-  }
-
-  function syncStyleControl() {
-    const property = feedbackPanel.querySelector('#dev-feedback-style-property').value;
-    const color = feedbackPanel.querySelector('#dev-feedback-style-color');
-    const number = feedbackPanel.querySelector('#dev-feedback-style-number');
-    const weight = feedbackPanel.querySelector('#dev-feedback-style-weight');
-    color.hidden = !['color', 'background-color'].includes(property);
-    number.hidden = !['font-size', 'border-radius', 'padding', 'gap'].includes(property);
-    weight.hidden = property !== 'font-weight';
-  }
-
-  function applyCuratedStyle() {
-    const property = feedbackPanel.querySelector('#dev-feedback-style-property').value;
-    let value;
-    if (['color', 'background-color'].includes(property)) {
-      value = feedbackPanel.querySelector('#dev-feedback-style-color').value;
-    } else if (property === 'font-weight') {
-      value = feedbackPanel.querySelector('#dev-feedback-style-weight').value;
-    } else {
-      const number = Number(feedbackPanel.querySelector('#dev-feedback-style-number').value);
-      if (!Number.isFinite(number) || number < 0) {
-        showNotification('Enter a non-negative style value.', 'error');
-        return;
-      }
-      value = `${number}px`;
-    }
-    runVisualCommand(() => visualSession.commitStyle(`Set ${property}`, { [property]: value }, 'style'));
   }
 
   function clampPanelToViewport() {
@@ -464,13 +314,6 @@
     if (event.key === 'Escape' && captureModal.classList.contains('visible')) {
       event.preventDefault();
       closeCaptureModal();
-      return;
-    }
-
-    if (event.key === 'Escape' && [INTERACTION_MODES.VISUAL_MATCH, INTERACTION_MODES.VISUAL_ALIGN].includes(interactionMode)) {
-      event.preventDefault();
-      interactionMode = INTERACTION_MODES.VISUAL_EDIT;
-      renderVisualInspector('Reference selection cancelled.');
       return;
     }
 
@@ -634,10 +477,6 @@
       captureElement(target);
     } else if (interactionMode === INTERACTION_MODES.VISUAL_PICK) {
       selectVisualTarget(target);
-    } else if (interactionMode === INTERACTION_MODES.VISUAL_MATCH) {
-      applyMatchReference(target);
-    } else if (interactionMode === INTERACTION_MODES.VISUAL_ALIGN) {
-      applyAlignReference(target);
     }
   }
 
@@ -682,7 +521,6 @@
       visualBeforeViewport = beforeViewport;
       visualInitialContext = buildPageContext();
       visualLastRect = originalInfo.rect;
-      visualHidden = false;
       visualSession = globalThis.DevFeedbackVisualEdit.createSession({
         target: element,
         maxCommands: 24,
@@ -690,7 +528,7 @@
       });
       interactionMode = INTERACTION_MODES.VISUAL_EDIT;
       feedbackPanel.classList.add('visual-active');
-      populateVisualInputs(originalInfo);
+      clearVisualRequestFields();
       placePanelOppositeTarget(originalInfo.rect);
       setPanelCollapsed(false);
       renderVisualInspector('Preview changes here. The page is restored after Save or Cancel.');
@@ -701,6 +539,9 @@
       showNotification(error.message || 'Unable to start a visual edit for this element.', 'error');
     } finally {
       visualBusy = false;
+      if (visualSession) {
+        renderVisualInspector();
+      }
     }
   }
 
@@ -717,16 +558,9 @@
     };
   }
 
-  function populateVisualInputs(info, resetRequestFields = true) {
-    feedbackPanel.querySelector('#dev-feedback-width').value = Math.max(1, Math.round(info.rect.width));
-    feedbackPanel.querySelector('#dev-feedback-height').value = Math.max(1, Math.round(info.rect.height));
-    feedbackPanel.querySelector('#dev-feedback-visual-text').value = info.text || '';
-    feedbackPanel.querySelector('#dev-feedback-move-x').value = '0';
-    feedbackPanel.querySelector('#dev-feedback-move-y').value = '0';
-    if (resetRequestFields) {
-      feedbackPanel.querySelector('#dev-feedback-visual-note').value = '';
-      feedbackPanel.querySelector('#dev-feedback-visual-acceptance').value = '';
-    }
+  function clearVisualRequestFields() {
+    feedbackPanel.querySelector('#dev-feedback-visual-note').value = '';
+    feedbackPanel.querySelector('#dev-feedback-visual-acceptance').value = '';
   }
 
   function placePanelOppositeTarget(rect) {
@@ -740,44 +574,6 @@
     }
   }
 
-  function beginReferencePick(mode) {
-    if (!visualSession) {
-      return;
-    }
-    interactionMode = mode;
-    setPanelCollapsed(true);
-    renderVisualInspector(mode === INTERACTION_MODES.VISUAL_MATCH
-      ? 'Pick the element whose style should be matched. Press Escape to cancel.'
-      : 'Pick the element to align against. Press Escape to cancel.');
-  }
-
-  function applyMatchReference(reference) {
-    if (reference === visualTarget) {
-      showNotification('Pick a different element to match.', 'error');
-      return;
-    }
-    if (!runVisualCommand(() => visualSession.commitMatchStyle(reference, MATCH_STYLE_PROPERTIES))) {
-      return;
-    }
-    interactionMode = INTERACTION_MODES.VISUAL_EDIT;
-    setPanelCollapsed(false);
-    renderVisualInspector('Matched the selected style facets.');
-  }
-
-  function applyAlignReference(reference) {
-    if (reference === visualTarget) {
-      showNotification('Pick a different alignment reference.', 'error');
-      return;
-    }
-    const alignment = feedbackPanel.querySelector('#dev-feedback-align-kind').value;
-    if (!runVisualCommand(() => visualSession.commitAlign(reference, alignment))) {
-      return;
-    }
-    interactionMode = INTERACTION_MODES.VISUAL_EDIT;
-    setPanelCollapsed(false);
-    renderVisualInspector(`Aligned ${alignment} to the selected reference.`);
-  }
-
   function runVisualCommand(command, onApplied) {
     if (!visualSession || visualBusy) {
       return false;
@@ -788,12 +584,10 @@
         onApplied();
       }
       if (visualTarget?.isConnected) {
-        visualHidden = window.getComputedStyle(visualTarget).display === 'none';
         const rect = getViewportRect(visualTarget);
         if (rect.width > 0 && rect.height > 0) {
           visualLastRect = rect;
         }
-        syncVisualInputsFromTarget();
       }
       renderVisualInspector();
       scheduleDecorationRefresh();
@@ -809,24 +603,8 @@
       return;
     }
     visualSession.reset();
-    visualHidden = false;
-    populateVisualInputs(visualOriginalInfo, false);
     renderVisualInspector('All preview edits reset.');
     scheduleDecorationRefresh();
-  }
-
-  function syncVisualInputsFromTarget() {
-    if (!visualTarget?.isConnected) {
-      return;
-    }
-    const rect = getViewportRect(visualTarget);
-    if (rect.width > 0 && rect.height > 0) {
-      feedbackPanel.querySelector('#dev-feedback-width').value = Math.max(1, Math.round(rect.width));
-      feedbackPanel.querySelector('#dev-feedback-height').value = Math.max(1, Math.round(rect.height));
-    }
-    feedbackPanel.querySelector('#dev-feedback-visual-text').value = (visualTarget.textContent || '').trim().slice(0, 2000);
-    feedbackPanel.querySelector('#dev-feedback-move-x').value = '0';
-    feedbackPanel.querySelector('#dev-feedback-move-y').value = '0';
   }
 
   function pickAnotherVisualTarget() {
@@ -860,6 +638,7 @@
   }
 
   function restoreVisualSession() {
+    clearVisualGestureListeners();
     if (visualSession) {
       try {
         visualSession.restore();
@@ -873,7 +652,6 @@
     visualBeforeViewport = null;
     visualInitialContext = null;
     visualLastRect = null;
-    visualHidden = false;
     visualBusy = false;
     if (feedbackPanel) {
       feedbackPanel.classList.remove('visual-dirty');
@@ -945,7 +723,6 @@
     feedbackPanel.querySelector('#dev-feedback-visual-reset').disabled = !state?.dirty;
     feedbackPanel.querySelector('#dev-feedback-save-visual').disabled = !state?.dirty || visualBusy;
     feedbackPanel.querySelector('#dev-feedback-visual-pick-again').disabled = !visualTarget;
-    feedbackPanel.querySelector('#dev-feedback-toggle-hide').textContent = visualHidden ? 'Show' : 'Hide';
     const closeButton = feedbackPanel.querySelector('#dev-feedback-panel-close');
     closeButton.title = visualActive ? 'Stop Visual Edit and restore page' : 'Stop element mode';
     closeButton.setAttribute('aria-label', closeButton.title);
@@ -1794,7 +1571,109 @@
     });
   }
 
+  function startVisualGesture(event, kind, outline) {
+    if (!visualSession || !visualTarget?.isConnected || visualBusy || !event.isPrimary) {
+      return;
+    }
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+    const rect = getViewportRect(visualTarget);
+    if (!(rect.width > 0) || !(rect.height > 0)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    visualGesture = {
+      kind,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startRect: rect,
+      preview: outline,
+      dx: 0,
+      dy: 0,
+      width: rect.width,
+      height: rect.height
+    };
+    outline.classList.add('direct-editing');
+    outline.setPointerCapture?.(event.pointerId);
+    window.addEventListener('pointermove', updateVisualGesture, true);
+    window.addEventListener('pointerup', finishVisualGesture, true);
+    window.addEventListener('pointercancel', cancelVisualGesture, true);
+  }
+
+  function updateVisualGesture(event) {
+    if (!visualGesture || event.pointerId !== visualGesture.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    const dx = Math.round(event.clientX - visualGesture.startX);
+    const dy = Math.round(event.clientY - visualGesture.startY);
+    visualGesture.dx = dx;
+    visualGesture.dy = dy;
+    if (visualGesture.kind === 'move') {
+      visualGesture.preview.style.left = `${visualGesture.startRect.x + dx}px`;
+      visualGesture.preview.style.top = `${visualGesture.startRect.y + dy}px`;
+      return;
+    }
+    visualGesture.width = Math.max(24, Math.round(visualGesture.startRect.width + dx));
+    visualGesture.height = Math.max(24, Math.round(visualGesture.startRect.height + dy));
+    visualGesture.preview.style.width = `${visualGesture.width}px`;
+    visualGesture.preview.style.height = `${visualGesture.height}px`;
+  }
+
+  function finishVisualGesture(event) {
+    if (!visualGesture || event.pointerId !== visualGesture.pointerId) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const gesture = visualGesture;
+    clearVisualGestureListeners();
+    if (gesture.kind === 'move') {
+      if (gesture.dx || gesture.dy) {
+        runVisualCommand(() => visualSession.nudge(gesture.dx, gesture.dy));
+      } else {
+        scheduleDecorationRefresh();
+      }
+      return;
+    }
+    if (
+      Math.round(gesture.width) !== Math.round(gesture.startRect.width)
+      || Math.round(gesture.height) !== Math.round(gesture.startRect.height)
+    ) {
+      runVisualCommand(() => visualSession.commitStyle('Resize element', {
+        width: `${gesture.width}px`,
+        height: `${gesture.height}px`,
+        'box-sizing': 'border-box'
+      }, 'resize'));
+    } else {
+      scheduleDecorationRefresh();
+    }
+  }
+
+  function cancelVisualGesture(event) {
+    if (!visualGesture || (event?.pointerId !== undefined && event.pointerId !== visualGesture.pointerId)) {
+      return;
+    }
+    event?.preventDefault();
+    clearVisualGestureListeners();
+    scheduleDecorationRefresh();
+  }
+
+  function clearVisualGestureListeners() {
+    visualGesture?.preview?.classList.remove('direct-editing');
+    visualGesture = null;
+    window.removeEventListener('pointermove', updateVisualGesture, true);
+    window.removeEventListener('pointerup', finishVisualGesture, true);
+    window.removeEventListener('pointercancel', cancelVisualGesture, true);
+  }
+
   function applyDecorations() {
+    if (visualGesture) {
+      return;
+    }
     clearDecorations();
 
     const fragment = document.createDocumentFragment();
@@ -1830,7 +1709,27 @@
         outline.style.top = `${rect.y}px`;
         outline.style.width = `${Math.max(1, rect.width)}px`;
         outline.style.height = `${Math.max(1, rect.height)}px`;
-        outline.textContent = visualHidden ? 'Hidden preview' : 'Visual edit target';
+        outline.setAttribute('role', 'group');
+        outline.setAttribute('aria-label', 'Selected element. Drag to move; drag the corner handle to resize.');
+
+        const label = document.createElement('span');
+        label.className = 'dev-feedback-visual-outline-label';
+        label.textContent = 'Drag to move';
+        outline.appendChild(label);
+
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'dev-feedback-visual-resize-handle';
+        handle.setAttribute('aria-label', 'Drag to resize selected element');
+        handle.addEventListener('pointerdown', (event) => startVisualGesture(event, 'resize', outline));
+        outline.appendChild(handle);
+
+        outline.addEventListener('pointerdown', (event) => {
+          if (event.target === handle) {
+            return;
+          }
+          startVisualGesture(event, 'move', outline);
+        });
         fragment.appendChild(outline);
       }
     }

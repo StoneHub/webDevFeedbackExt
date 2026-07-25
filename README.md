@@ -5,7 +5,7 @@ Dev Feedback Capture is a local-first Chromium extension that turns live pages, 
 > Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
-- `Visual` mode temporarily moves, resizes, rewrites, hides, reorders, or restyles one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
+- `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
 - `Region` mode captures the visible viewport and compiles a crop, vector annotations, best-effort DOM anchors, requested change, and acceptance checks into one visual change spec.
 
 All feedback stays local in extension storage. Open History to review captures, use the legacy standalone exports, or download one AI Bundle with instructions, structured data, page context, and before/annotated images.
@@ -13,7 +13,7 @@ All feedback stays local in extension storage. Open History to review captures, 
 ## Features
 
 - Element capture with selector, text, styles, and note metadata
-- Reversible Visual Edit previews with move, resize, leaf-text rewrite, hide, sibling reorder, curated style, match-style, alignment, undo, redo, and reset
+- Pointer-first Visual Edit previews with drag-to-move, corner-handle resize, undo, redo, and reset
 - Original/proposed evidence plus explicit requested-mutation data; the live page is always restored
 - Visual Change Spec editor with crop, arrow, rectangle, ellipse, pin, text, blur/redact, color, undo, and redo
 - DOM-linked vector annotations with selector fallbacks, roles, surrounding text, geometry, and parent-layout context when the source DOM is available
@@ -24,7 +24,7 @@ All feedback stays local in extension storage. Open History to review captures, 
 - One downloadable AI Bundle ZIP plus standalone JSON and self-contained HTML reports
 - Project-scoped local MCP companion over stdio; no cloud or localhost service
 - Copyable Markdown and implementation-prompt exports
-- Collapsed-by-default, draggable in-page capture list for quick review without covering the page
+- Expanded-by-default in-page capture list that stays anchored to the viewport edge when collapsed and dragged
 
 ## Installation
 
@@ -73,7 +73,7 @@ The cropped image, viewport rectangle, and source context are saved into the sam
 
 1. Open an injectable webpage and choose `Visual` in the popup.
 2. Start Visual Edit and select one element.
-3. Use the in-page inspector to preview curated mutations. Match Style and Align let you pick a second reference element without creating a multi-selection editor.
+3. Drag the selected outline to move the element, or drag its corner handle to resize it. Use Undo, Redo, or Reset as needed.
 4. Add the requested implementation change and optional acceptance criteria.
 5. Save the spec, or Cancel to discard it. Either path restores the original live page.
 
@@ -155,7 +155,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 ## Limitations
 
 - Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
-- Visual Edit is intentionally limited to one normal-page DOM target. It does not traverse cross-origin frames, mutate source code, or support arbitrary CSS, responsive breakpoints, animation, or reparenting.
+- Visual Edit is intentionally limited to direct move and resize of one normal-page DOM target. Text, visibility, order, style, matching, alignment, cross-origin frames, arbitrary CSS, responsive breakpoints, animation, and reparenting are outside this release.
 - Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
 - Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.

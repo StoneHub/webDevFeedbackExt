@@ -14,6 +14,7 @@ const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'w
 const historySource = fs.readFileSync(path.join(__dirname, '..', 'history.js'), 'utf8');
 const captureSource = fs.readFileSync(path.join(__dirname, '..', 'capture.js'), 'utf8');
 const contentSource = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+const stylesSource = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
 
 class MockStyleDeclaration {
@@ -660,6 +661,19 @@ assert.match(contentSource, /function anchorPanelToViewportEdge\(/);
 assert.match(contentSource, /if \(panelCollapsed\) \{[\s\S]*anchorPanelToViewportEdge\(panelAnchor\);/);
 assert.match(backgroundSource, /files: \['shared\.js', 'visual-edit\.js', 'content\.js'\]/);
 assert.match(contentSource, /function cancelVisualEdit\(\) \{[\s\S]*if \(visualBusy\)[\s\S]*restoreVisualSession\(\);/);
+assert.match(
+  contentSource,
+  /async function selectVisualTarget\([\s\S]*finally \{\s*visualBusy = false;\s*if \(visualSession\) \{\s*renderVisualInspector\(\);/
+);
+assert.match(contentSource, /function startVisualGesture\(/);
+assert.match(contentSource, /window\.addEventListener\('pointermove', updateVisualGesture, true\)/);
+assert.match(contentSource, /visualSession\.nudge\(gesture\.dx, gesture\.dy\)/);
+assert.match(contentSource, /className = 'dev-feedback-visual-resize-handle'/);
+assert.match(stylesSource, /\.dev-feedback-visual-outline[\s\S]*touch-action: none !important/);
+assert.match(stylesSource, /\.dev-feedback-visual-resize-handle[\s\S]*width: 30px !important[\s\S]*height: 30px !important/);
+assert.doesNotMatch(contentSource, /id="dev-feedback-move-x"/);
+assert.doesNotMatch(contentSource, /id="dev-feedback-width"/);
+assert.doesNotMatch(contentSource, /id="dev-feedback-style-property"/);
 assert.match(contentSource, /function stopInteractionMode\(\) \{\s*setInteractionMode\(INTERACTION_MODES\.OFF, \{ discardVisual: true \}\);/);
 assert.match(
   contentSource,

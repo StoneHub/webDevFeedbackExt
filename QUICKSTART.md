@@ -31,7 +31,7 @@ Optional for local PDFs:
 
 1. Open an injectable webpage and choose `Visual` in the extension popup.
 2. Click `Start Visual Edit`, then select one page element.
-3. Preview move, resize, text, visibility, order, style, match-style, or alignment changes.
+3. Drag the selected outline to move the element, or drag its corner handle to resize it.
 4. Use Undo, Redo, or Reset as needed.
 5. Add the implementation note and optional acceptance checks, then save the spec.
 6. The live page is restored; the original/proposed evidence and requested mutations remain in local History.

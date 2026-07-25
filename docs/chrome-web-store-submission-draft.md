@@ -65,8 +65,8 @@ Capture the real v1.7 extension operating on its own public product page. Produc
    - Show Element mode targeting a feature card.
    - Keep the compact capture list collapsed so the page remains readable.
 2. `02-visual-edit.png`
-   - Show Visual mode with one obvious but reversible layout or style proposal.
-   - Include the focused edit inspector and original/proposed intent.
+   - Show Visual mode with one obvious direct move or resize proposal.
+   - Include the selected outline, large corner handle, and original/proposed intent.
 3. `03-region-annotation.png`
    - Show Region crop with an arrow, rectangle, numbered pin, short text, and one redact mark.
    - Use only public demo content; do not redact real private information.
@@ -105,7 +105,7 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 2. `0:06-0:20` — Element mode
    - Start Element mode, select a feature card, add a concise request, save.
 3. `0:20-0:36` — Visual Edit
-   - Select one element, preview a reversible style or spacing change, show undo/redo, save the requested mutation.
+   - Select one element, drag it to move, use the corner handle to resize, show undo/redo, and save the requested mutation.
 4. `0:36-0:54` — Region spec
    - Crop, add an arrow/pin/text, apply a redact mark, add an acceptance check, save.
 5. `0:54-1:08` — History and exports

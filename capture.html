@@ -6,18 +6,18 @@
   <title>Visual Change Spec</title>
   <style>
     :root {
-      --bg: #101211;
-      --surface: #171a18;
-      --surface-high: #202420;
-      --surface-higher: #2a302b;
-      --text: #edf2ee;
-      --muted: #aeb9b0;
-      --faint: #778276;
-      --accent: #8ed8a0;
-      --accent-strong: #5fba79;
-      --danger: #f87171;
-      --line: rgba(204, 221, 205, 0.16);
-      --shadow: 0 24px 70px rgba(0, 0, 0, 0.48);
+      --bg: #f6f5fa;
+      --surface: #ffffff;
+      --surface-high: #f0eef7;
+      --surface-higher: #e7e4f1;
+      --text: #29263a;
+      --muted: #6f6a7d;
+      --faint: #938da0;
+      --accent: #5b55c5;
+      --accent-strong: #4338a8;
+      --danger: #b63849;
+      --line: rgba(62, 55, 96, 0.16);
+      --shadow: 0 24px 70px rgba(42, 37, 72, 0.18);
     }
 
     * {
@@ -28,8 +28,8 @@
       margin: 0;
       font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background:
-        radial-gradient(circle at 12% 0%, rgba(142, 216, 160, 0.12), transparent 35%),
-        linear-gradient(180deg, #111411 0%, #0b0d0c 100%);
+        radial-gradient(circle at 12% 0%, rgba(91, 85, 197, 0.09), transparent 36%),
+        linear-gradient(180deg, #fbfafe 0%, #f3f1f8 100%);
       color: var(--text);
       min-height: 100vh;
     }
@@ -55,7 +55,7 @@
       padding: 18px;
       border: 1px solid var(--line);
       border-radius: 10px;
-      background: rgba(255, 255, 255, 0.025);
+      background: rgba(255, 255, 255, 0.72);
       box-shadow: var(--shadow);
     }
 
@@ -67,7 +67,7 @@
       user-select: none;
       border-radius: 8px;
       overflow: hidden;
-      background: #0b0d0c;
+      background: #ffffff;
       border: 1px solid var(--line);
       touch-action: none;
     }
@@ -88,7 +88,7 @@
     }
 
     .image-wrap:focus-visible {
-      outline: 3px solid rgba(142, 216, 160, 0.5);
+      outline: 3px solid rgba(91, 85, 197, 0.42);
       outline-offset: 3px;
     }
 
@@ -96,8 +96,8 @@
       position: absolute;
       z-index: 2;
       border: 2px solid var(--accent);
-      background: rgba(142, 216, 160, 0.13);
-      box-shadow: 0 0 0 9999px rgba(7, 8, 7, 0.46);
+      background: rgba(91, 85, 197, 0.13);
+      box-shadow: 0 0 0 9999px rgba(41, 38, 58, 0.44);
       pointer-events: none;
       display: none;
     }
@@ -109,7 +109,7 @@
     .sidebar {
       padding: 18px;
       background:
-        radial-gradient(circle at 18% 0%, rgba(142, 216, 160, 0.12), transparent 34%),
+        radial-gradient(circle at 18% 0%, rgba(91, 85, 197, 0.08), transparent 36%),
         var(--surface);
       border-left: 1px solid var(--line);
       display: flex;
@@ -128,13 +128,14 @@
       width: 36px;
       height: 36px;
       border-radius: 8px;
-      border: 1px solid rgba(142, 216, 160, 0.66);
+      border: 1px solid rgba(91, 85, 197, 0.44);
       color: var(--accent);
       display: grid;
       place-items: center;
       flex: 0 0 auto;
       font: 800 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-      box-shadow: inset 0 0 0 1px rgba(142, 216, 160, 0.14);
+      background: rgba(91, 85, 197, 0.06);
+      box-shadow: inset 0 0 0 1px rgba(91, 85, 197, 0.08);
     }
 
     h1 {
@@ -151,7 +152,7 @@
     }
 
     .card {
-      background: rgba(255, 255, 255, 0.035);
+      background: rgba(255, 255, 255, 0.74);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 12px;
@@ -191,15 +192,15 @@
     .tool-button:hover:not(:disabled) {
       color: var(--text);
       background: var(--surface-higher);
-      border-color: rgba(142, 216, 160, 0.32);
+      border-color: rgba(91, 85, 197, 0.28);
     }
 
     .tool-button.active,
     .tool-button[aria-pressed="true"] {
-      color: #07120b;
+      color: #ffffff;
       background: var(--accent);
       border-color: var(--accent-strong);
-      box-shadow: 0 0 0 2px rgba(142, 216, 160, 0.13);
+      box-shadow: 0 0 0 2px rgba(91, 85, 197, 0.12);
     }
 
     .tool-settings {
@@ -247,7 +248,7 @@
     }
 
     input[type="color"]:focus-visible {
-      outline: 2px solid rgba(142, 216, 160, 0.5);
+      outline: 2px solid rgba(91, 85, 197, 0.42);
       outline-offset: 1px;
     }
 
@@ -262,7 +263,7 @@
       font-size: 13px;
       line-height: 1.45;
       color: var(--text);
-      background: #0b0d0c;
+      background: #ffffff;
     }
 
     textarea::placeholder {
@@ -271,8 +272,8 @@
 
     textarea:focus {
       outline: none;
-      border-color: rgba(142, 216, 160, 0.7);
-      box-shadow: 0 0 0 3px rgba(142, 216, 160, 0.12);
+      border-color: rgba(91, 85, 197, 0.62);
+      box-shadow: 0 0 0 3px rgba(91, 85, 197, 0.12);
     }
 
     .counter {
@@ -304,7 +305,7 @@
     }
 
     button:focus-visible {
-      outline: 2px solid rgba(142, 216, 160, 0.5);
+      outline: 2px solid rgba(91, 85, 197, 0.42);
       outline-offset: 2px;
     }
 
@@ -319,9 +320,9 @@
     }
 
     .primary {
-      background: linear-gradient(180deg, #7ed693, #57b874);
-      border-color: rgba(142, 216, 160, 0.48);
-      color: #07120b;
+      background: linear-gradient(180deg, #6964d4, #5650bd);
+      border-color: rgba(67, 56, 168, 0.42);
+      color: #ffffff;
     }
 
     .secondary {
@@ -334,9 +335,9 @@
     }
 
     .danger {
-      background: #2b1819;
-      border-color: rgba(248, 113, 113, 0.34);
-      color: #ffcaca;
+      background: #fff0f2;
+      border-color: rgba(182, 56, 73, 0.28);
+      color: #9f2d3e;
     }
 
     .status {
@@ -347,7 +348,7 @@
     }
 
     .error {
-      color: #ffcaca;
+      color: #9f2d3e;
     }
 
     .hint {
@@ -449,7 +450,7 @@
           <button class="history-button" type="button" id="redo-btn" disabled>Redo</button>
           <label class="color-control" for="annotation-color">
             Color
-            <input id="annotation-color" type="color" value="#8ed8a0" aria-label="Annotation color">
+            <input id="annotation-color" type="color" value="#5b55c5" aria-label="Annotation color">
           </label>
         </div>
       </div>

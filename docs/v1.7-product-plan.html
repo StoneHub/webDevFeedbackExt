@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dev Feedback Capture v1.7 Product Plan</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f3f4f8;
+      --panel: #ffffff;
+      --panel-soft: #f7f7fb;
+      --text: #18182a;
+      --muted: #616176;
+      --line: #dadae7;
+      --brand: #4338ca;
+      --brand-soft: #ecebff;
+      --accent: #f05a28;
+      --good: #17734a;
+      --warn: #9a5a00;
+      --shadow: 0 16px 40px rgba(41, 37, 99, .08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #101018;
+        --panel: #191923;
+        --panel-soft: #20202c;
+        --text: #f2f2f8;
+        --muted: #b3b3c4;
+        --line: #363646;
+        --brand: #a9a2ff;
+        --brand-soft: #29264d;
+        --accent: #ff8b63;
+        --good: #75d7a8;
+        --warn: #ffc066;
+        --shadow: none;
+      }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 32rem),
+        var(--page);
+      color: var(--text);
+      font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(1080px, calc(100% - 32px)); margin: 0 auto; padding: 42px 0 72px; }
+    header, section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      padding: clamp(22px, 4vw, 36px);
+    }
+    header {
+      overflow: hidden;
+      position: relative;
+    }
+    header::after {
+      background: var(--accent);
+      border-radius: 999px;
+      content: "";
+      height: 8px;
+      position: absolute;
+      right: -40px;
+      top: 30px;
+      transform: rotate(-12deg);
+      width: 220px;
+    }
+    h1, h2, h3 { line-height: 1.18; margin-top: 0; }
+    h1 { font-size: clamp(2.1rem, 6vw, 4.35rem); letter-spacing: -.045em; margin-bottom: 14px; max-width: 850px; }
+    h2 { font-size: clamp(1.35rem, 3vw, 2rem); letter-spacing: -.025em; }
+    h3 { font-size: 1rem; margin-bottom: 8px; }
+    p { max-width: 78ch; }
+    a { color: var(--brand); }
+    code { background: var(--brand-soft); border-radius: 5px; padding: .1rem .32rem; }
+    .eyebrow {
+      color: var(--brand);
+      font-size: .76rem;
+      font-weight: 850;
+      letter-spacing: .13em;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .lede { color: var(--muted); font-size: 1.12rem; margin-bottom: 0; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+    .chip {
+      background: var(--brand-soft);
+      border: 1px solid color-mix(in srgb, var(--brand) 20%, var(--line));
+      border-radius: 999px;
+      color: var(--brand);
+      font-size: .82rem;
+      font-weight: 750;
+      padding: 7px 11px;
+    }
+    .summary {
+      display: grid;
+      gap: 13px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .summary article {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 17px;
+    }
+    .summary article p { color: var(--muted); margin: 0; }
+    .summary strong { color: var(--text); display: block; margin-bottom: 5px; }
+    .decision {
+      border-left: 5px solid var(--accent);
+      background: color-mix(in srgb, var(--panel) 90%, var(--brand-soft));
+    }
+    .status { color: var(--good); font-weight: 800; }
+    .risk { color: var(--warn); font-weight: 800; }
+    .priority-list { display: grid; gap: 12px; }
+    .priority {
+      align-items: center;
+      display: grid;
+      gap: 13px;
+      grid-template-columns: minmax(180px, 1.45fr) 3fr 42px;
+    }
+    .priority-name small { color: var(--muted); display: block; }
+    .track { background: var(--panel-soft); border: 1px solid var(--line); border-radius: 999px; height: 12px; overflow: hidden; }
+    .bar { background: linear-gradient(90deg, var(--brand), var(--accent)); border-radius: inherit; height: 100%; }
+    .score { font-variant-numeric: tabular-nums; font-weight: 850; text-align: right; }
+    .caption { color: var(--muted); font-size: .82rem; margin: 18px 0 0; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-top: 1px solid var(--line); padding: 13px 9px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; }
+    tbody tr:first-child td { border-top-color: var(--brand); }
+    .tag {
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 850;
+      padding: 3px 8px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .tag.now { color: var(--good); }
+    .tag.next { color: var(--brand); }
+    .tag.later { color: var(--muted); }
+    .copy {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 18px;
+    }
+    .copy + .copy { margin-top: 12px; }
+    .copy-label { color: var(--muted); font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .copy blockquote { border-left: 3px solid var(--brand); margin: 10px 0 0; padding-left: 14px; }
+    .copy blockquote p { margin: 0 0 10px; }
+    .storyboard { display: grid; gap: 12px; grid-template-columns: repeat(4, 1fr); }
+    .shot {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      min-height: 150px;
+      padding: 16px;
+    }
+    .shot-num { color: var(--accent); font-size: 1.5rem; font-weight: 900; }
+    .shot p { color: var(--muted); font-size: .9rem; margin-bottom: 0; }
+    .money-grid { display: grid; gap: 14px; grid-template-columns: repeat(3, 1fr); }
+    .money-card { border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+    .money-card.recommended { border-color: var(--brand); box-shadow: inset 0 4px 0 var(--brand); }
+    .price { color: var(--brand); font-size: 1.55rem; font-weight: 900; }
+    .money-card ul, .steps, .sources { padding-left: 1.25rem; }
+    li + li { margin-top: .5rem; }
+    .qa {
+      background: var(--panel-soft);
+      border-radius: 12px;
+      color: var(--muted);
+      padding: 14px 16px;
+    }
+    @media (max-width: 780px) {
+      .summary, .storyboard, .money-grid { grid-template-columns: 1fr; }
+      .priority { grid-template-columns: 1fr 42px; }
+      .priority .track { grid-column: 1 / -1; grid-row: 2; }
+      header::after { display: none; }
+      table { display: block; overflow-x: auto; }
+    }
+    @media print {
+      :root { color-scheme: light; }
+      body { background: #fff; }
+      main { width: 100%; padding: 0; }
+      header, section { break-inside: avoid; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Dev Feedback Capture · July 25, 2026</div>
+      <h1>Make v1.7 obvious before making it paid</h1>
+      <p class="lede">The strongest next release is a trust-and-activation pass: finish the Browser Code identity, make the first successful capture effortless, prove every existing workflow, and tell that story clearly in the Store.</p>
+      <div class="chips">
+        <span class="chip">Local-first</span>
+        <span class="chip">Manifest V3</span>
+        <span class="chip">No accounts</span>
+        <span class="chip">No telemetry</span>
+        <span class="chip">Explicit export</span>
+      </div>
+    </header>
+
+    <section>
+      <h2>Executive Summary</h2>
+      <div class="summary">
+        <article>
+          <strong>Ship v1.7 free.</strong>
+          <p>There is not enough demand evidence yet to justify accounts, billing, licensing, and the support burden that follows.</p>
+        </article>
+        <article>
+          <strong>Sell the workflow later.</strong>
+          <p>The paid value is not “take a screenshot.” It is a reliable project inbox, agent handoff, status loop, and team collaboration.</p>
+        </article>
+        <article>
+          <strong>Win on trust now.</strong>
+          <p>Local storage, minimal permissions, and explicit exports are a real differentiator—especially under Chrome’s stricter 2026 data-disclosure rules.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="decision">
+      <div class="eyebrow">Decision</div>
+      <h2>Best path: one tight free release, then a paid validation offer</h2>
+      <p><strong>v1.7 should improve comprehension and close proof gaps, not add a cloud backend.</strong> The Browser Code icon and edge-anchored compact panel are already implemented locally. Finish the current manual gates, add a short first-run path, tighten the handoff, and refresh the Store listing.</p>
+      <p><strong>Counterpoint:</strong> delaying payment delays revenue. The larger risk is charging before the extension has repeat users or a clear paid boundary; that creates billing complexity without proving anyone wants the product.</p>
+    </section>
+
+    <section>
+      <h2>v1.7 priority score</h2>
+      <div class="priority-list" role="img" aria-label="Judgment-based priority scores for possible v1.7 work">
+        <div class="priority">
+          <div class="priority-name"><strong>Runtime proof + release truth</strong><small>Close deferred gates; update stale public docs</small></div>
+          <div class="track"><div class="bar" style="width:100%"></div></div>
+          <div class="score">100</div>
+        </div>
+        <div class="priority">
+          <div class="priority-name"><strong>First successful capture</strong><small>60-second walkthrough and sample target</small></div>
+          <div class="track"><div class="bar" style="width:94%"></div></div>
+          <div class="score">94</div>
+        </div>
+        <div class="priority">
+          <div class="priority-name"><strong>Store creative refresh</strong><small>Icon, copy, and four workflow screenshots</small></div>
+          <div class="track"><div class="bar" style="width:90%"></div></div>
+          <div class="score">90</div>
+        </div>
+        <div class="priority">
+          <div class="priority-name"><strong>Clear agent handoff</strong><small>One action, one file, explicit next step</small></div>
+          <div class="track"><div class="bar" style="width:78%"></div></div>
+          <div class="score">78</div>
+        </div>
+        <div class="priority">
+          <div class="priority-name"><strong>Acceptance verification</strong><small>Record pass/fail against saved criteria</small></div>
+          <div class="track"><div class="bar" style="width:67%"></div></div>
+          <div class="score">67</div>
+        </div>
+        <div class="priority">
+          <div class="priority-name"><strong>Cloud team sync</strong><small>Accounts, shared projects, billing, support</small></div>
+          <div class="track"><div class="bar" style="width:28%"></div></div>
+          <div class="score">28</div>
+        </div>
+      </div>
+      <p class="caption">Product-judgment score, not measured usage data. It combines user value, confidence, effort, privacy risk, and fit with the current local-first promise.</p>
+    </section>
+
+    <section>
+      <h2>What goes into the next push</h2>
+      <table>
+        <thead>
+          <tr><th>When</th><th>Change</th><th>Why it earns the slot</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag now">Now</span></td>
+            <td><strong>Browser Code icon</strong> plus the edge-anchored compact list and <strong>⌃ / ⌄</strong> controls.</td>
+            <td>The product reads as a web-development tool and the smallest persistent UI is easier to understand.</td>
+          </tr>
+          <tr>
+            <td><span class="tag now">Now</span></td>
+            <td><strong>Complete the three deferred runtime gates:</strong> PDF/export/redaction, Visual Edit restoration, and a real MCP handoff.</td>
+            <td>Existing capability is more valuable than another unverified feature. These are release gates, not polish.</td>
+          </tr>
+          <tr>
+            <td><span class="tag now">Now</span></td>
+            <td><strong>First-run walkthrough:</strong> choose Element, Visual, or Region; capture one sample; open History; export.</td>
+            <td>The first win should take under a minute without reading the README.</td>
+          </tr>
+          <tr>
+            <td><span class="tag now">Now</span></td>
+            <td><strong>One named handoff action:</strong> “Download for agent,” followed by the exact local import instruction.</td>
+            <td>Users should not need to understand AI Bundle vs JSON for MCP before they get value.</td>
+          </tr>
+          <tr>
+            <td><span class="tag now">Now</span></td>
+            <td><strong>Truth cleanup:</strong> published version, changelog status, README download language, product metadata, support URL, and privacy text.</td>
+            <td>The repository currently describes v1.6 as in development even though v1.6 is public.</td>
+          </tr>
+          <tr>
+            <td><span class="tag next">Next</span></td>
+            <td><strong>Acceptance-check verification</strong> with pass/fail and a short implementation note.</td>
+            <td>This closes the feedback loop and creates a more defensible paid workflow later.</td>
+          </tr>
+          <tr>
+            <td><span class="tag later">Later</span></td>
+            <td>Full-page capture, hosted sharing, accounts, integrations, and telemetry.</td>
+            <td>Each expands scope, privacy disclosures, failure modes, and support before demand is proven.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Store listing draft</h2>
+      <div class="copy">
+        <div class="copy-label">Name</div>
+        <blockquote><p><strong>Dev Feedback Capture</strong></p></blockquote>
+      </div>
+      <div class="copy">
+        <div class="copy-label">Short description</div>
+        <blockquote><p>Capture element, region, and visual-edit feedback as implementation-ready specs—saved locally and exported only when you choose.</p></blockquote>
+      </div>
+      <div class="copy">
+        <div class="copy-label">Opening description</div>
+        <blockquote>
+          <p><strong>Turn what you see in the browser into a change spec a developer or coding agent can act on.</strong></p>
+          <p>Capture a DOM element, annotate a visible region or PDF, or preview a visual edit. Dev Feedback Capture keeps the selector, screenshot evidence, requested change, page context, and acceptance checks together.</p>
+          <p>Your captures stay in local extension storage. Nothing is uploaded, synced, or sent to an AI service unless you explicitly export it and choose where to send it.</p>
+        </blockquote>
+      </div>
+      <div class="copy">
+        <div class="copy-label">Key bullets</div>
+        <blockquote>
+          <p>• Element mode — capture selectors, text, styles, and notes<br>
+          • Visual mode — directly drag and resize one element with reversible previews<br>
+          • Region mode — annotate pages and PDFs with crops, pins, arrows, text, and redaction<br>
+          • History — review, edit, and export saved feedback<br>
+          • Agent-ready exports — JSON, HTML, Markdown, and an evidence bundle<br>
+          • Local-first — minimal permissions, no always-on page access, no telemetry, no cloud sync</p>
+        </blockquote>
+      </div>
+    </section>
+
+    <section>
+      <h2>Four screenshots should tell the whole story</h2>
+      <div class="storyboard">
+        <article class="shot">
+          <div class="shot-num">01</div>
+          <h3>Pick the exact element</h3>
+          <p>Show Element mode with the edge-anchored compact list and one clearly highlighted target.</p>
+        </article>
+        <article class="shot">
+          <div class="shot-num">02</div>
+          <h3>Mark the visual change</h3>
+          <p>Show Region mode with crop, arrow, numbered pin, requested change, and one acceptance check.</p>
+        </article>
+        <article class="shot">
+          <div class="shot-num">03</div>
+          <h3>Preview without changing source</h3>
+          <p>Show Visual mode while dragging or resizing one selected element, with original versus proposed state and the restoration promise.</p>
+        </article>
+        <article class="shot">
+          <div class="shot-num">04</div>
+          <h3>Hand it off with context</h3>
+          <p>Show History and the one-click agent export, with evidence and structured requirements visible.</p>
+        </article>
+      </div>
+      <p class="caption">Do not lead with MCP terminology. Lead with the job: “capture a change, keep its context, hand it off.”</p>
+    </section>
+
+    <section>
+      <h2>How this can make money</h2>
+      <div class="money-grid">
+        <article class="money-card recommended">
+          <div class="eyebrow">Best first offer</div>
+          <h3>Free extension + Local Pro</h3>
+          <div class="price">$49 founding license</div>
+          <ul>
+            <li>Multi-project feedback inbox</li>
+            <li>Watched-folder agent import</li>
+            <li>Status and acceptance-check round trip</li>
+            <li>Export presets and reusable templates</li>
+            <li>No hosted page content</li>
+          </ul>
+          <p><strong>Why:</strong> it monetizes the developer workflow while preserving the extension’s strongest privacy advantage.</p>
+        </article>
+        <article class="money-card">
+          <div class="eyebrow">After team demand</div>
+          <h3>Hosted Team</h3>
+          <div class="price">$12–20 / creator / month</div>
+          <ul>
+            <li>Shared projects and guest links</li>
+            <li>Assignments, comments, and audit history</li>
+            <li>GitHub, Linear, Jira, or Slack handoff</li>
+            <li>Admin and retention controls</li>
+          </ul>
+          <p><strong>Risk:</strong> backend security, privacy, billing, support, and integration maintenance become the product.</p>
+        </article>
+        <article class="money-card">
+          <div class="eyebrow">Do not do</div>
+          <h3>Paid basic capture</h3>
+          <div class="price">Not yet</div>
+          <ul>
+            <li>No paywall on Element or Region capture</li>
+            <li>No ads in the page overlay</li>
+            <li>No sale of browsing or page data</li>
+            <li>No cloud account merely to export</li>
+          </ul>
+          <p><strong>Why:</strong> it weakens acquisition and trust before the product has demonstrated repeat use.</p>
+        </article>
+      </div>
+      <p>Comparable products charge for collaboration and workflow depth: Jam lists a free tier and a $14-per-creator Team tier; BugHerd’s Standard plan is $50/month for five members; Marker.io starts at $39/month. That is the signal: <strong>capture earns attention, workflow earns money.</strong></p>
+    </section>
+
+    <section>
+      <h2>Validation gate before building billing</h2>
+      <ol class="steps">
+        <li><strong>Recruit five real users</strong>—freelance developers, agency owners, QA, or PMs—and watch each complete one capture and export.</li>
+        <li><strong>Get ten people to use it on two separate days</strong> within a two-week window. Measure manually or through Store analytics; do not add extension telemetry for this test.</li>
+        <li><strong>Ask for the sale:</strong> offer a $49 founding Local Pro license with the promised workflow above. Build it only after at least three people commit to paying.</li>
+        <li><strong>Use one success definition:</strong> a user captures a change, hands it to a developer/agent, and records whether the acceptance checks passed.</li>
+      </ol>
+      <div class="qa"><strong>Guardrails:</strong> permissions remain <code>storage</code>, <code>activeTab</code>, and <code>scripting</code>; no page content leaves the device without an explicit export; no evidence is lost; and every Store privacy disclosure matches actual behavior.</div>
+    </section>
+
+    <section>
+      <h2>Further questions</h2>
+      <ul>
+        <li>Who is the first paying customer: solo developer, agency, QA team, or product manager?</li>
+        <li>Is the highest-value loop “feedback to agent,” “client to agency,” or “QA to developer”?</li>
+        <li>Will Local Pro be a separate desktop companion, a supported MCP package, or both?</li>
+        <li>Which single integration would three paying users choose first?</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Caveats and assumptions</h2>
+      <p>This plan uses the current source tree, the public v1.6 listing, official Chrome policy, and current competitor pricing. The priority scores and proposed prices are decision aids—not observed conversion data. Before setting a final price, check the Developer Dashboard’s actual listing impressions, installs, and retention signals.</p>
+      <p>Chrome’s updated user-data policy takes effect August 1, 2026. Any future telemetry, accounts, cloud sync, or paid service must be both necessary to the disclosed purpose and prominently disclosed. Chrome’s developer agreement also states that Google is not responsible for processing product payments, authentication of paid downloads, payment records, or taxes.</p>
+    </section>
+
+    <section>
+      <h2>Sources</h2>
+      <ul class="sources">
+        <li><a href="https://developer.chrome.com/blog/cws-policy-updates-2026?hl=en">Chrome Web Store policy updates, July 1, 2026</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/program-policies/policies?hl=en">Chrome Web Store Program Policies</a></li>
+        <li><a href="https://developer.chrome.com/docs/webstore/program-policies/terms">Chrome Web Store Developer Agreement</a></li>
+        <li><a href="https://jam.dev/pricing">Jam pricing</a></li>
+        <li><a href="https://bugherd.com/pricing">BugHerd pricing</a></li>
+        <li><a href="https://marker.io/pricing">Marker.io pricing</a></li>
+        <li><a href="../README.md">Current product capabilities and privacy boundary</a></li>
+        <li><a href="./manual-release-checklist.md">Deferred manual release gates</a></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

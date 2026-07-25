@@ -2,7 +2,7 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-The latest published ZIP is v1.2.0. The local MCP companion is in development in the v1.6 source checkout; Visual Edit Mode, the annotated Region editor, and the AI Bundle remain unreleased source features.
+Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
 
 ## 1. Load the extension
 
@@ -25,13 +25,13 @@ Optional for local PDFs:
 3. Leave the mode on `Element`.
 4. Click `Start Element Mode` or press `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 5. Click a page element, add your note, and save it.
-6. The in-page capture list starts collapsed. Use **+** to expand it and **−** to collapse it again.
+6. The in-page capture list starts expanded. Use **⌄** to collapse it; the compact list stays on the nearest viewport edge as you drag it, and **⌃** expands it again.
 
 ## 3. Preview a visual edit
 
 1. Open an injectable webpage and choose `Visual` in the extension popup.
 2. Click `Start Visual Edit`, then select one page element.
-3. Preview move, resize, text, visibility, order, style, match-style, or alignment changes.
+3. Drag the selected outline to move the element, or drag its corner handle to resize it.
 4. Use Undo, Redo, or Reset as needed.
 5. Add the implementation note and optional acceptance checks, then save the spec.
 6. The live page is restored; the original/proposed evidence and requested mutations remain in local History.

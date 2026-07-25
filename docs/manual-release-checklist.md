@@ -2,7 +2,18 @@
 
 Automated checks are necessary but do not replace the unpacked-extension gate.
 
-Store status on July 19, 2026: the v1.6 package was submitted for Chrome Web Store review before the deferred manual gates below were completed. Store approval is not proof that these checks passed. Keep them open and do not call the release runtime-verified until the relevant evidence is recorded.
+Store status on July 25, 2026: v1.6 is public in the Chrome Web Store. Store approval is not proof that the deferred checks below passed. Keep them open and do not tag, upload, or call v1.7 runtime-verified until the relevant evidence is recorded.
+
+## v1.7 compact-panel and icon check
+
+Before tagging or uploading v1.7:
+
+- Reload the unpacked extension from this exact repository checkout.
+- Start Element and Visual modes and confirm the change list opens expanded with the paper-and-indigo palette.
+- In Element and Visual modes, drag the collapsed change list near every viewport edge and confirm it stays anchored to the nearest edge.
+- Resize the browser window and confirm the collapsed list remains visible on its selected edge.
+- Confirm **⌃** expands the list, **⌄** collapses it, and both controls have matching accessible labels.
+- Confirm the Browser Code icon is legible in the browser toolbar and extension-management list at the packaged sizes.
 
 ## Deferred v1.4 PDF/export check
 
@@ -16,9 +27,9 @@ Before tagging or publishing v1.4 or later, load the exact repository path as an
 
 This gate was intentionally deferred from the v1.4 source merge. It is expected to be routine, but it remains required before the submitted release is described as runtime-verified.
 
-## Deferred v1.5 Visual Edit check
+## v1.7 direct Visual Edit check
 
-Before tagging, publishing, or uploading v1.5, exercise reversible text, visibility, resize, spacing/style, reorder, match-style, and alignment changes on a normal webpage. Confirm Cancel, Save, Undo, Redo, navigation, Region handoff, and stopping feedback mode always restore the live page, while the saved item and AI Bundle preserve original versus proposed intent.
+Before tagging, publishing, or uploading v1.7, select one normal-page element and drag its outline to move it with a mouse or pointer. Resize it with the corner handle and, when touch-capable hardware is available, repeat both gestures with a finger. Confirm Undo, Redo, and Reset work after direct gestures. Confirm Cancel, Save, navigation, Region handoff, and stopping feedback mode always restore the live page, while the saved item and AI Bundle preserve original versus proposed intent.
 
 The source may merge to `main` for code review and local trying before this hands-on gate is complete. Do not call the release runtime-verified until this checklist passes.
 

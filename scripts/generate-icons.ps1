@@ -2,18 +2,6 @@ Add-Type -AssemblyName System.Drawing
 
 $root = Split-Path -Parent $PSScriptRoot
 
-function New-Brush([int]$size) {
-  $start = [System.Drawing.Point]::new(0, 0)
-  $end = [System.Drawing.Point]::new($size, $size)
-  $brush = [System.Drawing.Drawing2D.LinearGradientBrush]::new(
-    $start,
-    $end,
-    [System.Drawing.ColorTranslator]::FromHtml('#667eea'),
-    [System.Drawing.ColorTranslator]::FromHtml('#764ba2')
-  )
-  return $brush
-}
-
 function Draw-RoundedRectangle {
   param(
     [System.Drawing.Graphics]$Graphics,
@@ -44,49 +32,42 @@ function Draw-Icon([int]$size, [string]$path) {
   $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
   $graphics.Clear([System.Drawing.Color]::Transparent)
 
-  $backgroundBrush = New-Brush $size
-  $graphics.FillRectangle($backgroundBrush, 0, 0, $size, $size)
-
+  $scale = $size / 128.0
+  $backgroundBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#4338ca'))
   $whiteBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::White)
-  $accentBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#667eea'))
+  $orangeBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#f05a28'))
+  $yellowBrush = [System.Drawing.SolidBrush]::new([System.Drawing.ColorTranslator]::FromHtml('#f5b942'))
 
-  $bubbleX = $size * 0.22
-  $bubbleY = $size * 0.18
-  $bubbleWidth = $size * 0.58
-  $bubbleHeight = $size * 0.44
-  $radius = [Math]::Max(2, $size * 0.08)
+  Draw-RoundedRectangle -Graphics $graphics -Brush $backgroundBrush -X (3 * $scale) -Y (3 * $scale) -Width (122 * $scale) -Height (122 * $scale) -Radius (27 * $scale)
+  Draw-RoundedRectangle -Graphics $graphics -Brush $whiteBrush -X (20 * $scale) -Y (26 * $scale) -Width (88 * $scale) -Height (76 * $scale) -Radius (12 * $scale)
 
-  Draw-RoundedRectangle -Graphics $graphics -Brush $whiteBrush -X $bubbleX -Y $bubbleY -Width $bubbleWidth -Height $bubbleHeight -Radius $radius
+  $dividerPen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml('#dfe1ee'), 6 * $scale)
+  $graphics.DrawLine($dividerPen, 20 * $scale, 41 * $scale, 108 * $scale, 41 * $scale)
+  $graphics.FillEllipse($orangeBrush, 28 * $scale, 31 * $scale, 6 * $scale, 6 * $scale)
+  $graphics.FillEllipse($yellowBrush, 38 * $scale, 31 * $scale, 6 * $scale, 6 * $scale)
 
-  $tail = [System.Drawing.Drawing2D.GraphicsPath]::new()
-  $tail.StartFigure()
-  $tail.AddLine($bubbleX + ($bubbleWidth * 0.46), $bubbleY + $bubbleHeight, $bubbleX + ($bubbleWidth * 0.34), $bubbleY + $bubbleHeight + ($size * 0.15))
-  $tail.AddLine($bubbleX + ($bubbleWidth * 0.34), $bubbleY + $bubbleHeight + ($size * 0.15), $bubbleX + ($bubbleWidth * 0.34), $bubbleY + $bubbleHeight)
-  $tail.CloseFigure()
-  $graphics.FillPath($whiteBrush, $tail)
-  $tail.Dispose()
-
-  if ($size -ge 48) {
-    $cursor = [System.Drawing.Drawing2D.GraphicsPath]::new()
-    $cursorX = $bubbleX + ($bubbleWidth * 0.32)
-    $cursorY = $bubbleY + ($bubbleHeight * 0.28)
-    $cursorSize = $size * 0.18
-
-    $cursor.StartFigure()
-    $cursor.AddLine($cursorX, $cursorY, $cursorX, $cursorY + $cursorSize)
-    $cursor.AddLine($cursorX, $cursorY + $cursorSize, $cursorX + ($cursorSize * 0.38), $cursorY + ($cursorSize * 0.68))
-    $cursor.AddLine($cursorX + ($cursorSize * 0.38), $cursorY + ($cursorSize * 0.68), $cursorX + ($cursorSize * 0.55), $cursorY + $cursorSize)
-    $cursor.AddLine($cursorX + ($cursorSize * 0.55), $cursorY + $cursorSize, $cursorX + ($cursorSize * 0.47), $cursorY + ($cursorSize * 0.58))
-    $cursor.AddLine($cursorX + ($cursorSize * 0.47), $cursorY + ($cursorSize * 0.58), $cursorX + $cursorSize, $cursorY + ($cursorSize * 0.5))
-    $cursor.CloseFigure()
-
-    $graphics.FillPath($accentBrush, $cursor)
-    $cursor.Dispose()
-  }
+  $codePen = [System.Drawing.Pen]::new([System.Drawing.ColorTranslator]::FromHtml('#f05a28'), 7 * $scale)
+  $codePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $codePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+  $codePen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Round
+  $graphics.DrawLines($codePen, [System.Drawing.PointF[]]@(
+    [System.Drawing.PointF]::new(53 * $scale, 57 * $scale),
+    [System.Drawing.PointF]::new(41 * $scale, 68 * $scale),
+    [System.Drawing.PointF]::new(53 * $scale, 79 * $scale)
+  ))
+  $graphics.DrawLines($codePen, [System.Drawing.PointF[]]@(
+    [System.Drawing.PointF]::new(75 * $scale, 57 * $scale),
+    [System.Drawing.PointF]::new(87 * $scale, 68 * $scale),
+    [System.Drawing.PointF]::new(75 * $scale, 79 * $scale)
+  ))
+  $graphics.DrawLine($codePen, 68 * $scale, 52 * $scale, 59 * $scale, 84 * $scale)
 
   $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
 
-  $accentBrush.Dispose()
+  $codePen.Dispose()
+  $dividerPen.Dispose()
+  $yellowBrush.Dispose()
+  $orangeBrush.Dispose()
   $whiteBrush.Dispose()
   $backgroundBrush.Dispose()
   $graphics.Dispose()

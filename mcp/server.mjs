@@ -14,7 +14,7 @@ export async function createDevFeedbackServer(options = {}) {
   const readOnly = Boolean(options.readOnly);
   const server = new McpServer({
     name: 'dev-feedback-capture',
-    version: options.version || '1.6.0',
+    version: options.version || '1.7.0',
     description: 'Project-scoped local feedback and evidence for coding agents.'
   });
 

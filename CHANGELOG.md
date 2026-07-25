@@ -1,13 +1,24 @@
 # Changelog
 
-## 1.6.0 (In development)
+## 1.7.0 (Release candidate)
+
+- Replaced the generic speech-bubble icon with the Browser Code mark across packaged 16, 48, and 128 pixel assets.
+- Anchored the collapsed in-page change list to the nearest viewport edge while preserving drag movement around the viewport perimeter.
+- Replaced ambiguous plus/minus controls with explicit up/down chevrons and clearer accessible labels.
+- Opened the in-page change list by default and replaced the terminal-green theme with a softer paper-and-indigo palette across the popup, page panel, capture editor, and history.
+- Reworked Visual Edit around direct manipulation: drag the selected outline to move it and drag the large corner handle to resize it with a pointer or finger.
+- Removed the form-heavy move, size, text, visibility, order, alignment, and style control matrix from the v1.7 workflow.
+- Re-enabled the Visual Edit surface immediately after its before-evidence capture finishes so direct editing is ready without an extra UI refresh.
+- Added the v1.7 product, Store-listing, and monetization plan plus reusable icon-choice source assets.
+
+## 1.6.0 (Published July 20, 2026)
 
 - Added a project-scoped local MCP companion over stdio with list, get, create, import, evidence, implementation-brief, and revision-checked status tools.
 - Added an ignored `.dev-feedback` sidecar with atomic JSON records, an append-only event trail, validated local evidence, and explicit project/inbox path boundaries.
 - Reused the existing History JSON export as the first explicit extension-to-agent handoff without reading Chromium internals, opening a localhost port, or adding extension permissions.
 - Kept source editing and browser control outside the MCP server; the connected coding agent uses its existing project tools and records bounded implementation status separately.
 
-## 1.5.0 (Unreleased)
+## 1.5.0 (Source checkpoint)
 
 - Added Visual Edit Mode for reversible move, resize, leaf-text rewrite, hide, sibling reorder, curated style, match-style, and alignment previews.
 - Added bounded undo/redo and guaranteed page restoration on Save, Cancel, mode exit, and navigation.

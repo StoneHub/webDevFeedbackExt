@@ -160,6 +160,12 @@
   font: 700 13px/1 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+.dev-feedback-panel-toggle {
+  font-size: 19px;
+  line-height: 0.8;
+  padding-bottom: 3px;
+}
+
 .dev-feedback-panel-toggle:hover,
 .dev-feedback-panel-close:hover {
   background: var(--df-surface-high);
@@ -169,6 +175,11 @@
 #dev-feedback-panel.collapsed {
   width: auto;
   max-height: none;
+  transition: left 120ms ease, top 120ms ease;
+}
+
+#dev-feedback-panel.collapsed.dragging {
+  transition: none;
 }
 
 #dev-feedback-panel.collapsed .dev-feedback-panel-header {

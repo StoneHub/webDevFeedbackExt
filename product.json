@@ -3,9 +3,9 @@
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
   "summary": "Local-first Chromium extension and project-scoped MCP companion for actionable visual change specs.",
-  "status": "preview",
+  "status": "public",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
-  "liveUrl": "",
+  "liveUrl": "https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc",
   "releaseUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases",
   "downloadUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases/download/v1.2.0/dev-feedback-capture-v1.2.0.zip",
   "supportUrl": "mailto:monroe@flyingchangesfarm.net",
@@ -26,8 +26,8 @@
     "summary": "Feedback stays in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
-    "current": "Versioned zip assets are published through GitHub Releases for manual unpacked installation.",
-    "planned": "Keep the catalog download link aligned with the latest published release.",
+    "current": "Chrome Web Store v1.6 is public. GitHub Release v1.2.0 remains available for manual unpacked installation.",
+    "planned": "Publish v1.7 only after the recorded browser and agent-handoff release gates pass, then align the catalog download link.",
     "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
     "assetNamePattern": "dev-feedback-capture-v{version}.zip",
     "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."

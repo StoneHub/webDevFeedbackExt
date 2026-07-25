@@ -225,7 +225,7 @@ test('History JSON import is idempotent and strips embedded evidence', async (t)
 
 test('MCP protocol exposes project-scoped tools and resources', async (t) => {
   const fixture = await createFixture(t);
-  const { server } = await createDevFeedbackServer({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot], version: '1.6.0-test' });
+  const { server } = await createDevFeedbackServer({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot], version: '1.7.0-test' });
   const client = new Client({ name: 'mcp-test-client', version: '1.0.0' }, { capabilities: {} });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -505,7 +505,7 @@ test('CLI speaks clean MCP over stdio', async (t) => {
   const tools = await client.listTools();
   assert.equal(tools.tools.some((tool) => tool.name === 'dev_feedback_list'), true);
   await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.match(diagnostics, /Dev Feedback MCP 1\.6\.0 connected/);
+  assert.match(diagnostics, /Dev Feedback MCP 1\.7\.0 connected/);
 });
 
 async function createFixture(t) {

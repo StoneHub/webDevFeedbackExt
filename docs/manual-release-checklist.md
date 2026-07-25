@@ -2,7 +2,17 @@
 
 Automated checks are necessary but do not replace the unpacked-extension gate.
 
-Store status on July 19, 2026: the v1.6 package was submitted for Chrome Web Store review before the deferred manual gates below were completed. Store approval is not proof that these checks passed. Keep them open and do not call the release runtime-verified until the relevant evidence is recorded.
+Store status on July 25, 2026: v1.6 is public in the Chrome Web Store. Store approval is not proof that the deferred checks below passed. Keep them open and do not tag, upload, or call v1.7 runtime-verified until the relevant evidence is recorded.
+
+## v1.7 compact-panel and icon check
+
+Before tagging or uploading v1.7:
+
+- Reload the unpacked extension from this exact repository checkout.
+- In Element and Visual modes, drag the collapsed change list near every viewport edge and confirm it stays anchored to the nearest edge.
+- Resize the browser window and confirm the collapsed list remains visible on its selected edge.
+- Confirm **⌃** expands the list, **⌄** collapses it, and both controls have matching accessible labels.
+- Confirm the Browser Code icon is legible in the browser toolbar and extension-management list at the packaged sizes.
 
 ## Deferred v1.4 PDF/export check
 

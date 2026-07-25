@@ -1,13 +1,13 @@
 # Chrome Web Store Submission Record
 
-Status: Submitted for Chrome Web Store review on July 19, 2026. The publisher contact email is verified, the data-use certifications are complete, and the review/publication result is pending.
+Status: v1.6 was submitted on July 19, 2026 and was public by July 20, 2026. The v1.7 package is a local release candidate and has not been uploaded.
 
-The submitted package is v1.6.0. Store submission does not prove the deferred PDF/export or local MCP runtime gates in `docs/manual-release-checklist.md`; do not describe the release as runtime-verified until those checks pass.
+The next package is v1.7.0. The existing Store approval does not prove the deferred PDF/export, Visual Edit, local MCP, or v1.7 compact-panel runtime gates in `docs/manual-release-checklist.md`; do not tag or upload v1.7 until those checks pass.
 
 ## Ready inputs
 
 - Publisher: `FlyingChanges Code`
-- Extension package: `dist/dev-feedback-capture-v1.6.0.zip`
+- Candidate extension package: `dist/dev-feedback-capture-v1.7.0.zip`
 - Store icon: `icon128.png` (`128x128` PNG)
 - Public product page: `https://monroes.tech/software/dev-feedback-capture/`
 - Privacy policy: `https://monroes.tech/software/dev-feedback-capture/privacy/`
@@ -58,7 +58,7 @@ The publisher reviewed and checked the three Developer Program Policies data-use
 
 ## Store screenshot plan
 
-Capture the real v1.6 extension operating on its own public product page. Produce full-bleed `1280x800` PNG files with square corners and no padding.
+Capture the real v1.7 extension operating on its own public product page. Produce full-bleed `1280x800` PNG files with square corners and no padding.
 
 1. `01-element-capture.png`
    - Page: Dev Feedback Capture product page.
@@ -82,14 +82,14 @@ Before capture:
 - Use a clean browser window with no personal account data visible.
 - Clear old test captures, then create a short coherent demo history.
 - Confirm saved and exported redact evidence cannot reveal original pixels.
-- Confirm every screenshot reflects v1.6 behavior, not an older release.
+- Confirm every screenshot reflects v1.7 behavior, including the Browser Code icon and edge-anchored compact list.
 
 ## Small promotional tile
 
 Create after the final screenshots establish the visual direction.
 
 - Exact output: `440x280` PNG.
-- Use the speech-bubble/cursor icon from `icon128.png` on the purple brand field.
+- Use the Browser Code icon from `icon128.png` on the indigo brand field.
 - Add only the product name and the short line `Visual feedback, ready to build.`
 - Do not use a raw screenshot, Store badge, ranking claim, or excessive text.
 
@@ -130,12 +130,13 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 
 - Publisher: `FlyingChanges Code`; durable owner and verified public contact: `monroe@flyingchangesfarm.net`.
 - Store item ID: `hhdmfaaplpiokafjieefpgoppckijafc`.
-- Submitted package: `dist/dev-feedback-capture-v1.6.0.zip`.
+- Current public package: v1.6.0.
+- Next candidate package: `dist/dev-feedback-capture-v1.7.0.zip` (not uploaded).
 - Category: Developer Tools; language: English (United States).
 - The single purpose, permission justifications, no-remote-code declaration, data-use categories, privacy-policy URL, homepage, and support URL were saved before submission.
-- One valid 1280x800 screenshot was submitted. Replace it with the fresh v1.6 set above in a later listing update after the current review resolves; avoid changing the active submission unless a reviewer requests it.
+- One valid 1280x800 screenshot was submitted with v1.6. Replace it with the fresh v1.7 set above when the v1.7 release gates pass.
 - Monitor the verified contact email and dashboard for approval or a focused reviewer request.
 - Confirm the dashboard's publication timing choice before an approved item goes live; that setting was not independently recorded here.
-- Complete the deferred PDF/export and v1.6 MCP manual gates before calling the Store release runtime-verified.
+- Complete every open gate in `docs/manual-release-checklist.md` before tagging or uploading v1.7.
 - The feature video, 440x280 promotional tile, and backup publisher Admin remain optional follow-up work.
-- Keep payments, authentication, network sync, and additional permissions out of this v1.6 submission.
+- Keep payments, authentication, network sync, and additional permissions out of v1.7.

@@ -64,6 +64,7 @@
   let currentElement = null;
   let isDragging = false;
   let panelCollapsed = true;
+  let panelAnchor = 'right';
   let dragOffset = { x: 0, y: 0 };
   let feedbackPanel = null;
   let captureModal = null;
@@ -108,7 +109,7 @@
           <span class="dev-feedback-visual-dirty" aria-label="Unsaved visual edit" title="Unsaved visual edit">V*</span>
         </div>
         <div class="dev-feedback-panel-controls">
-          <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Expand capture list" aria-label="Expand capture list" aria-expanded="false">+</button>
+          <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Expand changes" aria-label="Expand changes" aria-expanded="false">⌃</button>
           <button class="dev-feedback-panel-close" id="dev-feedback-panel-close" title="Stop element mode" aria-label="Stop element mode">x</button>
         </div>
       </div>
@@ -238,11 +239,17 @@
     panelCollapsed = !panelCollapsed;
     feedbackPanel.classList.toggle('collapsed', panelCollapsed);
     const button = feedbackPanel.querySelector('#dev-feedback-panel-toggle');
-    button.textContent = panelCollapsed ? '+' : '−';
-    button.title = panelCollapsed ? 'Expand capture list' : 'Collapse capture list';
+    button.textContent = panelCollapsed ? '⌃' : '⌄';
+    button.title = panelCollapsed ? 'Expand changes' : 'Collapse changes';
     button.setAttribute('aria-label', button.title);
     button.setAttribute('aria-expanded', String(!panelCollapsed));
-    window.requestAnimationFrame(clampPanelToViewport);
+    window.requestAnimationFrame(() => {
+      if (panelCollapsed) {
+        anchorPanelToViewportEdge();
+      } else {
+        clampPanelToViewport();
+      }
+    });
   }
 
   function setPanelCollapsed(collapsed) {
@@ -344,6 +351,46 @@
     feedbackPanel.style.bottom = 'auto';
   }
 
+  function getAnchoredPanelPosition(x, y, width, height, preferredEdge = null) {
+    const inset = 8;
+    const maxX = Math.max(inset, window.innerWidth - width - inset);
+    const maxY = Math.max(inset, window.innerHeight - height - inset);
+    const clampedX = clamp(x, inset, maxX);
+    const clampedY = clamp(y, inset, maxY);
+    const distances = {
+      left: clampedX - inset,
+      right: maxX - clampedX,
+      top: clampedY - inset,
+      bottom: maxY - clampedY
+    };
+    const edge = preferredEdge && Object.hasOwn(distances, preferredEdge)
+      ? preferredEdge
+      : Object.entries(distances).sort((left, right) => left[1] - right[1])[0][0];
+
+    return {
+      edge,
+      x: edge === 'left' ? inset : edge === 'right' ? maxX : clampedX,
+      y: edge === 'top' ? inset : edge === 'bottom' ? maxY : clampedY
+    };
+  }
+
+  function anchorPanelToViewportEdge(preferredEdge = null) {
+    const rect = feedbackPanel.getBoundingClientRect();
+    const position = getAnchoredPanelPosition(
+      rect.left,
+      rect.top,
+      rect.width,
+      rect.height,
+      preferredEdge
+    );
+    panelAnchor = position.edge;
+    feedbackPanel.dataset.anchor = panelAnchor;
+    feedbackPanel.style.left = `${position.x}px`;
+    feedbackPanel.style.top = `${position.y}px`;
+    feedbackPanel.style.right = 'auto';
+    feedbackPanel.style.bottom = 'auto';
+  }
+
   function createCaptureModal() {
     captureModal = document.createElement('div');
     captureModal.id = UI_IDS.modal;
@@ -391,13 +438,27 @@
   }
 
   function attachGlobalListeners() {
-    window.addEventListener('resize', scheduleDecorationRefresh, { passive: true });
+    window.addEventListener('resize', handleViewportResize, { passive: true });
     window.addEventListener('scroll', scheduleDecorationRefresh, true);
     document.addEventListener('keydown', handleGlobalKeydown);
     window.addEventListener('pagehide', restoreVisualOnPageExit);
     window.addEventListener('beforeunload', restoreVisualOnPageExit);
     window.addEventListener('popstate', restoreVisualAfterSameDocumentNavigation);
     window.addEventListener('hashchange', restoreVisualAfterSameDocumentNavigation);
+  }
+
+  function handleViewportResize() {
+    scheduleDecorationRefresh();
+    if (!feedbackPanel?.classList.contains('visible')) {
+      return;
+    }
+    window.requestAnimationFrame(() => {
+      if (panelCollapsed) {
+        anchorPanelToViewportEdge(panelAnchor);
+      } else {
+        clampPanelToViewport();
+      }
+    });
   }
 
   function handleGlobalKeydown(event) {
@@ -489,6 +550,15 @@
     }
     renderVisualInspector();
     scheduleDecorationRefresh();
+    if (nextMode !== INTERACTION_MODES.OFF) {
+      window.requestAnimationFrame(() => {
+        if (panelCollapsed) {
+          anchorPanelToViewportEdge(panelAnchor);
+        } else {
+          clampPanelToViewport();
+        }
+      });
+    }
     return true;
   }
 
@@ -1817,8 +1887,21 @@
 
     const maxX = Math.max(8, window.innerWidth - feedbackPanel.offsetWidth - 8);
     const maxY = Math.max(8, window.innerHeight - feedbackPanel.offsetHeight - 8);
-    const x = clamp(event.clientX - dragOffset.x, 8, maxX);
-    const y = clamp(event.clientY - dragOffset.y, 8, maxY);
+    let x = clamp(event.clientX - dragOffset.x, 8, maxX);
+    let y = clamp(event.clientY - dragOffset.y, 8, maxY);
+
+    if (panelCollapsed) {
+      const position = getAnchoredPanelPosition(
+        x,
+        y,
+        feedbackPanel.offsetWidth,
+        feedbackPanel.offsetHeight
+      );
+      panelAnchor = position.edge;
+      feedbackPanel.dataset.anchor = panelAnchor;
+      x = position.x;
+      y = position.y;
+    }
 
     feedbackPanel.style.left = `${x}px`;
     feedbackPanel.style.top = `${y}px`;
@@ -1831,6 +1914,9 @@
     feedbackPanel.classList.remove('dragging');
     document.removeEventListener('mousemove', handleDragging);
     document.removeEventListener('mouseup', stopDragging);
+    if (panelCollapsed) {
+      anchorPanelToViewportEdge(panelAnchor);
+    }
   }
 
   function clamp(value, min, max) {

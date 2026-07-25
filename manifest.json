@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture",
-  "version": "1.6.0",
-  "description": "Capture visual change specs and hand them to a project-scoped local MCP agent",
+  "version": "1.7.0",
+  "description": "Capture element, region, and visual-edit feedback as implementation-ready specs, saved locally until you export.",
   "permissions": [
     "storage",
     "activeTab",

@@ -2,7 +2,7 @@
 
 Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports three workflows:
 
-> The source checkout contains the in-development v1.6 local MCP companion on top of the unreleased v1.5 Visual Edit work. The latest published download remains v1.2.0 until the deferred browser and agent-handoff gates are complete.
+> Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode temporarily moves, resizes, rewrites, hides, reorders, or restyles one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
@@ -55,7 +55,7 @@ Use this path when developing the extension or reviewing source changes:
 3. Click `Start Element Mode` or use `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 4. Hover and click a page element.
 5. Add your note in the modal and save it.
-6. Use **+** on the compact capture chip to expand the saved-item list and **−** to collapse it again.
+6. Drag the compact capture chip along the viewport edge, then use **⌃** to expand the saved-item list and **⌄** to collapse it again.
 
 ### Region Mode
 
@@ -147,7 +147,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
-3. Complete the manual unpacked-extension and MCP handoff gates in `docs/manual-release-checklist.md`, then create and push a matching tag such as `v1.6.0`.
+3. Complete the manual unpacked-extension and MCP handoff gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.7.0` tag.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

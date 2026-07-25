@@ -25,7 +25,7 @@ Optional for local PDFs:
 3. Leave the mode on `Element`.
 4. Click `Start Element Mode` or press `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 5. Click a page element, add your note, and save it.
-6. The in-page capture list starts collapsed and stays on the nearest viewport edge as you drag it. Use **⌃** to expand it and **⌄** to collapse it again.
+6. The in-page capture list starts expanded. Use **⌄** to collapse it; the compact list stays on the nearest viewport edge as you drag it, and **⌃** expands it again.
 
 ## 3. Preview a visual edit
 

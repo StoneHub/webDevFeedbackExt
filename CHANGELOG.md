@@ -5,6 +5,7 @@
 - Replaced the generic speech-bubble icon with the Browser Code mark across packaged 16, 48, and 128 pixel assets.
 - Anchored the collapsed in-page change list to the nearest viewport edge while preserving drag movement around the viewport perimeter.
 - Replaced ambiguous plus/minus controls with explicit up/down chevrons and clearer accessible labels.
+- Opened the in-page change list by default and replaced the terminal-green theme with a softer paper-and-indigo palette across the popup, page panel, capture editor, and history.
 - Added the v1.7 product, Store-listing, and monetization plan plus reusable icon-choice source assets.
 
 ## 1.6.0 (Published July 20, 2026)

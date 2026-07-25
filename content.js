@@ -63,7 +63,7 @@
   let feedbackItems = [];
   let currentElement = null;
   let isDragging = false;
-  let panelCollapsed = true;
+  let panelCollapsed = false;
   let panelAnchor = 'right';
   let dragOffset = { x: 0, y: 0 };
   let feedbackPanel = null;
@@ -96,7 +96,6 @@
   function createFeedbackPanel() {
     feedbackPanel = document.createElement('div');
     feedbackPanel.id = UI_IDS.panel;
-    feedbackPanel.classList.add('collapsed');
     feedbackPanel.innerHTML = `
       <div class="dev-feedback-panel-header">
         <div class="dev-feedback-panel-header-title">
@@ -109,7 +108,7 @@
           <span class="dev-feedback-visual-dirty" aria-label="Unsaved visual edit" title="Unsaved visual edit">V*</span>
         </div>
         <div class="dev-feedback-panel-controls">
-          <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Expand changes" aria-label="Expand changes" aria-expanded="false">⌃</button>
+          <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Collapse changes" aria-label="Collapse changes" aria-expanded="true">⌄</button>
           <button class="dev-feedback-panel-close" id="dev-feedback-panel-close" title="Stop element mode" aria-label="Stop element mode">x</button>
         </div>
       </div>
@@ -199,7 +198,7 @@
                 <option value="border-radius">Corner radius</option><option value="padding">Padding</option><option value="gap">Gap</option>
               </select>
             </label>
-            <input id="dev-feedback-style-color" type="color" value="#8ed8a0" aria-label="Style color">
+            <input id="dev-feedback-style-color" type="color" value="#5b55c5" aria-label="Style color">
             <input id="dev-feedback-style-number" type="number" min="0" max="1000" value="16" aria-label="Style value in pixels">
             <select id="dev-feedback-style-weight" aria-label="Font weight"><option value="400">400</option><option value="500">500</option><option value="600">600</option><option value="700">700</option><option value="800">800</option></select>
             <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-apply-style" type="button">Apply</button>

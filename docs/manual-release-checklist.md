@@ -9,6 +9,7 @@ Store status on July 25, 2026: v1.6 is public in the Chrome Web Store. Store app
 Before tagging or uploading v1.7:
 
 - Reload the unpacked extension from this exact repository checkout.
+- Start Element and Visual modes and confirm the change list opens expanded with the paper-and-indigo palette.
 - In Element and Visual modes, drag the collapsed change list near every viewport edge and confirm it stays anchored to the nearest edge.
 - Resize the browser window and confirm the collapsed list remains visible on its selected edge.
 - Confirm **⌃** expands the list, **⌄** collapses it, and both controls have matching accessible labels.

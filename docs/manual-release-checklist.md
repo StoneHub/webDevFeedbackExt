@@ -2,9 +2,11 @@
 
 Automated checks are necessary but do not replace the unpacked-extension gate.
 
-Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store, v1.7.1 is pending review, and v1.7.2 is the prepared Add Content replacement. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call these releases runtime-verified until the relevant evidence is recorded.
+Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store, v1.7.1 was cancelled, and v1.7.2 is pending review for automatic publication. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call these releases runtime-verified until the relevant evidence is recorded.
 
 Submission record: Monroe explicitly waived the new unpacked-browser smoke and replacement screenshot gates. The exact v1.7.1 ZIP with SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3` was uploaded successfully and submitted for normal review on August 3, 2026. The API readback showed `PENDING_REVIEW` at a 100% target with no warning or takedown flag. The unchecked runtime and screenshot items below remain open proof gaps, not blockers to that authorized submission.
+
+v1.7.2 submission record: The v1.7.1 review was cancelled, and the exact clean-main v1.7.2 ZIP with SHA-256 `4c40215036eef05f5459f408d8e11ed74327db39d16892a78a14345e95f65bef` was uploaded and submitted for normal review on August 3, 2026. API readback showed v1.7.2 `PENDING_REVIEW` at a 100% target with no warning or takedown flag. v1.7.0 remains public until Google approves and automatically publishes v1.7.2.
 
 ## v1.7.2 Add Content package and submission
 

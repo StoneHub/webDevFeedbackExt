@@ -26,8 +26,8 @@
     "summary": "Feedback stays in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
-    "current": "Chrome Web Store v1.7.0 is public, v1.7.1 is pending review, and v1.7.2 is the prepared Add Content update. GitHub Release v1.2.0 remains available for manual unpacked installation.",
-    "planned": "Replace the pending v1.7.1 submission with v1.7.2, then verify the public version, revised listing metadata, icon, and Add Content workflow after review; keep v1.8 Feedback Sessions in a separate gated release lane.",
+    "current": "Chrome Web Store v1.7.0 is public, v1.7.1 was cancelled, and v1.7.2 is pending review for automatic publication. GitHub Release v1.2.0 remains available for manual unpacked installation.",
+    "planned": "Monitor the v1.7.2 review, then verify the public version, revised listing metadata, icon, and Add Content workflow after publication; keep v1.8 Feedback Sessions in a separate gated release lane.",
     "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
     "assetNamePattern": "dev-feedback-capture-v{version}.zip",
     "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."

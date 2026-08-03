@@ -1,13 +1,13 @@
 # Chrome Web Store Submission Record
 
-Status: v1.7.0 is public in the Chrome Web Store. The exact v1.7.1 discovery package was submitted for normal review on August 3, 2026, and v1.7.2 is now the prepared Add Content replacement candidate. Replacing the active submission requires an explicit cancel, upload, publish, and API readback sequence. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset before these submissions.
+Status: v1.7.0 is public in the Chrome Web Store. The v1.7.1 review was cancelled and replaced by the exact v1.7.2 Add Content package on August 3, 2026. Google accepted v1.7.2 for normal review with no warnings; it is pending review at a 100% target and will publish automatically after approval. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset before these submissions.
 
-The next package is v1.7.2. It adds the user-triggered Add Content workflow plus the v1.7.1 discovery metadata and refreshed icon encoding without adding permissions, remote code, or network services. Keep the separate v1.8 Feedback Session work out of this package. The existing Store approval and automated checks do not prove the deferred browser runtime gates in `docs/manual-release-checklist.md`.
+The submitted v1.7.2 package adds the user-triggered Add Content workflow plus the v1.7.1 discovery metadata and refreshed icon encoding without adding permissions, remote code, or network services. It excludes the separate v1.8 Feedback Session work. Store acceptance and automated checks do not prove the deferred browser runtime gates in `docs/manual-release-checklist.md`.
 
 ## Ready inputs
 
 - Publisher: `FlyingChanges Code`
-- Candidate extension package: `dist/dev-feedback-capture-v1.7.2.zip`
+- Submitted extension package: `dist/dev-feedback-capture-v1.7.2.zip`
 - Store icon: `icon128.png` (`128x128` PNG)
 - Public product page: `https://monroes.tech/software/dev-feedback-capture/`
 - Privacy policy: `https://monroes.tech/software/dev-feedback-capture/privacy/`
@@ -167,14 +167,14 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 - Publisher: `FlyingChanges Code`; durable owner and verified public contact: `monroe@flyingchangesfarm.net`.
 - Store item ID: `hhdmfaaplpiokafjieefpgoppckijafc`.
 - Current public package: v1.7.0.
-- Submitted package: `dist/dev-feedback-capture-v1.7.1.zip`; SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3`.
-- API readback on August 3, 2026: v1.7.1 is `PENDING_REVIEW` at a 100% target with no warning or takedown flag.
-- Replacement candidate: `dist/dev-feedback-capture-v1.7.2.zip`; final SHA-256 and API state must be recorded after the release package is built and submitted.
+- Cancelled submission: `dist/dev-feedback-capture-v1.7.1.zip`; SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3`.
+- Submitted package: `dist/dev-feedback-capture-v1.7.2.zip`; SHA-256 `4c40215036eef05f5459f408d8e11ed74327db39d16892a78a14345e95f65bef`.
+- API readback on August 3, 2026: v1.7.2 is `PENDING_REVIEW` at a 100% target with no warning or takedown flag; v1.7.0 remains public until approval.
 - Category: Developer Tools; language: English (United States).
 - The single purpose, permission justifications, no-remote-code declaration, data-use categories, privacy-policy URL, homepage, and support URL were saved before submission.
 - One valid 1280x800 screenshot remains on the Store listing. Monroe explicitly waived replacement screenshots for this submission; the fresh five-shot set remains optional follow-up work.
 - Monitor the verified contact email and dashboard for approval or a focused reviewer request.
 - Confirm the dashboard's publication timing choice before an approved item goes live; that setting was not independently recorded here.
-- Monroe explicitly authorized the v1.7.1 upload without a new unpacked-browser smoke or replacement screenshots. Those checks remain open and the release must not be described as runtime-verified.
+- Monroe explicitly authorized the v1.7.2 upload without a new unpacked-browser smoke or replacement screenshots. Those checks remain open and the release must not be described as runtime-verified.
 - The feature video, 440x280 promotional tile, and backup publisher Admin remain optional follow-up work.
 - Keep payments, authentication, network sync, additional permissions, and v1.8 Feedback Sessions out of v1.7.2.

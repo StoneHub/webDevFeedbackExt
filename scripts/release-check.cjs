@@ -81,6 +81,11 @@ companionJavaScriptFiles.forEach((file) => {
 });
 
 assert.equal(packageJson.version, manifest.version);
+assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
+assert.ok(manifest.name.length <= 45, 'Manifest name exceeds the Chrome Web Store limit');
+assert.equal(manifest.description, 'Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.');
+assert.ok(manifest.description.length <= 132, 'Manifest description exceeds the Chrome Web Store limit');
+assert.equal(productJson.summary, manifest.description);
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);

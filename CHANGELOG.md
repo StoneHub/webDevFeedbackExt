@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.7.0 (Release candidate)
+## 1.7.1 (Discovery release candidate)
+
+- Added a plain-language Store title and short description around picking UI, annotating regions, and producing AI-ready prompts and visual change specs.
+- Kept the public product name, local-first privacy model, permissions, and v1.7 behavior unchanged.
+- Refreshed the packaged Browser Code icon encoding so v1.7.1 has distinct asset bytes; publication still requires checking whether the Store invalidates its stale purple-flag cache.
+- Updated Store submission and public-catalog metadata to distinguish public Store v1.7 from the separate GitHub v1.2 fallback package.
+
+## 1.7.0 (Published July 27, 2026)
 
 - Replaced the generic speech-bubble icon with the Browser Code mark across packaged 16, 48, and 128 pixel assets.
 - Anchored the collapsed in-page change list to the nearest viewport edge while preserving drag movement around the viewport perimeter.

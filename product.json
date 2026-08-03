@@ -2,7 +2,7 @@
   "slug": "dev-feedback-capture",
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
-  "summary": "Local-first Chromium extension and project-scoped MCP companion for actionable visual change specs.",
+  "summary": "Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.",
   "status": "public",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc",
@@ -16,9 +16,9 @@
     "Chromium"
   ],
   "requirements": [
-    "Download and unzip the latest GitHub Release asset",
-    "Developer Mode in Chrome, Edge, or another Chromium browser",
-    "Manual Load unpacked installation from the unzipped extension folder",
+    "Install the public extension from the Chrome Web Store",
+    "For source or fallback installation: download and unzip the latest GitHub Release asset",
+    "For source or fallback installation: enable Developer Mode and load the unpacked folder in Chrome, Edge, or another Chromium browser",
     "Optional MCP companion: Node.js 18 or newer, npm install, and an MCP-compatible local client"
   ],
   "privacy": {
@@ -26,8 +26,8 @@
     "summary": "Feedback stays in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
-    "current": "Chrome Web Store v1.6 is public. GitHub Release v1.2.0 remains available for manual unpacked installation.",
-    "planned": "Publish v1.7 only after the recorded browser and agent-handoff release gates pass, then align the catalog download link.",
+    "current": "Chrome Web Store v1.7.0 is public. GitHub Release v1.2.0 remains available for manual unpacked installation.",
+    "planned": "Submit the behavior-neutral v1.7.1 discovery refresh after its package and listing checks pass; keep v1.8 Feedback Sessions in a separate gated release lane.",
     "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
     "assetNamePattern": "dev-feedback-capture-v{version}.zip",
     "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."

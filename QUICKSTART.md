@@ -2,9 +2,13 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
+Chrome Web Store v1.7 is public. This source checkout prepares a behavior-neutral v1.7.1 discovery refresh; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
 
-## 1. Load the extension
+## 1. Install the extension
+
+Preferred: install the public release from the [Chrome Web Store](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc).
+
+For source or fallback installation:
 
 1. Download the latest `dev-feedback-capture-v<version>.zip` asset from GitHub Releases.
 2. Unzip it.

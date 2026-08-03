@@ -17,6 +17,7 @@ const VALID_PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAA
 const VALID_PNG_BYTES = Buffer.from(VALID_PNG_DATA_URL.split(',')[1], 'base64');
 const VALID_WEBP_BYTES = Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEALmk0mk0iIiIiIgBoSygABc6zbAAA', 'base64');
 const execFileAsync = promisify(execFile);
+const PACKAGE_VERSION = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 test('project store supports agent feedback, revisions, evidence, and briefs', async (t) => {
   const fixture = await createFixture(t);
@@ -229,6 +230,7 @@ test('MCP protocol exposes project-scoped tools and resources', async (t) => {
   const client = new Client({ name: 'mcp-test-client', version: '1.0.0' }, { capabilities: {} });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  assert.equal(client.getServerVersion()?.version, '1.7.0-test');
   t.after(async () => {
     await client.close();
     await server.close();
@@ -457,6 +459,7 @@ test('read-only MCP rejects mutations as tool execution errors', async (t) => {
   const client = new Client({ name: 'read-only-test', version: '1.0.0' }, { capabilities: {} });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+  assert.equal(client.getServerVersion()?.version, PACKAGE_VERSION);
   t.after(async () => {
     await client.close();
     await server.close();
@@ -505,7 +508,7 @@ test('CLI speaks clean MCP over stdio', async (t) => {
   const tools = await client.listTools();
   assert.equal(tools.tools.some((tool) => tool.name === 'dev_feedback_list'), true);
   await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.match(diagnostics, /Dev Feedback MCP 1\.7\.0 connected/);
+  assert.ok(diagnostics.includes(`Dev Feedback MCP ${PACKAGE_VERSION} connected`), diagnostics);
 });
 
 async function createFixture(t) {

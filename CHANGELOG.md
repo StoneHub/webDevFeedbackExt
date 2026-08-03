@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.2 (Prepared August 3, 2026)
+## 1.7.2 (Submitted August 3, 2026)
 
 - Added Add Content mode for anchoring proposed text, image placeholders, lists, and safe HTML/embed-frame placeholders to existing page elements.
 - Added reversible before, after, inside-start, and inside-end previews with explicit filler, support intent, and acceptance checks.

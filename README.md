@@ -2,7 +2,7 @@
 
 Pick and annotate browser elements or regions, propose new content blocks, then copy AI-ready prompts or export local visual change specs for Codex, Claude Code, Cursor, or another developer. Dev Feedback Capture supports four evidence-rich workflows:
 
-> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). This source checkout prepares the v1.7.2 Add Content update; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
+> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). The v1.7.2 Add Content update is pending Google review and will publish automatically after approval; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.

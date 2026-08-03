@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.7.1 (Discovery release candidate)
+## 1.7.1 (Submitted August 3, 2026)
 
 - Added a plain-language Store title and short description around picking UI, annotating regions, and producing AI-ready prompts and visual change specs.
 - Kept the public product name, local-first privacy model, permissions, and v1.7 behavior unchanged.

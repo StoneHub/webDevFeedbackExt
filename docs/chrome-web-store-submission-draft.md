@@ -1,6 +1,6 @@
 # Chrome Web Store Submission Record
 
-Status: v1.7.0 is public in the Chrome Web Store as of July 27, 2026. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset on August 3, 2026.
+Status: v1.7.0 is public in the Chrome Web Store. The exact v1.7.1 discovery package was uploaded and submitted for normal review on August 3, 2026 with no API warnings; it will publish automatically after approval. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset before this submission.
 
 The next package is a behavior-neutral v1.7.1 discovery refresh. It changes the manifest title, short description, package version, and icon encoding; it does not add permissions or extension behavior. Keep the separate v1.8 Feedback Session work out of this package. The existing Store approval does not prove the deferred PDF/export, Visual Edit, local MCP, or compact-panel runtime gates in `docs/manual-release-checklist.md`.
 
@@ -166,12 +166,13 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 - Publisher: `FlyingChanges Code`; durable owner and verified public contact: `monroe@flyingchangesfarm.net`.
 - Store item ID: `hhdmfaaplpiokafjieefpgoppckijafc`.
 - Current public package: v1.7.0.
-- Next candidate package: `dist/dev-feedback-capture-v1.7.1.zip` (not uploaded).
+- Submitted package: `dist/dev-feedback-capture-v1.7.1.zip`; SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3`.
+- API readback on August 3, 2026: v1.7.1 is `PENDING_REVIEW` at a 100% target with no warning or takedown flag.
 - Category: Developer Tools; language: English (United States).
 - The single purpose, permission justifications, no-remote-code declaration, data-use categories, privacy-policy URL, homepage, and support URL were saved before submission.
-- One valid 1280x800 screenshot remains on the Store listing. Replace it with the fresh five-shot v1.7 set above when the capture gates pass.
+- One valid 1280x800 screenshot remains on the Store listing. Monroe explicitly waived replacement screenshots for this submission; the fresh five-shot set remains optional follow-up work.
 - Monitor the verified contact email and dashboard for approval or a focused reviewer request.
 - Confirm the dashboard's publication timing choice before an approved item goes live; that setting was not independently recorded here.
-- Complete the v1.7.1 package/listing checks and every still-applicable open runtime gate in `docs/manual-release-checklist.md` before tagging or uploading v1.7.1.
+- Monroe explicitly authorized the v1.7.1 upload without a new unpacked-browser smoke or replacement screenshots. Those checks remain open and the release must not be described as runtime-verified.
 - The feature video, 440x280 promotional tile, and backup publisher Admin remain optional follow-up work.
 - Keep payments, authentication, network sync, additional permissions, and v1.8 Feedback Sessions out of v1.7.1.

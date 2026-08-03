@@ -4,6 +4,8 @@ Automated checks are necessary but do not replace the unpacked-extension gate.
 
 Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call v1.7 or v1.7.1 runtime-verified until the relevant evidence is recorded.
 
+Submission record: Monroe explicitly waived the new unpacked-browser smoke and replacement screenshot gates. The exact v1.7.1 ZIP with SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3` was uploaded successfully and submitted for normal review on August 3, 2026. The API readback showed `PENDING_REVIEW` at a 100% target with no warning or takedown flag. The unchecked runtime and screenshot items below remain open proof gaps, not blockers to that authorized submission.
+
 ## v1.7.1 discovery package and listing check
 
 Before tagging or uploading v1.7.1:

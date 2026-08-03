@@ -11,6 +11,7 @@ const expectedFiles = [
   'background.js',
   'capture.html',
   'capture.js',
+  'content-proposal.js',
   'content.js',
   'history.css',
   'history.html',

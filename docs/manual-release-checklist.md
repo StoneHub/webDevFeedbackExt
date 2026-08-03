@@ -2,9 +2,20 @@
 
 Automated checks are necessary but do not replace the unpacked-extension gate.
 
-Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call v1.7 or v1.7.1 runtime-verified until the relevant evidence is recorded.
+Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store, v1.7.1 is pending review, and v1.7.2 is the prepared Add Content replacement. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call these releases runtime-verified until the relevant evidence is recorded.
 
 Submission record: Monroe explicitly waived the new unpacked-browser smoke and replacement screenshot gates. The exact v1.7.1 ZIP with SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3` was uploaded successfully and submitted for normal review on August 3, 2026. The API readback showed `PENDING_REVIEW` at a 100% target with no warning or takedown flag. The unchecked runtime and screenshot items below remain open proof gaps, not blockers to that authorized submission.
+
+## v1.7.2 Add Content package and submission
+
+Before submitting v1.7.2:
+
+- Confirm the package adds only the reviewed Add Content feature plus the v1.7.1 discovery refresh; do not include v1.8 Feedback Session files or new permissions.
+- Confirm Text, Image placeholder, List, and HTML/embed frame definitions are rendered with DOM text nodes and that the frame remains a non-executable placeholder.
+- Confirm saved content requests normalize to a structured `insert` mutation and remain compatible with existing History and AI Bundle exports.
+- Run `npm test`, `npm run check`, `npm run package`, `npm run verify:package`, JavaScript syntax checks, and `git diff --check` from the isolated release worktree.
+- Because Monroe waived the new unpacked-browser smoke and replacement screenshots, record those as open proof gaps rather than claiming runtime verification.
+- Read the live Store API state, cancel the active v1.7.1 submission, upload the exact verified v1.7.2 ZIP, submit with review enabled and warnings blocking, then read the status back.
 
 ## v1.7.1 discovery package and listing check
 

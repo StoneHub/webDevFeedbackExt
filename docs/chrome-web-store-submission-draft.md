@@ -1,32 +1,32 @@
 # Chrome Web Store Submission Record
 
-Status: v1.7.0 is public in the Chrome Web Store. The exact v1.7.1 discovery package was uploaded and submitted for normal review on August 3, 2026 with no API warnings; it will publish automatically after approval. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset before this submission.
+Status: v1.7.0 is public in the Chrome Web Store. The exact v1.7.1 discovery package was submitted for normal review on August 3, 2026, and v1.7.2 is now the prepared Add Content replacement candidate. Replacing the active submission requires an explicit cancel, upload, publish, and API readback sequence. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset before these submissions.
 
-The next package is a behavior-neutral v1.7.1 discovery refresh. It changes the manifest title, short description, package version, and icon encoding; it does not add permissions or extension behavior. Keep the separate v1.8 Feedback Session work out of this package. The existing Store approval does not prove the deferred PDF/export, Visual Edit, local MCP, or compact-panel runtime gates in `docs/manual-release-checklist.md`.
+The next package is v1.7.2. It adds the user-triggered Add Content workflow plus the v1.7.1 discovery metadata and refreshed icon encoding without adding permissions, remote code, or network services. Keep the separate v1.8 Feedback Session work out of this package. The existing Store approval and automated checks do not prove the deferred browser runtime gates in `docs/manual-release-checklist.md`.
 
 ## Ready inputs
 
 - Publisher: `FlyingChanges Code`
-- Candidate extension package: `dist/dev-feedback-capture-v1.7.1.zip`
+- Candidate extension package: `dist/dev-feedback-capture-v1.7.2.zip`
 - Store icon: `icon128.png` (`128x128` PNG)
 - Public product page: `https://monroes.tech/software/dev-feedback-capture/`
 - Privacy policy: `https://monroes.tech/software/dev-feedback-capture/privacy/`
 - Support email: `monroe@flyingchangesfarm.net`
 - Single purpose: Capture structured, local visual change specifications from the current browser-visible page or PDF and export them for implementation.
 
-## Discovery metadata for v1.7.1
+## Discovery metadata for v1.7.2
 
 Manifest title, 44 of 45 characters:
 
 > Dev Feedback Capture: AI UI Review & Prompts
 
-Short description, 120 of 132 characters:
+Short description, 126 of 132 characters:
 
-> Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.
+> Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.
 
 Store overview:
 
-> Pick a webpage element, annotate a region or PDF, or preview a visual layout change. Dev Feedback Capture turns your feedback into AI-ready prompts and local visual change specs for Codex, Claude Code, Cursor, or another developer.
+> Pick a webpage element, propose new page content, annotate a region or PDF, or preview a visual layout change. Dev Feedback Capture turns your feedback into AI-ready prompts and local visual change specs for Codex, Claude Code, Cursor, or another developer.
 >
 > **Capture the evidence**
 >
@@ -34,6 +34,7 @@ Store overview:
 > - Capture a visible region from a webpage or browser-rendered PDF.
 > - Add arrows, shapes, numbered pins, text, and opaque redact marks.
 > - Preview a direct move or resize while preserving original-versus-proposed evidence and restoring the live page afterward.
+> - Propose text, image placeholders, lists, or safe HTML/embed frames before, after, or inside an existing page element.
 > - Add acceptance checks so the requested outcome is explicit.
 >
 > **Hand it off clearly**
@@ -61,11 +62,11 @@ These values were entered in the Chrome Web Store Privacy practices tab and are 
 
 `activeTab`
 
-> Used only after the user starts a capture. It grants temporary access to the current tab so the extension can identify the selected page, capture the visible viewport, or start Element, Visual, or Region mode.
+> Used only after the user starts a capture. It grants temporary access to the current tab so the extension can identify the selected page, capture the visible viewport, or start Element, Visual, Add Content, or Region mode.
 
 `scripting`
 
-> Used only after a user action to inject the capture overlay or visual-edit interface into the current tab. The extension does not use always-on content scripts.
+> Used only after a user action to inject the capture overlay, visual-edit interface, or reversible Add Content preview into the current tab. The extension does not use always-on content scripts.
 
 `storage`
 
@@ -168,6 +169,7 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 - Current public package: v1.7.0.
 - Submitted package: `dist/dev-feedback-capture-v1.7.1.zip`; SHA-256 `440b41157386ae75e42a15e0f7f12c9bcbe645966e57330ec97f55fdb61a1dc3`.
 - API readback on August 3, 2026: v1.7.1 is `PENDING_REVIEW` at a 100% target with no warning or takedown flag.
+- Replacement candidate: `dist/dev-feedback-capture-v1.7.2.zip`; final SHA-256 and API state must be recorded after the release package is built and submitted.
 - Category: Developer Tools; language: English (United States).
 - The single purpose, permission justifications, no-remote-code declaration, data-use categories, privacy-policy URL, homepage, and support URL were saved before submission.
 - One valid 1280x800 screenshot remains on the Store listing. Monroe explicitly waived replacement screenshots for this submission; the fresh five-shot set remains optional follow-up work.
@@ -175,4 +177,4 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 - Confirm the dashboard's publication timing choice before an approved item goes live; that setting was not independently recorded here.
 - Monroe explicitly authorized the v1.7.1 upload without a new unpacked-browser smoke or replacement screenshots. Those checks remain open and the release must not be described as runtime-verified.
 - The feature video, 440x280 promotional tile, and backup publisher Admin remain optional follow-up work.
-- Keep payments, authentication, network sync, additional permissions, and v1.8 Feedback Sessions out of v1.7.1.
+- Keep payments, authentication, network sync, additional permissions, and v1.8 Feedback Sessions out of v1.7.2.

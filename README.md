@@ -1,11 +1,12 @@
 # Dev Feedback Capture
 
-Pick and annotate browser elements or regions, then copy AI-ready prompts or export local visual change specs for Codex, Claude Code, Cursor, or another developer. Dev Feedback Capture supports three evidence-rich workflows:
+Pick and annotate browser elements or regions, propose new content blocks, then copy AI-ready prompts or export local visual change specs for Codex, Claude Code, Cursor, or another developer. Dev Feedback Capture supports four evidence-rich workflows:
 
-> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). This source checkout prepares a behavior-neutral v1.7.1 discovery refresh; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
+> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). This source checkout prepares the v1.7.2 Add Content update; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
+- `Add` mode anchors a proposed text, image, list, or HTML/embed frame to an existing element and saves a structured insert request without persisting the preview into the page.
 - `Region` mode captures the visible viewport and compiles a crop, vector annotations, best-effort DOM anchors, requested change, and acceptance checks into one visual change spec.
 
 All feedback stays local in extension storage. Open History to review captures, use the legacy standalone exports, or download one AI Bundle with instructions, structured data, page context, and before/annotated images.
@@ -15,6 +16,7 @@ All feedback stays local in extension storage. Open History to review captures, 
 - Element capture with selector, text, styles, and note metadata
 - Pointer-first Visual Edit previews with drag-to-move, corner-handle resize, undo, redo, and reset
 - Original/proposed evidence plus explicit requested-mutation data; the live page is always restored
+- Reversible Add Content previews for text, image placeholders, lists, and safe HTML/embed frame placeholders
 - Visual Change Spec editor with crop, arrow, rectangle, ellipse, pin, text, blur/redact, color, undo, and redo
 - DOM-linked vector annotations with selector fallbacks, roles, surrounding text, geometry, and parent-layout context when the source DOM is available
 - Optional acceptance checks plus browser, viewport, scroll, zoom, DPR, and source metadata
@@ -83,12 +85,23 @@ The cropped image, viewport rectangle, and source context are saved into the sam
 
 Visual Edit does not change source files, persist mutations into the page, or replay saved edits automatically. It records intent so a developer or coding agent can implement the change in the correct source layer.
 
+### Add Content Mode
+
+1. Open an injectable webpage and choose `Add` in the popup.
+2. Click the existing element that should anchor the new content.
+3. Choose Text, Image placeholder, List, or HTML/embed frame, then choose before, after, inside-start, or inside-end placement when the anchor supports children.
+4. Add basic filler, an optional heading, and what the content should communicate or support.
+5. Save the insert spec, or Cancel to remove the preview. Either path restores the original live page.
+
+The HTML/embed frame is intentionally a non-executable placeholder. Add Content never runs supplied markup, scripts, or remote embeds; it records the requested content and placement for implementation in source.
+
 ## Data Model
 
 Stored feedback items use a discriminated shape:
 
 - `type: "element"` items include selector, element info, and position.
 - v1.5 element items may also include a sanitized `changeRequest`, original/proposed element state, and local evidence images. Older element items normalize as visual suggestions without invented mutations.
+- Add Content items remain compatible `type: "element"` records and use a sanitized `insert` mutation containing an anchor, placement, content type, filler, support intent, and optional acceptance checks.
 - `type: "region"` items include one evidence crop, vector annotations, DOM anchors when available, acceptance criteria, and page context. Annotated PNGs are rendered locally when the AI Bundle is built.
 
 Older element-only captures are still loaded and normalized automatically.
@@ -132,6 +145,7 @@ The extension does not use static host permissions, always-on content scripts, t
 - `background.js`: runtime injection and region-capture session orchestration
 - `content.js`: in-page panel and element capture
 - `visual-edit.js`: dependency-free reversible mutation engine used by Visual Edit Mode
+- `content-proposal.js`: dependency-free safe placeholder builder used by Add Content Mode
 - `mcp/`: project-scoped stdio MCP companion and filesystem sidecar store
 - `capture.html` / `capture.js`: screenshot region selection editor
 - `popup.html` / `popup.js`: mode switch, current-tab actions, and History entry point
@@ -151,7 +165,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
-3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.7.1` tag.
+3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching version tag when publishing a GitHub Release.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
@@ -160,6 +174,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 - Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
 - Visual Edit is intentionally limited to direct move and resize of one normal-page DOM target. Text, visibility, order, style, matching, alignment, cross-origin frames, arbitrary CSS, responsive breakpoints, animation, and reparenting are outside this release.
+- Add Content previews basic content structure and placement only. It does not generate production markup, upload image assets, load remote embeds, or execute user-supplied HTML.
 - Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
 - Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.

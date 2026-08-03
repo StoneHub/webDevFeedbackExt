@@ -43,7 +43,9 @@
     OFF: 'off',
     ELEMENT: 'element',
     VISUAL_PICK: 'visual-pick',
-    VISUAL_EDIT: 'visual-edit'
+    VISUAL_EDIT: 'visual-edit',
+    CONTENT_PICK: 'content-pick',
+    CONTENT_EDIT: 'content-edit'
   });
 
   let feedbackMode = false;
@@ -67,6 +69,12 @@
   let visualLastRect = null;
   let visualBusy = false;
   let visualGesture = null;
+  let contentAnchor = null;
+  let contentAnchorInfo = null;
+  let contentBeforeViewport = null;
+  let contentInitialContext = null;
+  let contentPreview = null;
+  let contentBusy = false;
 
   function init() {
     if (!document.body) {
@@ -94,6 +102,7 @@
           </span>
           <span class="dev-feedback-count">0</span>
           <span class="dev-feedback-visual-dirty" aria-label="Unsaved visual edit" title="Unsaved visual edit">V*</span>
+          <span class="dev-feedback-content-dirty" aria-label="Unsaved content proposal" title="Unsaved content proposal">C*</span>
         </div>
         <div class="dev-feedback-panel-controls">
           <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Collapse changes" aria-label="Collapse changes" aria-expanded="true">⌄</button>
@@ -106,6 +115,7 @@
         <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-ai">AI Prompt</button>
         <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-capture-region">Capture Region</button>
         <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-start-visual">Visual Edit</button>
+        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-start-content">Add Content</button>
         <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-clear">Clear</button>
       </div>
       <div class="dev-feedback-items"></div>
@@ -143,6 +153,58 @@
           </div>
         </fieldset>
       </section>
+      <section class="dev-feedback-content-inspector" aria-labelledby="dev-feedback-content-title">
+        <div class="dev-feedback-visual-heading">
+          <div>
+            <div class="dev-feedback-modal-section-title">Add Content</div>
+            <div id="dev-feedback-content-title" class="dev-feedback-visual-title">Pick a placement anchor</div>
+          </div>
+          <button class="dev-feedback-btn dev-feedback-btn-tertiary" id="dev-feedback-content-pick-again" type="button">Pick another</button>
+        </div>
+        <p class="dev-feedback-visual-status" id="dev-feedback-content-status" role="status" aria-live="polite">Click an existing page element to choose where the new content belongs.</p>
+
+        <fieldset class="dev-feedback-control-group dev-feedback-content-fields">
+          <legend>Proposed block</legend>
+          <div class="dev-feedback-field-grid">
+            <label class="dev-feedback-field-label" for="dev-feedback-content-type">Content type</label>
+            <select class="dev-feedback-compact-select" id="dev-feedback-content-type">
+              <option value="text">Text</option>
+              <option value="image">Image placeholder</option>
+              <option value="list">List</option>
+              <option value="frame">HTML / embed frame</option>
+            </select>
+            <label class="dev-feedback-field-label" for="dev-feedback-content-placement">Placement</label>
+            <select class="dev-feedback-compact-select" id="dev-feedback-content-placement">
+              <option value="after">After anchor</option>
+              <option value="before">Before anchor</option>
+              <option value="inside-end">Inside, at end</option>
+              <option value="inside-start">Inside, at start</option>
+            </select>
+          </div>
+
+          <label class="dev-feedback-field-label" for="dev-feedback-content-heading">Heading or label</label>
+          <input class="dev-feedback-compact-input" id="dev-feedback-content-heading" maxlength="160" placeholder="Optional heading">
+
+          <label class="dev-feedback-field-label" id="dev-feedback-content-body-label" for="dev-feedback-content-body">Filler content</label>
+          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-body" maxlength="2000" placeholder="Draft the copy or basic filler..."></textarea>
+
+          <div id="dev-feedback-content-alt-group" hidden>
+            <label class="dev-feedback-field-label" for="dev-feedback-content-alt">Image description / alt text</label>
+            <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-alt" maxlength="500" placeholder="Describe the image or asset needed..."></textarea>
+          </div>
+
+          <label class="dev-feedback-field-label" for="dev-feedback-content-support">What should this content communicate or support?</label>
+          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-support" maxlength="1000" placeholder="Explain the purpose, user need, data source, or behavior this block should support..."></textarea>
+
+          <label class="dev-feedback-field-label" for="dev-feedback-content-acceptance">Acceptance checks (one per line)</label>
+          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-acceptance" maxlength="2000" placeholder="The new content appears in the intended location."></textarea>
+
+          <div class="dev-feedback-inline-actions">
+            <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-save-content" type="button">Save insert spec</button>
+            <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-cancel-content" type="button">Cancel &amp; restore</button>
+          </div>
+        </fieldset>
+      </section>
       <div class="dev-feedback-panel-footer">Feedback is stored locally in this browser.</div>
     `;
     document.body.appendChild(feedbackPanel);
@@ -155,8 +217,10 @@
     feedbackPanel.querySelector('#dev-feedback-copy-ai').addEventListener('click', copyAsAiPrompt);
     feedbackPanel.querySelector('#dev-feedback-capture-region').addEventListener('click', startRegionCapture);
     feedbackPanel.querySelector('#dev-feedback-start-visual').addEventListener('click', startVisualEditMode);
+    feedbackPanel.querySelector('#dev-feedback-start-content').addEventListener('click', startAddContentMode);
     feedbackPanel.querySelector('#dev-feedback-clear').addEventListener('click', clearAllFeedback);
     bindVisualInspector();
+    bindContentInspector();
   }
 
   function togglePanelCollapsed() {
@@ -190,6 +254,26 @@
     feedbackPanel.querySelector('#dev-feedback-visual-reset').addEventListener('click', resetVisualSession);
     feedbackPanel.querySelector('#dev-feedback-save-visual').addEventListener('click', saveVisualSpec);
     feedbackPanel.querySelector('#dev-feedback-cancel-visual').addEventListener('click', cancelVisualEdit);
+  }
+
+  function bindContentInspector() {
+    const ids = [
+      'dev-feedback-content-type',
+      'dev-feedback-content-placement',
+      'dev-feedback-content-heading',
+      'dev-feedback-content-body',
+      'dev-feedback-content-alt',
+      'dev-feedback-content-support'
+    ];
+    ids.forEach((id) => {
+      const field = feedbackPanel.querySelector(`#${id}`);
+      field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', updateContentPreview);
+    });
+    feedbackPanel.querySelector('#dev-feedback-content-type').addEventListener('change', syncContentFieldLabels);
+    feedbackPanel.querySelector('#dev-feedback-content-pick-again').addEventListener('click', pickAnotherContentAnchor);
+    feedbackPanel.querySelector('#dev-feedback-save-content').addEventListener('click', saveContentSpec);
+    feedbackPanel.querySelector('#dev-feedback-cancel-content').addEventListener('click', cancelContentProposal);
+    syncContentFieldLabels();
   }
 
   function clampPanelToViewport() {
@@ -317,6 +401,12 @@
       return;
     }
 
+    if (event.key === 'Escape' && contentPreview && !contentBusy) {
+      event.preventDefault();
+      cancelContentProposal();
+      return;
+    }
+
     const editable = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
     if (!editable && visualSession && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
       event.preventDefault();
@@ -364,7 +454,7 @@
     if (interactionMode === nextMode) {
       return true;
     }
-    if (visualBusy && visualSession) {
+    if ((visualBusy && visualSession) || contentBusy) {
       showNotification('Wait for the current visual evidence capture to finish.', 'error');
       return false;
     }
@@ -380,10 +470,22 @@
     if (visualSession && !String(nextMode).startsWith('visual-')) {
       restoreVisualSession();
     }
+    if (
+      contentPreview
+      && !String(nextMode).startsWith('content-')
+      && !options.discardContent
+    ) {
+      showNotification('Save or Cancel the content proposal before changing modes.', 'error');
+      return false;
+    }
+    if (contentPreview && !String(nextMode).startsWith('content-')) {
+      restoreContentProposal();
+    }
     interactionMode = nextMode;
     feedbackMode = nextMode === INTERACTION_MODES.ELEMENT;
     feedbackPanel.classList.toggle('visible', nextMode !== INTERACTION_MODES.OFF);
     feedbackPanel.classList.toggle('visual-active', String(nextMode).startsWith('visual-'));
+    feedbackPanel.classList.toggle('content-active', String(nextMode).startsWith('content-'));
     closeCaptureModal();
     if (nextMode === INTERACTION_MODES.OFF) {
       disableElementHighlighting();
@@ -391,6 +493,7 @@
       enableElementHighlighting();
     }
     renderVisualInspector();
+    renderContentInspector();
     scheduleDecorationRefresh();
     if (nextMode !== INTERACTION_MODES.OFF) {
       window.requestAnimationFrame(() => {
@@ -405,7 +508,7 @@
   }
 
   function stopInteractionMode() {
-    setInteractionMode(INTERACTION_MODES.OFF, { discardVisual: true });
+    setInteractionMode(INTERACTION_MODES.OFF, { discardVisual: true, discardContent: true });
   }
 
   function startVisualEditMode() {
@@ -428,6 +531,28 @@
     return { ok: true };
   }
 
+  function startAddContentMode() {
+    if (!globalThis.DevFeedbackContentProposal?.createPreviewElement) {
+      showNotification('Add Content did not load. Refresh the page and try again.', 'error');
+      return { ok: false, reason: 'Add Content engine unavailable.' };
+    }
+    if (visualBusy || contentBusy) {
+      return { ok: false, reason: 'Wait for the current evidence capture to finish.' };
+    }
+    if (visualSession?.getState().dirty) {
+      return { ok: false, reason: 'Save or Cancel the visual preview before adding content.' };
+    }
+    if (contentPreview) {
+      return { ok: false, reason: 'Save or Cancel the current content proposal before starting another.' };
+    }
+    if (!setInteractionMode(INTERACTION_MODES.CONTENT_PICK)) {
+      return { ok: false, reason: 'Finish the current preview before adding content.' };
+    }
+    setPanelCollapsed(true);
+    showNotification('Add Content: pick the element that should anchor the new block.');
+    return { ok: true };
+  }
+
   function enableElementHighlighting() {
     disableElementHighlighting();
     document.addEventListener('mouseover', handleMouseOver);
@@ -446,7 +571,7 @@
   }
 
   function handleMouseOver(event) {
-    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || isOurElement(event.target)) {
+    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || interactionMode === INTERACTION_MODES.CONTENT_EDIT || isOurElement(event.target)) {
       return;
     }
 
@@ -454,7 +579,7 @@
   }
 
   function handleMouseOut(event) {
-    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || isOurElement(event.target)) {
+    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || interactionMode === INTERACTION_MODES.CONTENT_EDIT || isOurElement(event.target)) {
       return;
     }
 
@@ -462,7 +587,7 @@
   }
 
   function handleElementClick(event) {
-    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT) {
+    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || interactionMode === INTERACTION_MODES.CONTENT_EDIT) {
       return;
     }
 
@@ -477,6 +602,8 @@
       captureElement(target);
     } else if (interactionMode === INTERACTION_MODES.VISUAL_PICK) {
       selectVisualTarget(target);
+    } else if (interactionMode === INTERACTION_MODES.CONTENT_PICK) {
+      selectContentAnchor(target);
     }
   }
 
@@ -487,7 +614,8 @@
         (element.id && element.id.startsWith('dev-feedback')) ||
         (typeof element.closest === 'function' && element.closest(SELECTORS.panel)) ||
         (typeof element.closest === 'function' && element.closest(SELECTORS.modal)) ||
-        (typeof element.closest === 'function' && element.closest(SELECTORS.markerLayer))
+        (typeof element.closest === 'function' && element.closest(SELECTORS.markerLayer)) ||
+        (typeof element.closest === 'function' && element.closest('[data-dev-feedback-content-preview]'))
       )
     );
   }
@@ -545,8 +673,308 @@
     }
   }
 
+  async function selectContentAnchor(element) {
+    if (contentBusy || isOurElement(element)) {
+      return;
+    }
+    if (element === document.body || element === document.documentElement || element.contains(feedbackPanel)) {
+      showNotification('Pick a specific page element to anchor the new content.', 'error');
+      return;
+    }
+
+    contentBusy = true;
+    element.classList.remove('dev-feedback-highlight');
+    try {
+      const anchorInfo = buildElementSnapshot(element);
+      const beforeViewport = await captureVisualViewport();
+      if (!beforeViewport) {
+        throw new Error('Unable to capture before evidence. Keep this tab visible and try again.');
+      }
+      restoreContentProposal();
+      contentBusy = true;
+      contentAnchor = element;
+      contentAnchor.classList.add('dev-feedback-selected');
+      contentAnchorInfo = anchorInfo;
+      contentBeforeViewport = beforeViewport;
+      contentInitialContext = buildPageContext();
+      clearContentFields();
+      interactionMode = INTERACTION_MODES.CONTENT_EDIT;
+      feedbackPanel.classList.add('content-active');
+      placePanelOppositeTarget(anchorInfo.rect);
+      setPanelCollapsed(false);
+      updateContentPreview();
+      renderContentInspector('Preview this block, add its purpose, then save the insert spec.');
+      scheduleDecorationRefresh();
+    } catch (error) {
+      restoreContentProposal();
+      interactionMode = INTERACTION_MODES.CONTENT_PICK;
+      showNotification(error.message || 'Unable to start a content proposal for this element.', 'error');
+    } finally {
+      contentBusy = false;
+      renderContentInspector();
+    }
+  }
+
+  function clearContentFields() {
+    feedbackPanel.querySelector('#dev-feedback-content-type').value = 'text';
+    feedbackPanel.querySelector('#dev-feedback-content-placement').value = 'after';
+    feedbackPanel.querySelector('#dev-feedback-content-heading').value = '';
+    feedbackPanel.querySelector('#dev-feedback-content-body').value = '';
+    feedbackPanel.querySelector('#dev-feedback-content-alt').value = '';
+    feedbackPanel.querySelector('#dev-feedback-content-support').value = '';
+    feedbackPanel.querySelector('#dev-feedback-content-acceptance').value = '';
+    syncContentFieldLabels();
+  }
+
+  function readContentDefinition() {
+    const body = feedbackPanel.querySelector('#dev-feedback-content-body').value;
+    return globalThis.DevFeedbackContentProposal.sanitizeDefinition({
+      type: feedbackPanel.querySelector('#dev-feedback-content-type').value,
+      placement: feedbackPanel.querySelector('#dev-feedback-content-placement').value,
+      title: feedbackPanel.querySelector('#dev-feedback-content-heading').value,
+      body,
+      items: body.split(/\r?\n/),
+      altText: feedbackPanel.querySelector('#dev-feedback-content-alt').value,
+      support: feedbackPanel.querySelector('#dev-feedback-content-support').value
+    });
+  }
+
+  function syncContentFieldLabels() {
+    const type = feedbackPanel.querySelector('#dev-feedback-content-type').value;
+    const bodyLabel = feedbackPanel.querySelector('#dev-feedback-content-body-label');
+    const bodyField = feedbackPanel.querySelector('#dev-feedback-content-body');
+    const altGroup = feedbackPanel.querySelector('#dev-feedback-content-alt-group');
+    altGroup.hidden = type !== 'image';
+
+    if (type === 'list') {
+      bodyLabel.textContent = 'List items (one per line)';
+      bodyField.placeholder = 'First item\nSecond item\nThird item';
+    } else if (type === 'frame') {
+      bodyLabel.textContent = 'Frame placeholder details';
+      bodyField.placeholder = 'Describe the widget, embed, HTML fragment, or external content area...';
+    } else if (type === 'image') {
+      bodyLabel.textContent = 'Caption or filler copy';
+      bodyField.placeholder = 'Optional caption or supporting text...';
+    } else {
+      bodyLabel.textContent = 'Filler content';
+      bodyField.placeholder = 'Draft the copy or basic filler...';
+    }
+  }
+
+  function updateContentPreview() {
+    syncContentFieldLabels();
+    globalThis.DevFeedbackContentProposal.removePreview(contentPreview);
+    contentPreview = null;
+    if (!contentAnchor?.isConnected) {
+      renderContentInspector();
+      return;
+    }
+
+    const definition = readContentDefinition();
+    try {
+      const preview = globalThis.DevFeedbackContentProposal.createPreviewElement(document, definition);
+      globalThis.DevFeedbackContentProposal.insertPreview(contentAnchor, preview, definition.placement);
+      contentPreview = preview;
+      renderContentInspector();
+      scheduleDecorationRefresh();
+    } catch (error) {
+      renderContentInspector(error.message || 'That placement is not supported for this anchor.');
+    }
+  }
+
+  function renderContentInspector(statusMessage) {
+    if (!feedbackPanel) {
+      return;
+    }
+    const inspector = feedbackPanel.querySelector('.dev-feedback-content-inspector');
+    if (!inspector) {
+      return;
+    }
+    const contentActive = String(interactionMode).startsWith('content-');
+    const canPlaceInside = globalThis.DevFeedbackContentProposal?.canPlaceInside(contentAnchor);
+    feedbackPanel.querySelectorAll('#dev-feedback-content-placement option').forEach((option) => {
+      option.disabled = option.value.startsWith('inside-') && !canPlaceInside;
+    });
+    feedbackPanel.classList.toggle('content-active', contentActive);
+    feedbackPanel.classList.toggle('content-dirty', Boolean(contentPreview));
+    feedbackPanel.querySelector('#dev-feedback-content-title').textContent = contentAnchor
+      ? `${contentAnchorInfo?.tag || 'element'} · ${contentAnchorInfo?.selector || ''}`
+      : 'Pick a placement anchor';
+    const status = feedbackPanel.querySelector('#dev-feedback-content-status');
+    if (statusMessage) {
+      status.textContent = statusMessage;
+    } else if (!contentAnchor) {
+      status.textContent = 'Click an existing page element to choose where the new content belongs.';
+    } else if (contentPreview) {
+      status.textContent = 'Reversible content preview is active.';
+    }
+    inspector.querySelector('fieldset').disabled = !contentAnchor || contentBusy;
+    feedbackPanel.querySelector('#dev-feedback-save-content').disabled = !contentPreview || contentBusy;
+    feedbackPanel.querySelector('#dev-feedback-content-pick-again').disabled = !contentAnchor;
+    const closeButton = feedbackPanel.querySelector('#dev-feedback-panel-close');
+    if (contentActive) {
+      closeButton.title = 'Stop Add Content and restore page';
+      closeButton.setAttribute('aria-label', closeButton.title);
+    }
+  }
+
+  function pickAnotherContentAnchor() {
+    if (contentBusy) {
+      showNotification('Wait for the current evidence capture to finish.', 'error');
+      return;
+    }
+    restoreContentProposal();
+    interactionMode = INTERACTION_MODES.CONTENT_PICK;
+    feedbackPanel.classList.add('content-active');
+    setPanelCollapsed(true);
+    renderContentInspector('Click another page element to choose a new anchor.');
+    scheduleDecorationRefresh();
+  }
+
+  function cancelContentProposal() {
+    if (contentBusy) {
+      showNotification('Wait for the current evidence capture to finish.', 'error');
+      return;
+    }
+    restoreContentProposal();
+    interactionMode = INTERACTION_MODES.CONTENT_PICK;
+    feedbackPanel.classList.add('content-active');
+    setPanelCollapsed(true);
+    renderContentInspector('Preview removed. Pick another placement anchor.');
+    showNotification('Content proposal cancelled and page restored.');
+    scheduleDecorationRefresh();
+  }
+
+  function restoreContentProposal() {
+    globalThis.DevFeedbackContentProposal?.removePreview(contentPreview);
+    contentAnchor?.classList.remove('dev-feedback-selected');
+    contentPreview = null;
+    contentAnchor = null;
+    contentAnchorInfo = null;
+    contentBeforeViewport = null;
+    contentInitialContext = null;
+    contentBusy = false;
+    feedbackPanel?.classList.remove('content-dirty');
+  }
+
+  async function saveContentSpec() {
+    if (!contentAnchor || !contentPreview || contentBusy) {
+      return;
+    }
+    const definition = readContentDefinition();
+    const hasUsefulInput = Boolean(
+      definition.title || definition.body || definition.altText || definition.items.length || definition.support
+    );
+    if (!hasUsefulInput) {
+      const supportField = feedbackPanel.querySelector('#dev-feedback-content-support');
+      showNotification('Add filler content or describe what this block should support.', 'error');
+      supportField.focus();
+      return;
+    }
+    if (!contentAnchor.isConnected || !contentPreview.isConnected || !sameContentViewport()) {
+      showNotification('The page moved or changed. Pick the placement anchor again.', 'error');
+      return;
+    }
+
+    contentBusy = true;
+    renderContentInspector('Capturing proposed evidence...');
+    try {
+      const proposedViewport = await captureVisualViewport();
+      if (!proposedViewport?.dataUrl || !contentBeforeViewport?.dataUrl) {
+        throw new Error('Could not capture both before and proposed evidence. Nothing was saved.');
+      }
+      const evidenceRect = buildEvidenceRect(contentAnchorInfo.rect, getViewportRect(contentPreview));
+      const [beforeDataUrl, proposedDataUrl] = await Promise.all([
+        cropViewportImage(contentBeforeViewport.dataUrl, evidenceRect),
+        cropViewportImage(proposedViewport.dataUrl, evidenceRect)
+      ]);
+      if (!beforeDataUrl || !proposedDataUrl) {
+        throw new Error('Content proposal evidence could not be cropped. Nothing was saved.');
+      }
+
+      const summary = definition.support
+        || definition.title
+        || `Add a ${globalThis.DevFeedbackContentProposal.getTypeLabel(definition.type)} block`;
+      const acceptance = feedbackPanel.querySelector('#dev-feedback-content-acceptance').value
+        .split(/\r?\n/)
+        .map((criterion) => criterion.trim())
+        .filter(Boolean)
+        .slice(0, 12);
+      const item = {
+        specVersion: 2,
+        id: buildFeedbackId(),
+        type: CAPTURE_TYPE_ELEMENT,
+        captureType: CAPTURE_TYPE_ELEMENT,
+        selector: contentAnchorInfo.selector,
+        pageUrl: window.location.href,
+        pageTitle: document.title,
+        elementInfo: toStoredElementInfo(contentAnchorInfo),
+        proposedElementInfo: toStoredElementInfo(buildElementSnapshot(contentPreview)),
+        position: contentAnchorInfo.position,
+        pageContext: contentInitialContext,
+        changeRequest: {
+          kind: 'requested-mutation',
+          summary: summary.slice(0, MAX_NOTE_LENGTH),
+          requestedMutations: [{
+            id: `insert-${Date.now()}`,
+            action: 'insert',
+            target: toMutationTargetSnapshot(contentAnchorInfo),
+            parameters: {
+              placement: definition.placement,
+              content: definition
+            }
+          }]
+        },
+        evidence: {
+          before: { mimeType: 'image/png', dataUrl: beforeDataUrl, source: { kind: 'captured' } },
+          proposed: { mimeType: 'image/png', dataUrl: proposedDataUrl, source: { kind: 'rendered-preview' } }
+        },
+        acceptance,
+        note: summary.slice(0, MAX_NOTE_LENGTH),
+        timestamp: new Date().toISOString()
+      };
+
+      restoreContentProposal();
+      contentBusy = true;
+      const nextItems = await runFeedbackMutation('add-feedback-item', { item });
+      if (!nextItems) {
+        throw new Error('Unable to store the content insertion spec.');
+      }
+      feedbackItems = sanitizeFeedbackItems(nextItems, window.location.href, document.title);
+      interactionMode = INTERACTION_MODES.CONTENT_PICK;
+      feedbackPanel.classList.add('content-active');
+      setPanelCollapsed(true);
+      updateFeedbackPanel();
+      renderContentInspector('Saved locally. Pick another placement anchor.');
+      scheduleDecorationRefresh();
+      showNotification('Content insert spec saved and page restored.');
+    } catch (error) {
+      restoreContentProposal();
+      interactionMode = INTERACTION_MODES.CONTENT_PICK;
+      renderContentInspector('Save failed after restoring the page. Pick the anchor again.');
+      showNotification(error.message || 'Unable to save the content insert spec.', 'error');
+    } finally {
+      contentBusy = false;
+      renderContentInspector();
+    }
+  }
+
+  function sameContentViewport() {
+    const viewport = contentInitialContext?.viewport;
+    return contentInitialContext?.url === window.location.href
+      && viewport
+      && Math.abs(viewport.scrollX - window.scrollX) <= 2
+      && Math.abs(viewport.scrollY - window.scrollY) <= 2
+      && Math.abs(viewport.width - window.innerWidth) <= 2
+      && Math.abs(viewport.height - window.innerHeight) <= 2
+      && Math.abs(viewport.devicePixelRatio - window.devicePixelRatio) <= 0.02;
+  }
+
   function buildVisualTargetSnapshot(element) {
-    const snapshot = buildElementSnapshot(element);
+    return toMutationTargetSnapshot(buildElementSnapshot(element));
+  }
+
+  function toMutationTargetSnapshot(snapshot) {
     return {
       selectors: snapshot.selectors,
       tag: snapshot.tag,
@@ -659,28 +1087,35 @@
   }
 
   function restoreVisualOnPageExit() {
-    if (!visualSession) {
+    if (!visualSession && !contentPreview) {
       return;
     }
     restoreVisualSession();
+    restoreContentProposal();
     interactionMode = INTERACTION_MODES.OFF;
     feedbackMode = false;
     disableElementHighlighting();
     if (feedbackPanel) {
-      feedbackPanel.classList.remove('visible', 'visual-active');
+      feedbackPanel.classList.remove('visible', 'visual-active', 'content-active');
     }
   }
 
   function restoreVisualAfterSameDocumentNavigation() {
-    if (!visualSession) {
+    if (!visualSession && !contentPreview) {
       return;
     }
+    const wasContent = Boolean(contentPreview);
     restoreVisualSession();
-    interactionMode = INTERACTION_MODES.VISUAL_PICK;
+    restoreContentProposal();
+    interactionMode = wasContent ? INTERACTION_MODES.CONTENT_PICK : INTERACTION_MODES.VISUAL_PICK;
     feedbackMode = false;
-    feedbackPanel.classList.add('visible', 'visual-active');
+    feedbackPanel.classList.add('visible', wasContent ? 'content-active' : 'visual-active');
     setPanelCollapsed(true);
-    renderVisualInspector('Page navigation restored the preview. Pick an element again.');
+    if (wasContent) {
+      renderContentInspector('Page navigation restored the preview. Pick an anchor again.');
+    } else {
+      renderVisualInspector('Page navigation restored the preview. Pick an element again.');
+    }
     scheduleDecorationRefresh();
   }
 
@@ -1231,7 +1666,7 @@
   }
 
   async function startRegionCapture() {
-    if (visualBusy) {
+    if (visualBusy || contentBusy) {
       const reason = 'Wait for the current visual evidence capture to finish.';
       showNotification(reason, 'error');
       return { ok: false, reason };
@@ -1241,8 +1676,15 @@
       showNotification(reason, 'error');
       return { ok: false, reason };
     }
+    if (contentPreview) {
+      const reason = 'Save or Cancel the content proposal before starting Region capture.';
+      showNotification(reason, 'error');
+      return { ok: false, reason };
+    }
     if (visualSession || String(interactionMode).startsWith('visual-')) {
       setInteractionMode(INTERACTION_MODES.OFF, { discardVisual: true });
+    } else if (String(interactionMode).startsWith('content-')) {
+      setInteractionMode(INTERACTION_MODES.OFF, { discardContent: true });
     }
     const visibility = [feedbackPanel, captureModal, markerLayer].map((element) => element?.style.visibility || '');
     [feedbackPanel, captureModal, markerLayer].forEach((element) => {
@@ -1367,7 +1809,10 @@
   function populateElementItem(itemElement, item) {
     const selector = document.createElement('div');
     selector.className = 'dev-feedback-item-selector';
-    selector.textContent = item.selector;
+    const insertMutation = item.changeRequest?.requestedMutations?.find((mutation) => mutation.action === 'insert');
+    selector.textContent = insertMutation
+      ? `Add ${insertMutation.parameters.content?.type || 'content'} ${insertMutation.parameters.placement || 'after'} ${item.selector}`
+      : item.selector;
     itemElement.appendChild(selector);
   }
 
@@ -1919,6 +2364,11 @@
 
     if (request.action === 'start-visual-edit') {
       sendResponse(startVisualEditMode());
+      return;
+    }
+
+    if (request.action === 'start-add-content') {
+      sendResponse(startAddContentMode());
       return;
     }
 

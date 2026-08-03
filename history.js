@@ -540,6 +540,12 @@
       || target.tag
       || target.text
       || formatMutationRect(target.rect);
+    if (mutation?.action === 'insert') {
+      const content = mutation.parameters?.content || {};
+      const placement = mutation.parameters?.placement || 'after';
+      const details = [content.title, content.body, content.support].filter(Boolean).join(' | ');
+      return `insert ${content.type || 'content'} ${placement} ${identity || 'unknown target'}${details ? `; ${details}` : ''}`;
+    }
     const parameters = mutation?.parameters && Object.keys(mutation.parameters).length
       ? `; parameters=${JSON.stringify(mutation.parameters)}`
       : '';

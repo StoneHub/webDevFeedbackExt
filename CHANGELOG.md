@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.2 (Prepared August 3, 2026)
+
+- Added Add Content mode for anchoring proposed text, image placeholders, lists, and safe HTML/embed-frame placeholders to existing page elements.
+- Added reversible before, after, inside-start, and inside-end previews with explicit filler, support intent, and acceptance checks.
+- Stored Add Content results as sanitized `insert` mutations with original/proposed evidence while restoring the live page after Save, Cancel, navigation, or close.
+- Updated History, AI Bundle formatting, package verification, local documentation, and Store-facing discovery copy for the new workflow.
+- Kept the HTML/embed frame non-executable, all feedback local-first, the existing three permissions unchanged, and the separate v1.8 Feedback Session work out of this release.
+
 ## 1.7.1 (Submitted August 3, 2026)
 
 - Added a plain-language Store title and short description around picking UI, annotating regions, and producing AI-ready prompts and visual change specs.

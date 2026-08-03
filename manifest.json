@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture: AI UI Review & Prompts",
-  "version": "1.7.1",
-  "description": "Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.",
+  "version": "1.7.2",
+  "description": "Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.",
   "permissions": [
     "storage",
     "activeTab",

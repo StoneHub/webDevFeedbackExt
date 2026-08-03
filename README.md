@@ -2,7 +2,7 @@
 
 Pick and annotate browser elements or regions, propose new content blocks, then copy AI-ready prompts or export local visual change specs for Codex, Claude Code, Cursor, or another developer. Dev Feedback Capture supports four evidence-rich workflows:
 
-> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). This source checkout prepares a behavior-neutral v1.7.1 discovery refresh; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
+> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). This source checkout prepares the v1.7.2 Add Content update; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
@@ -165,7 +165,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
-3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.7.1` tag.
+3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching version tag when publishing a GitHub Release.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

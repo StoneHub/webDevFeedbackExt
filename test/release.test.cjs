@@ -751,8 +751,8 @@ assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'empty-webp', ite
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.equal(manifest.name.length, 44);
-assert.equal(manifest.description, 'Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.');
-assert.equal(manifest.description.length, 120);
+assert.equal(manifest.description, 'Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.');
+assert.equal(manifest.description.length, 126);
 assert.equal(productJson.summary, manifest.description);
 assert.equal(
   manifest.commands['toggle-feedback-mode'].suggested_key.default,

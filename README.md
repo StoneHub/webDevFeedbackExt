@@ -1,8 +1,8 @@
 # Dev Feedback Capture
 
-Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports three workflows:
+Pick and annotate browser elements or regions, then copy AI-ready prompts or export local visual change specs for Codex, Claude Code, Cursor, or another developer. Dev Feedback Capture supports three evidence-rich workflows:
 
-> Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
+> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). This source checkout prepares a behavior-neutral v1.7.1 discovery refresh; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
 
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
@@ -28,7 +28,11 @@ All feedback stays local in extension storage. Open History to review captures, 
 
 ## Installation
 
-### Latest Release ZIP
+### Chrome Web Store
+
+Install the current public release from the [Chrome Web Store](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc), then pin Dev Feedback Capture for quick access.
+
+### GitHub Release ZIP fallback
 
 1. Download the latest `dev-feedback-capture-v<version>.zip` asset from [GitHub Releases](https://github.com/StoneHub/webDevFeedbackExt/releases).
 2. Unzip the file.
@@ -147,7 +151,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
-3. Complete the manual unpacked-extension and MCP handoff gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.7.0` tag.
+3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.7.1` tag.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.

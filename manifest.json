@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Dev Feedback Capture",
-  "version": "1.7.0",
-  "description": "Capture element, region, and visual-edit feedback as implementation-ready specs, saved locally until you export.",
+  "name": "Dev Feedback Capture: AI UI Review & Prompts",
+  "version": "1.7.1",
+  "description": "Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.",
   "permissions": [
     "storage",
     "activeTab",

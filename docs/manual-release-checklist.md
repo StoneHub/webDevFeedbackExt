@@ -2,7 +2,21 @@
 
 Automated checks are necessary but do not replace the unpacked-extension gate.
 
-Store status on July 25, 2026: v1.6 is public in the Chrome Web Store. Store approval is not proof that the deferred checks below passed. Keep them open and do not tag, upload, or call v1.7 runtime-verified until the relevant evidence is recorded.
+Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call v1.7 or v1.7.1 runtime-verified until the relevant evidence is recorded.
+
+## v1.7.1 discovery package and listing check
+
+Before tagging or uploading v1.7.1:
+
+- Confirm the package contains only v1.7 behavior plus the manifest title, short description, version, and refreshed Browser Code icon assets. Do not include v1.8 Feedback Session files or permissions.
+- Current Chrome documentation takes the required 128x128 extension icon from the uploaded ZIP; the Store listing tab separately owns the long description, screenshots, promotional tile, and video. Do not invent a separate icon-upload step unless the live dashboard exposes one for this item.
+- Confirm the manifest title is `Dev Feedback Capture: AI UI Review & Prompts` and remains at or below 45 characters.
+- Confirm the manifest short description is the approved 120-character Store copy and remains at or below 132 characters.
+- Run `npm test`, `npm run check`, `npm run package`, `npm run verify:package`, and `git diff --check` from the isolated v1.7.1 worktree.
+- Load the exact v1.7.1 package unpacked and confirm Chrome identifies version 1.7.1, shows the full title without breaking popup behavior, and uses the Browser Code icon at 16, 48, and 128 pixels.
+- Capture the five real 1280x800 Store screenshots specified in `docs/chrome-web-store-submission-draft.md`; do not substitute old v1.2 screenshots for current-product proof.
+- In the durable owner account, update the Store overview, screenshots, and optional video, then upload the exact verified v1.7.1 ZIP. Re-read the upload status before submitting for review.
+- After publication, confirm the Store listing and a clean Google result both show the Browser Code icon, revised title, short description, public version, and current screenshots. If the retired purple-flag asset remains despite the verified ZIP icon, record the listing asset URL and escalate through Chrome Web Store support rather than claiming the refresh worked.
 
 ## v1.7 compact-panel and icon check
 

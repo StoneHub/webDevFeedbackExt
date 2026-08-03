@@ -1,18 +1,53 @@
 # Chrome Web Store Submission Record
 
-Status: v1.6 was submitted on July 19, 2026 and was public by July 20, 2026. The v1.7 package is a local release candidate and has not been uploaded.
+Status: v1.7.0 is public in the Chrome Web Store as of July 27, 2026. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset on August 3, 2026.
 
-The next package is v1.7.0. The existing Store approval does not prove the deferred PDF/export, Visual Edit, local MCP, or v1.7 compact-panel runtime gates in `docs/manual-release-checklist.md`; do not tag or upload v1.7 until those checks pass.
+The next package is a behavior-neutral v1.7.1 discovery refresh. It changes the manifest title, short description, package version, and icon encoding; it does not add permissions or extension behavior. Keep the separate v1.8 Feedback Session work out of this package. The existing Store approval does not prove the deferred PDF/export, Visual Edit, local MCP, or compact-panel runtime gates in `docs/manual-release-checklist.md`.
 
 ## Ready inputs
 
 - Publisher: `FlyingChanges Code`
-- Candidate extension package: `dist/dev-feedback-capture-v1.7.0.zip`
+- Candidate extension package: `dist/dev-feedback-capture-v1.7.1.zip`
 - Store icon: `icon128.png` (`128x128` PNG)
 - Public product page: `https://monroes.tech/software/dev-feedback-capture/`
 - Privacy policy: `https://monroes.tech/software/dev-feedback-capture/privacy/`
 - Support email: `monroe@flyingchangesfarm.net`
 - Single purpose: Capture structured, local visual change specifications from the current browser-visible page or PDF and export them for implementation.
+
+## Discovery metadata for v1.7.1
+
+Manifest title, 44 of 45 characters:
+
+> Dev Feedback Capture: AI UI Review & Prompts
+
+Short description, 120 of 132 characters:
+
+> Pick and annotate elements or regions. Copy AI-ready prompts and visual change specs for Codex, Claude Code, and Cursor.
+
+Store overview:
+
+> Pick a webpage element, annotate a region or PDF, or preview a visual layout change. Dev Feedback Capture turns your feedback into AI-ready prompts and local visual change specs for Codex, Claude Code, Cursor, or another developer.
+>
+> **Capture the evidence**
+>
+> - Select an element and keep its text, selector, styles, page URL, and implementation note together.
+> - Capture a visible region from a webpage or browser-rendered PDF.
+> - Add arrows, shapes, numbered pins, text, and opaque redact marks.
+> - Preview a direct move or resize while preserving original-versus-proposed evidence and restoring the live page afterward.
+> - Add acceptance checks so the requested outcome is explicit.
+>
+> **Hand it off clearly**
+>
+> - Copy a numbered AI-ready implementation prompt.
+> - Download one local AI Bundle with structured JSON, page context, report HTML, and matching evidence images.
+> - Export standalone JSON, HTML, or Markdown for issue trackers and developer review.
+> - Use the optional project-scoped local MCP companion through an explicit JSON export and import.
+>
+> **Local-first by design**
+>
+> Feedback stays in local extension storage until you export it. Dev Feedback Capture has no cloud sync, telemetry, hosted AI connection, static host permissions, or always-on content scripts. Capture and export actions are user-triggered.
+>
+> Dev Feedback Capture produces portable handoff files and copyable prompts. It does not claim an official integration with Codex, Claude Code, Cursor, or their publishers.
 
 ## Submitted privacy practices copy
 
@@ -130,13 +165,13 @@ Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the publi
 
 - Publisher: `FlyingChanges Code`; durable owner and verified public contact: `monroe@flyingchangesfarm.net`.
 - Store item ID: `hhdmfaaplpiokafjieefpgoppckijafc`.
-- Current public package: v1.6.0.
-- Next candidate package: `dist/dev-feedback-capture-v1.7.0.zip` (not uploaded).
+- Current public package: v1.7.0.
+- Next candidate package: `dist/dev-feedback-capture-v1.7.1.zip` (not uploaded).
 - Category: Developer Tools; language: English (United States).
 - The single purpose, permission justifications, no-remote-code declaration, data-use categories, privacy-policy URL, homepage, and support URL were saved before submission.
-- One valid 1280x800 screenshot was submitted with v1.6. Replace it with the fresh v1.7 set above when the v1.7 release gates pass.
+- One valid 1280x800 screenshot remains on the Store listing. Replace it with the fresh five-shot v1.7 set above when the capture gates pass.
 - Monitor the verified contact email and dashboard for approval or a focused reviewer request.
 - Confirm the dashboard's publication timing choice before an approved item goes live; that setting was not independently recorded here.
-- Complete every open gate in `docs/manual-release-checklist.md` before tagging or uploading v1.7.
+- Complete the v1.7.1 package/listing checks and every still-applicable open runtime gate in `docs/manual-release-checklist.md` before tagging or uploading v1.7.1.
 - The feature video, 440x280 promotional tile, and backup publisher Admin remain optional follow-up work.
-- Keep payments, authentication, network sync, and additional permissions out of v1.7.
+- Keep payments, authentication, network sync, additional permissions, and v1.8 Feedback Sessions out of v1.7.1.

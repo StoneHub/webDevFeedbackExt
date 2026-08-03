@@ -1,9 +1,9 @@
 {
   "name": "dev-feedback-capture",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.7.1",
   "license": "UNLICENSED",
-  "description": "Chrome extension for capturing structured feedback on web pages and PDFs",
+  "description": "Pick and annotate browser UI for AI-ready prompts and local visual change specs",
   "scripts": {
     "test": "npm run test:extension && npm run test:mcp",
     "test:extension": "node test/release.test.cjs",

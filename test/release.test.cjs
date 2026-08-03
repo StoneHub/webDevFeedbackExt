@@ -6,6 +6,7 @@ const shared = require('../shared.js');
 globalThis.DevFeedbackShared = shared;
 const bundleBuilder = require('../ai-bundle.js');
 const visualEdit = require('../visual-edit.js');
+const contentProposal = require('../content-proposal.js');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'product.json'), 'utf8'));
@@ -14,8 +15,11 @@ const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'w
 const historySource = fs.readFileSync(path.join(__dirname, '..', 'history.js'), 'utf8');
 const captureSource = fs.readFileSync(path.join(__dirname, '..', 'capture.js'), 'utf8');
 const contentSource = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
+const contentProposalSource = fs.readFileSync(path.join(__dirname, '..', 'content-proposal.js'), 'utf8');
 const stylesSource = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+const popupSource = fs.readFileSync(path.join(__dirname, '..', 'popup.html'), 'utf8');
+const popupScriptSource = fs.readFileSync(path.join(__dirname, '..', 'popup.js'), 'utf8');
 
 class MockStyleDeclaration {
   constructor(initial = {}) {
@@ -70,6 +74,9 @@ class MockElement {
     this.id = id;
     this.tagName = (options.tagName || 'div').toUpperCase();
     this.classList = options.classes || [];
+    this.className = '';
+    this.dataset = {};
+    this.attributes = {};
     this.style = new MockStyleDeclaration(options.style);
     this.computedStyles = options.computedStyles || {};
     this.childNodes = [];
@@ -97,8 +104,22 @@ class MockElement {
     return this.parentNode.childNodes[index + 1] || null;
   }
 
+  get firstChild() {
+    return this.childNodes[0] || null;
+  }
+
   get textContent() {
     return this.childNodes.map((node) => node.textContent || '').join('');
+  }
+
+  set textContent(value) {
+    this.childNodes.forEach((child) => {
+      child.parentNode = null;
+    });
+    this.childNodes = [];
+    if (String(value)) {
+      this.appendChild(new MockTextNode(String(value)));
+    }
   }
 
   getBoundingClientRect() {
@@ -129,9 +150,26 @@ class MockElement {
     child.ownerDocument = this.ownerDocument;
     return child;
   }
+
+  removeChild(child) {
+    const index = this.childNodes.indexOf(child);
+    if (index < 0) {
+      throw new Error('Node is not a child.');
+    }
+    this.childNodes.splice(index, 1);
+    child.parentNode = null;
+    return child;
+  }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
 }
 
 const mockDocument = {
+  createElement(tagName) {
+    return new MockElement('', { tagName });
+  },
   defaultView: {
     getComputedStyle(element) {
       return {
@@ -534,6 +572,87 @@ const emptyRewrite = shared.normalizeFeedbackItem({
 assert.equal(emptyRewrite.changeRequest.kind, shared.REQUEST_KIND_MUTATION);
 assert.equal(emptyRewrite.changeRequest.requestedMutations[0].parameters.text, '');
 
+const normalizedInsert = shared.normalizeFeedbackItem({
+  type: 'element',
+  note: 'Help users understand the next step',
+  selector: '#results',
+  elementInfo: { tag: 'section', text: 'Results' },
+  changeRequest: {
+    kind: shared.REQUEST_KIND_MUTATION,
+    summary: 'Help users understand the next step',
+    requestedMutations: [{
+      action: 'insert',
+      target: { selectors: ['#results'], tag: 'section' },
+      parameters: {
+        placement: 'inside-end',
+        content: {
+          type: 'list',
+          title: 'What happens next',
+          body: 'Ignored duplicate body',
+          items: ['Review the draft', '', 'Share with the team'],
+          support: 'Explain the handoff workflow',
+          unsafe: '<script>alert(1)</script>'
+        }
+      }
+    }]
+  }
+}, 'https://example.com/page', 'Example Page');
+
+assert.equal(normalizedInsert.changeRequest.kind, shared.REQUEST_KIND_MUTATION);
+assert.deepEqual(normalizedInsert.changeRequest.requestedMutations[0].parameters, {
+  placement: 'inside-end',
+  content: {
+    type: 'list',
+    title: 'What happens next',
+    body: 'Ignored duplicate body',
+    support: 'Explain the handoff workflow',
+    items: ['Review the draft', 'Share with the team']
+  }
+});
+assert.equal(shared.MUTATION_ACTIONS.includes('insert'), true);
+assert.deepEqual(contentProposal.sanitizeDefinition({
+  type: 'list',
+  placement: 'before',
+  body: 'One\nTwo',
+  support: 'Summarize benefits'
+}), {
+  type: 'list',
+  placement: 'before',
+  title: '',
+  body: 'One\nTwo',
+  items: ['One', 'Two'],
+  altText: '',
+  support: 'Summarize benefits'
+});
+assert.equal(contentProposal.canPlaceInside({ tagName: 'SECTION' }), true);
+assert.equal(contentProposal.canPlaceInside({ tagName: 'IMG' }), false);
+
+{
+  const parent = new MockElement('proposal-parent', { tagName: 'main' });
+  const anchor = new MockElement('proposal-anchor', { tagName: 'section' });
+  parent.appendChild(anchor);
+  const preview = contentProposal.createPreviewElement(mockDocument, {
+    type: 'list',
+    placement: 'before',
+    title: 'What happens next',
+    items: ['Review the draft', 'Share with the team'],
+    support: 'Explain the handoff workflow'
+  });
+  contentProposal.insertPreview(anchor, preview, 'before');
+  assert.equal(parent.firstChild, preview);
+  assert.match(preview.textContent, /What happens next/);
+  assert.match(preview.textContent, /Review the draft/);
+  assert.match(preview.textContent, /Supports: Explain the handoff workflow/);
+  contentProposal.removePreview(preview);
+  assert.deepEqual(childIds(parent), ['proposal-anchor']);
+  const imageAnchor = new MockElement('image', { tagName: 'img' });
+  parent.appendChild(imageAnchor);
+  assert.throws(
+    () => contentProposal.insertPreview(imageAnchor, preview, 'inside-end'),
+    /Cannot place content inside/
+  );
+}
+
 const markdown = shared.buildMarkdownExport('https://example.com/page', migratedItems, {
   exportedAt: '3/22/2026, 10:30:00 AM'
 });
@@ -664,7 +783,9 @@ assert.match(contentSource, /button\.textContent = panelCollapsed \? '‚åÉ' : '‚å
 assert.match(contentSource, /function getAnchoredPanelPosition\(/);
 assert.match(contentSource, /function anchorPanelToViewportEdge\(/);
 assert.match(contentSource, /if \(panelCollapsed\) \{[\s\S]*anchorPanelToViewportEdge\(panelAnchor\);/);
-assert.match(backgroundSource, /files: \['shared\.js', 'visual-edit\.js', 'content\.js'\]/);
+assert.match(backgroundSource, /files: \['shared\.js', 'visual-edit\.js', 'content-proposal\.js', 'content\.js'\]/);
+assert.match(popupSource, /name="capture-mode" value="content"/);
+assert.match(popupScriptSource, /action: 'start-add-content'/);
 assert.match(contentSource, /function cancelVisualEdit\(\) \{[\s\S]*if \(visualBusy\)[\s\S]*restoreVisualSession\(\);/);
 assert.match(
   contentSource,
@@ -679,7 +800,7 @@ assert.match(stylesSource, /\.dev-feedback-visual-resize-handle[\s\S]*width: 30p
 assert.doesNotMatch(contentSource, /id="dev-feedback-move-x"/);
 assert.doesNotMatch(contentSource, /id="dev-feedback-width"/);
 assert.doesNotMatch(contentSource, /id="dev-feedback-style-property"/);
-assert.match(contentSource, /function stopInteractionMode\(\) \{\s*setInteractionMode\(INTERACTION_MODES\.OFF, \{ discardVisual: true \}\);/);
+assert.match(contentSource, /function stopInteractionMode\(\) \{\s*setInteractionMode\(INTERACTION_MODES\.OFF, \{ discardVisual: true, discardContent: true \}\);/);
 assert.match(
   contentSource,
   /visualSession\.getState\(\)\.dirty[\s\S]*Save or Cancel the visual preview before changing modes\./
@@ -690,11 +811,17 @@ assert.match(contentSource, /window\.addEventListener\('popstate', restoreVisual
 assert.match(contentSource, /window\.addEventListener\('hashchange', restoreVisualAfterSameDocumentNavigation\)/);
 assert.match(
   contentSource,
-  /function restoreVisualAfterSameDocumentNavigation\(\) \{[\s\S]*restoreVisualSession\(\);[\s\S]*interactionMode = INTERACTION_MODES\.VISUAL_PICK;/
+  /function restoreVisualAfterSameDocumentNavigation\(\) \{[\s\S]*restoreVisualSession\(\);[\s\S]*restoreContentProposal\(\);[\s\S]*INTERACTION_MODES\.CONTENT_PICK[\s\S]*INTERACTION_MODES\.VISUAL_PICK/
 );
 assert.match(
   contentSource,
   /Save or Cancel the visual preview before starting Region capture\./
 );
+assert.match(contentSource, /function startAddContentMode\(/);
+assert.match(contentSource, /action: 'insert'/);
+assert.match(contentSource, /Save or Cancel the content proposal before starting Region capture\./);
+assert.match(stylesSource, /\.dev-feedback-content-preview \{/);
+assert.doesNotMatch(contentProposalSource, /\.innerHTML\s*=|createElement\(['"]iframe['"]\)|srcdoc|eval\(/);
+assert.match(contentProposalSource, /\.textContent =/);
 
 console.log('Test assertions passed.');

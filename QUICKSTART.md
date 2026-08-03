@@ -40,7 +40,18 @@ Optional for local PDFs:
 5. Add the implementation note and optional acceptance checks, then save the spec.
 6. The live page is restored; the original/proposed evidence and requested mutations remain in local History.
 
-## 4. Compile an annotated region spec
+## 4. Propose new page content
+
+1. Open an injectable webpage and choose `Add` in the extension popup.
+2. Click the existing element that should anchor the new block.
+3. Choose Text, Image placeholder, List, or HTML/embed frame and select its placement.
+4. Add filler content or explain what the new block should communicate or support.
+5. Add optional acceptance checks, then save the insert spec.
+6. The temporary block is removed from the live page while its anchor, intent, structured insert mutation, and before/proposed evidence remain in History.
+
+The HTML/embed frame is a safe placeholder; it does not execute supplied HTML or load remote content.
+
+## 5. Compile an annotated region spec
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
@@ -50,7 +61,7 @@ Optional for local PDFs:
 6. Describe the requested change and optionally add one acceptance check per line.
 7. Save the visual change spec.
 
-## 5. Export saved feedback
+## 6. Export saved feedback
 
 Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
 
@@ -62,7 +73,7 @@ Open the extension popup and select `Open History & Export`. This extension-owne
 
 AI Prompt is text-only. Use AI Bundle when the implementation handoff needs its numbered evidence images.
 
-## 6. Give a local agent project-scoped feedback
+## 7. Give a local agent project-scoped feedback
 
 1. In History, choose `Download JSON for MCP`.
 2. Configure the MCP companion with the absolute target project path and the folder containing that export.

@@ -126,9 +126,13 @@
     const canInject = canInjectIntoUrl(currentTab?.url || '');
     const canCaptureRegion = canAttemptRegionCapture(currentTab);
     const visualInput = document.querySelector('input[name="capture-mode"][value="visual"]');
+    const contentInput = document.querySelector('input[name="capture-mode"][value="content"]');
 
     if (visualInput) {
       visualInput.disabled = !canInject;
+    }
+    if (contentInput) {
+      contentInput.disabled = !canInject;
     }
 
     setWarning('');
@@ -169,6 +173,20 @@
       }
 
       setInfo('Visual mode previews reversible element edits and saves the result as a local change spec.');
+      return;
+    }
+
+    if (selectedMode === 'content') {
+      primaryButton.disabled = !canInject;
+      primaryButton.classList.remove('stop');
+      primaryButton.textContent = 'Start Add Content';
+
+      if (!canInject) {
+        setWarning('Add mode needs an injectable page such as http, https, or file. Use Region mode for PDFs and browser viewer surfaces.');
+        return;
+      }
+
+      setInfo('Add mode places a reversible content placeholder and saves an implementation-ready insert spec.');
       return;
     }
 
@@ -219,6 +237,11 @@
       return;
     }
 
+    if (selectedMode === 'content') {
+      await startAddContent();
+      return;
+    }
+
     await toggleElementMode();
   }
 
@@ -245,6 +268,32 @@
       window.close();
     } catch (error) {
       setWarning('Refresh the current page and try again. The visual editor did not attach cleanly.');
+    }
+  }
+
+  async function startAddContent() {
+    setWarning('');
+
+    const ensured = await chrome.runtime.sendMessage({
+      action: 'ensure-content-script',
+      tabId: currentTabId,
+      url: currentTab?.url || ''
+    });
+
+    if (!ensured || !ensured.ok) {
+      setWarning(ensured?.reason || 'Unable to load Add Content on this tab.');
+      return;
+    }
+
+    try {
+      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'start-add-content' });
+      if (!response?.ok) {
+        setWarning(response?.reason || 'Unable to start Add Content on this tab.');
+        return;
+      }
+      window.close();
+    } catch (error) {
+      setWarning('Refresh the current page and try again. Add Content did not attach cleanly.');
     }
   }
 

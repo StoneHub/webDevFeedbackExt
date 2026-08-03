@@ -42,7 +42,8 @@
     'hide',
     'reorder',
     'restyle',
-    'replace'
+    'replace',
+    'insert'
   ]);
   const CAPTURE_TYPE_ELEMENT = 'element';
   const CAPTURE_TYPE_REGION = 'region';
@@ -468,8 +469,35 @@
       if (Object.keys(styles).length) {
         result.styles = styles;
       }
+    } else if (action === 'insert') {
+      const placements = ['before', 'after', 'inside-start', 'inside-end'];
+      result.placement = placements.includes(raw.placement) ? raw.placement : 'after';
+      result.content = sanitizeContentBlock(raw.content);
     }
 
+    return result;
+  }
+
+  function sanitizeContentBlock(content) {
+    const raw = content && typeof content === 'object' ? content : {};
+    const types = ['text', 'image', 'list', 'frame'];
+    const type = types.includes(raw.type) ? raw.type : 'text';
+    const result = {
+      type,
+      title: sanitizeString(raw.title, 160),
+      body: sanitizeString(raw.body, MAX_NOTE_LENGTH),
+      support: sanitizeString(raw.support, 1000)
+    };
+    const altText = sanitizeString(raw.altText, 500);
+    if (altText) {
+      result.altText = altText;
+    }
+    if (type === 'list') {
+      result.items = (Array.isArray(raw.items) ? raw.items : [])
+        .map((item) => sanitizeString(item, 280))
+        .filter(Boolean)
+        .slice(0, 12);
+    }
     return result;
   }
 
@@ -792,6 +820,14 @@
       || mutation.target?.tag
       || mutation.target?.text
       || formatMutationRect(mutation.target?.rect);
+    if (mutation.action === 'insert') {
+      const content = mutation.parameters?.content || {};
+      const placement = mutation.parameters?.placement || 'after';
+      const details = [content.title, content.body, content.support]
+        .filter(Boolean)
+        .join(' | ');
+      return `insert ${content.type || 'content'} ${placement} ${identity || 'unknown target'}${details ? `; ${details}` : ''}`;
+    }
     const parameters = Object.keys(mutation.parameters || {}).length
       ? `; parameters=${JSON.stringify(mutation.parameters)}`
       : '';
@@ -858,6 +894,7 @@
     makeStorageKey,
     normalizeHostname,
     sanitizeChangeRequest,
+    sanitizeContentBlock,
     sanitizeElementInfo,
     sanitizeEvidence,
     sanitizeFeedbackItems,

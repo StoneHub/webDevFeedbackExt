@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Content Mode - Product and UX Contract</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f5fa;
+      --surface: #ffffff;
+      --surface-high: #f0eef7;
+      --text: #29263a;
+      --muted: #6f6a7d;
+      --accent: #5b55c5;
+      --accent-strong: #4338a8;
+      --line: rgba(62, 55, 96, 0.16);
+      --shadow: 0 20px 54px rgba(42, 37, 72, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 12% 0%, rgba(91, 85, 197, 0.10), transparent 34%), var(--bg);
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 72px; }
+    header { max-width: 780px; margin-bottom: 28px; }
+    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { margin: 8px 0 10px; font-size: clamp(30px, 5vw, 52px); line-height: 1.02; }
+    h2 { margin: 0 0 14px; font-size: 20px; }
+    p { color: var(--muted); line-height: 1.55; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: 20px; align-items: start; }
+    .surface { background: rgba(255, 255, 255, .92); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+    .page { padding: 22px; min-height: 590px; position: relative; overflow: hidden; }
+    .page-nav { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); font-weight: 800; }
+    .hero { padding: 42px 0 24px; max-width: 620px; }
+    .hero h2 { font-size: 34px; max-width: 560px; }
+    .button { display: inline-block; margin-top: 8px; padding: 10px 14px; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 800; }
+    .anchor { margin-top: 24px; padding: 18px; border: 2px solid var(--accent); border-radius: 10px; background: var(--surface-high); }
+    .anchor strong { display: block; margin-bottom: 5px; }
+    .proposal { display: grid; gap: 8px; margin: 12px 0; padding: 16px; border: 2px dashed var(--accent); border-radius: 10px; background: #eef1ff; }
+    .proposal-label { color: var(--accent); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .proposal h3 { margin: 0; font-size: 18px; }
+    .proposal p, .proposal ul { margin: 0; color: #4f4a61; line-height: 1.45; }
+    .proposal ul { padding-left: 20px; }
+    .placeholder { min-height: 132px; display: grid; place-items: center; border: 1px solid rgba(91,85,197,.24); border-radius: 8px; background: rgba(91,85,197,.08); color: var(--accent-strong); font-weight: 800; text-align: center; padding: 14px; }
+    .support { font-size: 11px; color: var(--muted); }
+    .panel { padding: 18px; }
+    .panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(91,85,197,.44); border-radius: 8px; color: var(--accent); font-weight: 800; }
+    .panel-title { flex: 1; font-weight: 800; }
+    label { display: block; margin: 10px 0 5px; color: var(--muted); font-size: 11px; font-weight: 750; }
+    select, input, textarea { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: var(--text); font: inherit; padding: 9px; }
+    textarea { min-height: 72px; resize: vertical; }
+    .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    button { border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px; font: inherit; font-weight: 800; cursor: pointer; }
+    .primary { flex: 1; background: var(--accent); color: #fff; border-color: var(--accent-strong); }
+    .secondary { background: #fff; color: var(--text); }
+    .contract { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+    .contract article { padding: 16px; border-top: 3px solid var(--accent); background: rgba(255,255,255,.72); }
+    .contract h3 { margin: 0 0 7px; font-size: 14px; }
+    .contract p { margin: 0; font-size: 13px; }
+    @media (max-width: 820px) {
+      .layout { grid-template-columns: 1fr; }
+      .contract { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Add Content Mode</div>
+      <h1>Propose what the page needs, not only what should change.</h1>
+      <p>Choose an existing element as the implementation anchor, preview a safe content block, and save an explicit insert request with placement, filler, purpose, acceptance criteria, and before/proposed evidence.</p>
+    </header>
+
+    <div class="layout">
+      <section class="surface page" aria-label="Example page with proposed content">
+        <div class="page-nav"><span>Example product</span><span>Overview &nbsp; Docs &nbsp; Pricing</span></div>
+        <div class="hero">
+          <div class="eyebrow">Workflow software</div>
+          <h2>Turn browser feedback into a buildable change spec.</h2>
+          <p>Capture context, describe intent, and hand a developer the evidence needed to act.</p>
+          <span class="button">Start a capture</span>
+        </div>
+        <div id="anchor" class="anchor">
+          <strong>Existing anchor: feature summary</strong>
+          <span>This element remains untouched after the proposal is saved.</span>
+        </div>
+        <div id="proposal" class="proposal"></div>
+      </section>
+
+      <aside class="surface panel" aria-label="Add Content controls">
+        <div class="panel-head"><span class="mark">&lt;/&gt;</span><span class="panel-title">Add Content</span><span>C*</span></div>
+        <div class="fields">
+          <div>
+            <label for="type">Content type</label>
+            <select id="type">
+              <option value="text">Text</option>
+              <option value="image">Image placeholder</option>
+              <option value="list">List</option>
+              <option value="frame">HTML / embed frame</option>
+            </select>
+          </div>
+          <div>
+            <label for="placement">Placement</label>
+            <select id="placement">
+              <option value="after">After anchor</option>
+              <option value="before">Before anchor</option>
+              <option value="inside-end">Inside, at end</option>
+              <option value="inside-start">Inside, at start</option>
+            </select>
+          </div>
+        </div>
+        <label for="heading">Heading or label</label>
+        <input id="heading" value="What happens next">
+        <label id="body-label" for="body-copy">Filler content</label>
+        <textarea id="body-copy">Review the generated spec and share it with the implementation owner.</textarea>
+        <label for="support">What should this support?</label>
+        <textarea id="support">Clarify the handoff so a first-time user knows what to do after capturing feedback.</textarea>
+        <label for="acceptance">Acceptance checks</label>
+        <textarea id="acceptance">The next step is clear without opening documentation.</textarea>
+        <div class="actions"><button class="primary">Save insert spec</button><button class="secondary">Cancel</button></div>
+      </aside>
+    </div>
+
+    <section class="contract" aria-label="Feature boundaries">
+      <article><h3>Saved requirement</h3><p><code>insert</code> mutation with DOM anchor, placement, typed content, support intent, and acceptance checks.</p></article>
+      <article><h3>Reversible preview</h3><p>The temporary block appears only for evidence capture and is removed after Save, Cancel, navigation, or mode exit.</p></article>
+      <article><h3>Safe frame</h3><p>HTML/embed content is represented as a placeholder. User markup, scripts, and remote frames are never executed.</p></article>
+    </section>
+  </main>
+  <script>
+    const type = document.getElementById('type');
+    const placement = document.getElementById('placement');
+    const heading = document.getElementById('heading');
+    const bodyCopy = document.getElementById('body-copy');
+    const support = document.getElementById('support');
+    const proposal = document.getElementById('proposal');
+    const anchor = document.getElementById('anchor');
+    const bodyLabel = document.getElementById('body-label');
+
+    function render() {
+      proposal.replaceChildren();
+      proposal.className = `proposal proposal-${type.value}`;
+      const label = document.createElement('div');
+      label.className = 'proposal-label';
+      label.textContent = `Proposed ${type.options[type.selectedIndex].text}`;
+      proposal.appendChild(label);
+      if (heading.value.trim()) {
+        const title = document.createElement('h3');
+        title.textContent = heading.value.trim();
+        proposal.appendChild(title);
+      }
+      if (type.value === 'list') {
+        bodyLabel.textContent = 'List items (one per line)';
+        const list = document.createElement('ul');
+        bodyCopy.value.split(/\n/).filter(Boolean).forEach((value) => {
+          const item = document.createElement('li');
+          item.textContent = value;
+          list.appendChild(item);
+        });
+        proposal.appendChild(list);
+      } else if (type.value === 'image' || type.value === 'frame') {
+        bodyLabel.textContent = type.value === 'image' ? 'Caption or image description' : 'Frame placeholder details';
+        const placeholder = document.createElement('div');
+        placeholder.className = 'placeholder';
+        placeholder.textContent = bodyCopy.value || (type.value === 'image' ? 'Image placeholder' : 'HTML / embed frame placeholder');
+        proposal.appendChild(placeholder);
+      } else {
+        bodyLabel.textContent = 'Filler content';
+        const copy = document.createElement('p');
+        copy.textContent = bodyCopy.value || 'Add supporting copy here.';
+        proposal.appendChild(copy);
+      }
+      if (support.value.trim()) {
+        const supportLine = document.createElement('span');
+        supportLine.className = 'support';
+        supportLine.textContent = `Supports: ${support.value.trim()}`;
+        proposal.appendChild(supportLine);
+      }
+      if (placement.value === 'before') anchor.before(proposal);
+      else if (placement.value === 'inside-start') anchor.prepend(proposal);
+      else if (placement.value === 'inside-end') anchor.append(proposal);
+      else anchor.after(proposal);
+    }
+
+    [type, placement].forEach((field) => field.addEventListener('change', render));
+    [heading, bodyCopy, support].forEach((field) => field.addEventListener('input', render));
+    render();
+  </script>
+</body>
+</html>

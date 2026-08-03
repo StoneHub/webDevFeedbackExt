@@ -127,7 +127,7 @@
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ['shared.js', 'visual-edit.js', 'content.js']
+        files: ['shared.js', 'visual-edit.js', 'content-proposal.js', 'content.js']
       });
       return { ok: true };
     } catch (error) {

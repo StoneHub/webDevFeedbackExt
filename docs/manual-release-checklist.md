@@ -38,7 +38,8 @@ Before tagging or publishing the active browser capture core:
 - In Region mode, capture one normal-page region and one rendered PDF region, then save both to History.
 - Resize the browser window and confirm the collapsed list remains visible on its selected edge.
 - Confirm History renders both records after the source tab is closed.
-- Confirm **Send to Codex** places one explicit handoff file in the configured local inbox without requiring manual file movement.
+- Set the browser download location to the configured MCP inbox and disable the per-download save prompt for this check.
+- Confirm **Send to Codex** places one explicit handoff file in that inbox without requiring manual file movement.
 - Confirm the Browser Code icon is legible in the browser toolbar and extension-management list at the packaged sizes.
 
 ## Active PDF/export check

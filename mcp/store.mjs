@@ -193,7 +193,10 @@ export async function createProjectStore(options = {}) {
   }
 
   async function importLatestInboxCapture(input = {}) {
-    const listed = await discoverInboxCaptures(inboxRoots, (payload) => preflightImportPayload(payload, input, { requireItems: true }));
+    const listed = await discoverInboxCaptures(
+      inboxRoots,
+      (payload) => preflightImportPayload(payload, {}, { allowMultiple: true, requireItems: true })
+    );
     const latest = listed.captures[0];
     if (!latest) throw new Error('No valid feedback capture JSON files found in the configured inbox.');
     return importFeedbackExport({ path: latest.path, storageKey: input.storageKey });
@@ -205,6 +208,15 @@ export async function createProjectStore(options = {}) {
     if (rawHistories.length > MAX_IMPORT_HISTORIES) {
       throw new Error(`Import exceeds ${MAX_IMPORT_HISTORIES} history groups.`);
     }
+    for (let historyIndex = 0; historyIndex < rawHistories.length; historyIndex += 1) {
+      const history = rawHistories[historyIndex];
+      if (!sanitizeText(history?.storageKey, 2000)) {
+        throw new Error(`History group ${historyIndex} is missing a valid storageKey.`);
+      }
+      if (!Array.isArray(history?.items)) {
+        throw new Error(`History group ${historyIndex} is missing its items array.`);
+      }
+    }
     const requestedStorageKey = sanitizeText(input.storageKey, 2000);
     const requiresStorageKey = rawHistories.length > 1 && !requestedStorageKey;
     if (requiresStorageKey && !validationOptions.allowMultiple) {
@@ -212,7 +224,7 @@ export async function createProjectStore(options = {}) {
       throw new Error(`This export contains multiple site/file groups. Re-run with one explicit storageKey: ${keys}`);
     }
     const histories = requestedStorageKey
-      ? rawHistories.filter((history) => history?.storageKey === requestedStorageKey)
+      ? rawHistories.filter((history) => sanitizeText(history?.storageKey, 2000) === requestedStorageKey)
       : rawHistories;
     if (!histories.length) {
       throw new Error(`storageKey was not found in the export: ${requestedStorageKey}.`);
@@ -234,6 +246,15 @@ export async function createProjectStore(options = {}) {
         }
         const canonicalId = buildImportedId(normalized, rawItem, storageKey, itemIndex);
         const preparedEvidence = prepareImportEvidence(rawItem, normalized);
+        if (normalized.type === shared.CAPTURE_TYPE_ELEMENT && !sanitizeText(normalized.selector, 2000)) {
+          throw new Error(`Element feedback requires a valid selector at history ${storageKey}, index ${itemIndex}.`);
+        }
+        if (
+          normalized.type === shared.CAPTURE_TYPE_REGION &&
+          !preparedEvidence.some((evidence) => evidence.kind === 'before')
+        ) {
+          throw new Error(`Region feedback requires valid before evidence at history ${storageKey}, index ${itemIndex}.`);
+        }
         totalEvidenceBytes += preparedEvidence.reduce((sum, evidence) => sum + evidence.bytes.length, 0);
         if (totalEvidenceBytes > MAX_IMPORT_EVIDENCE_BYTES) {
           throw new Error(`Import evidence exceeds ${MAX_IMPORT_EVIDENCE_BYTES} aggregate bytes.`);

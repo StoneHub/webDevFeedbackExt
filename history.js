@@ -18,7 +18,7 @@
   const errorElement = document.getElementById('error');
   const searchElement = document.getElementById('history-search');
 
-  document.getElementById('download-json').addEventListener('click', downloadJson);
+  document.getElementById('download-json').addEventListener('click', downloadCodexHandoff);
   document.getElementById('download-ai-bundle').addEventListener('click', downloadAiBundle);
   document.getElementById('download-html').addEventListener('click', downloadHtmlReport);
   document.getElementById('copy-markdown').addEventListener('click', copyMarkdown);
@@ -259,10 +259,10 @@
     await loadHistory();
   }
 
-  function downloadJson() {
+  function downloadCodexHandoff() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     downloadFile(`dev-feedback-codex-inbox-${timestamp}.json`, JSON.stringify(buildExportPayload(), null, 2), 'application/json');
-    setStatus('Codex handoff downloaded to your browser Downloads folder. The local MCP companion can import the newest valid capture.');
+    setStatus('Codex handoff downloaded through your browser. The local MCP companion can import the newest valid capture when the browser download location matches the configured inbox.');
   }
 
   async function downloadAiBundle() {

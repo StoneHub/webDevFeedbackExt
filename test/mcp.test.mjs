@@ -273,6 +273,34 @@ test('inbox latest import rejects when no valid capture JSON exists', async (t) 
   await assert.rejects(() => store.importLatestInboxCapture(), /No valid feedback capture JSON files found/);
 });
 
+test('latest inbox import never falls back when the newest capture needs a storageKey', async (t) => {
+  const fixture = await createFixture(t);
+  const olderPath = path.join(fixture.inboxRoot, 'older.json');
+  await fs.writeFile(olderPath, JSON.stringify(historyExport('older-site', 'older-item', 'Older')));
+
+  const newestPath = path.join(fixture.inboxRoot, 'newest-multiple.json');
+  await fs.writeFile(newestPath, JSON.stringify({
+    histories: [
+      { storageKey: 'site-a', items: [{ id: 'a', type: 'element', pageUrl: 'https://a.test/', selector: '#a', note: 'A' }] },
+      { storageKey: 'site-b', items: [{ id: 'b', type: 'element', pageUrl: 'https://b.test/', selector: '#b', note: 'B' }] }
+    ]
+  }));
+  await fs.utimes(olderPath, new Date('2026-07-18T12:00:00.000Z'), new Date('2026-07-18T12:00:00.000Z'));
+  await fs.utimes(newestPath, new Date('2026-07-18T12:01:00.000Z'), new Date('2026-07-18T12:01:00.000Z'));
+
+  const store = await createProjectStore(inboxOptions(fixture));
+  const listed = await store.listInboxCaptures();
+  assert.equal(listed.captures[0].fileName, 'newest-multiple.json');
+  assert.equal(listed.captures[0].requiresStorageKey, true);
+  await assert.rejects(() => store.importLatestInboxCapture(), /multiple site\/file groups/);
+  await assert.rejects(() => store.importLatestInboxCapture({ storageKey: 'missing' }), /storageKey was not found/);
+  assert.equal((await store.listFeedback()).total, 0);
+
+  const imported = await store.importLatestInboxCapture({ storageKey: 'site-b' });
+  assert.equal(imported.sourceFile, 'newest-multiple.json');
+  assert.equal((await store.listFeedback()).items[0].subject.url, 'https://b.test/');
+});
+
 test('configured inbox roots must canonicalize inside the approved Downloads root', async (t) => {
   const fixture = await createFixture(t);
   const outsideRoot = path.join(fixture.tempRoot, 'outside-downloads');
@@ -344,6 +372,29 @@ test('latest inbox import skips files that fail the full import contract', async
   const imported = await store.importLatestInboxCapture();
   assert.equal(imported.sourceFile, 'valid.json');
   assert.equal(imported.imported.length, 1);
+});
+
+test('inbox import rejects missing history identity and incomplete capture records', async (t) => {
+  const fixture = await createFixture(t);
+  const store = await createProjectStore(inboxOptions(fixture));
+  const missingStorageKey = path.join(fixture.inboxRoot, 'missing-storage-key.json');
+  await fs.writeFile(missingStorageKey, JSON.stringify({ histories: [{ items: [
+    { id: 'element', type: 'element', pageUrl: 'https://invalid.test/', selector: '#valid', note: 'Missing group identity' }
+  ] }] }));
+  await assert.rejects(() => store.importFeedbackExport({ path: missingStorageKey }), /missing a valid storageKey/);
+
+  const missingSelector = path.join(fixture.inboxRoot, 'missing-selector.json');
+  await fs.writeFile(missingSelector, JSON.stringify({ histories: [{ storageKey: 'element-site', items: [
+    { id: 'element', type: 'element', pageUrl: 'https://invalid.test/', selector: '   ', note: 'Missing selector' }
+  ] }] }));
+  await assert.rejects(() => store.importFeedbackExport({ path: missingSelector }), /requires a valid selector/);
+
+  const missingRegionEvidence = path.join(fixture.inboxRoot, 'missing-region-evidence.json');
+  await fs.writeFile(missingRegionEvidence, JSON.stringify({ histories: [{ storageKey: 'region-site', items: [
+    { id: 'region', type: 'region', pageUrl: 'https://invalid.test/', note: 'Missing screenshot', annotations: [] }
+  ] }] }));
+  await assert.rejects(() => store.importFeedbackExport({ path: missingRegionEvidence }), /requires valid before evidence/);
+  assert.equal((await store.listFeedback()).total, 0);
 });
 
 test('inbox discovery bounds depth, candidate count, and bytes before parsing', async (t) => {
@@ -528,7 +579,7 @@ test('legacy reimports stay stable and content changes cannot overwrite a differ
   assert.equal((await store.getFeedback(changed.imported[0])).implementation.status, 'open');
 });
 
-test('changed identified import resets review and replaces removed extension evidence', async (t) => {
+test('changed identified region import cannot remove required extension evidence', async (t) => {
   const fixture = await createFixture(t);
   const exportPath = path.join(fixture.inboxRoot, 'identified.json');
   const item = {
@@ -551,12 +602,11 @@ test('changed identified import resets review and replaces removed extension evi
   item.note = 'Changed';
   delete item.screenshot;
   await fs.writeFile(exportPath, JSON.stringify({ histories: [{ storageKey: 'identified', items: [item] }] }));
-  const changed = await store.importFeedbackExport({ path: exportPath });
-  assert.deepEqual(changed.updated, [feedbackId]);
+  await assert.rejects(() => store.importFeedbackExport({ path: exportPath }), /requires valid before evidence/);
   const reimported = await store.getFeedback(feedbackId);
-  assert.equal(reimported.implementation.status, 'open');
-  assert.deepEqual(reimported.evidence, {});
-  await assert.rejects(() => fs.access(originalEvidencePath));
+  assert.equal(reimported.implementation.status, 'in-progress');
+  assert.deepEqual(Object.keys(reimported.evidence), ['before']);
+  await fs.access(originalEvidencePath);
 });
 
 test('legacy WebP evidence remains import-compatible', async (t) => {

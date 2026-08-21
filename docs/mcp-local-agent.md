@@ -10,8 +10,8 @@ The handoff is explicit, local, and inbox-based:
 
 1. Capture feedback in the extension.
 2. Open History and choose **Send to Codex** to download the current History handoff.
-3. The browser places the JSON handoff in Downloads. The user does not move files manually.
-4. Configure the MCP server with the target project and that Downloads path.
+3. Set the browser download location to a folder inside Downloads and use that folder without a per-download save prompt.
+4. Configure the MCP server with the target project and the same Downloads path. The user does not move files manually.
 5. Ask the local agent to call `dev_feedback_import_latest`.
 6. The agent reads feedback through MCP, edits the project with its normal coding tools, and records implementation and verification status separately through MCP.
 
@@ -61,6 +61,8 @@ codex mcp add dev-feedback -- node /absolute/path/to/webDevFeedbackExt/mcp/cli.m
 ```
 
 The target project and Downloads directory are explicit because each installation is project-scoped. Run `codex mcp list` to verify the saved server configuration.
+
+The extension preserves its minimal permission set and does not request Chromium's `downloads` permission. It therefore cannot override the browser's download location or save-prompt setting. The no-file-moving workflow depends on configuring the browser and MCP companion to use the same inbox.
 
 Use resolved absolute paths. Browser-launched or desktop MCP processes should not depend on an interactive shell's working directory or `PATH`.
 

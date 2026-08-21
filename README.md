@@ -7,7 +7,7 @@ Turn browser-visible feedback into a local, buildable handoff. Dev Feedback Capt
 - `Element` capture records a selected DOM element with selectors, visible text, styles, and a requested change.
 - `Region` capture records a visible page or PDF region with a crop, annotations, source context, and acceptance checks.
 - `History` keeps saved Capture Records together on the device and provides review and export actions.
-- `Send to Codex` is the named Agent Handoff: export the current History to the browser Downloads folder, let the local MCP companion import the newest valid handoff, and keep implementation and verification as separate agent steps.
+- `Send to Codex` is the named Agent Handoff: export the current History through the browser, let the local MCP companion import the newest valid handoff from its configured Downloads inbox, and keep implementation and verification as separate agent steps.
 
 Feedback stays local until you explicitly export it. There is no cloud sync, hosted AI connection, automatic browser control, or Electron injection in the browser extension.
 
@@ -74,7 +74,7 @@ The cropped image, viewport rectangle, and source context are saved into the sam
 
 ### History and Agent Handoff
 
-Open `History` from the popup to review captures from any supported source. Choose `Send to Codex` to download the current History as an explicit handoff. The local MCP companion discovers the newest valid handoff in Downloads and imports it into the target project's ignored `.dev-feedback` sidecar.
+Open `History` from the popup to review captures from any supported source. Choose `Send to Codex` to download the current History as an explicit handoff. When the browser download location matches the MCP companion's configured Downloads inbox, the companion discovers the newest valid handoff and imports it into the target project's ignored `.dev-feedback` sidecar without manual file movement.
 
 The handoff contract is deliberately explicit:
 

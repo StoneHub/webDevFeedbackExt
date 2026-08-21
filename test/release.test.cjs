@@ -6,6 +6,7 @@ const shared = require('../shared.js');
 globalThis.DevFeedbackShared = shared;
 const bundleBuilder = require('../ai-bundle.js');
 const visualEdit = require('../visual-edit.js');
+const sessionModel = require('../session-model.js');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'product.json'), 'utf8'));
@@ -16,6 +17,7 @@ const captureSource = fs.readFileSync(path.join(__dirname, '..', 'capture.js'), 
 const contentSource = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
 const stylesSource = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+const sessionRecorderSource = fs.readFileSync(path.join(__dirname, '..', 'session-recorder.js'), 'utf8');
 
 class MockStyleDeclaration {
   constructor(initial = {}) {
@@ -629,7 +631,60 @@ assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'empty-webp', ite
   screenshot: { mimeType: 'image/webp', dataUrl: `data:image/webp;base64,${emptyWebp.toString('base64')}` }
 }] }]), /Invalid before image data/);
 
+const feedbackSession = sessionModel.createFeedbackSession({
+  id: 42,
+  url: 'https://work.example.test/items/42?access_token=secret#private-state',
+  title: 'Edit item'
+}, new Date('2026-07-28T15:00:00.000Z'));
+assert.equal(feedbackSession.startUrl, 'https://work.example.test/items/42');
+assert.deepEqual(feedbackSession.events[0].details.redactions, ['query', 'fragment']);
+assert.equal(feedbackSession.privacy.typedValues, 'not-directly-read');
+assert.equal(feedbackSession.privacy.video, 'not-recorded');
+
+const clickedSession = sessionModel.appendSessionEvent(feedbackSession, {
+  type: 'click',
+  timestamp: '2026-07-28T15:00:02.000Z',
+  pageUrl: 'https://work.example.test/items/42?token=do-not-store#form',
+  pageTitle: 'Edit item',
+  details: {
+    target: {
+      tag: 'button',
+      text: 'Save item',
+      href: 'https://work.example.test/items/42?secret=hidden'
+    },
+    point: { x: 50, y: 80, pageX: 50, pageY: 180 },
+    value: 'typed-value-must-not-survive'
+  }
+});
+assert.equal(clickedSession.accepted, true);
+assert.equal(clickedSession.event.pageUrl, 'https://work.example.test/items/42');
+assert.equal(clickedSession.event.details.target.href, 'https://work.example.test/items/42');
+assert.deepEqual(clickedSession.event.details.target.hrefRedactions, ['query']);
+assert.equal(clickedSession.event.elapsedMs, 2000);
+assert.doesNotMatch(JSON.stringify(clickedSession.session), /typed-value-must-not-survive|do-not-store|hidden/);
+assert.equal(sessionModel.sanitizeSessionEvent({
+  type: 'key',
+  details: { key: 'a' }
+}), null);
+const spaceKeyEvent = sessionModel.sanitizeSessionEvent({
+  type: 'key',
+  details: { key: ' ' }
+});
+assert.equal(spaceKeyEvent.details.key, 'Space');
+assert.equal(sessionModel.sanitizeSessionEvent(spaceKeyEvent).details.key, 'Space');
+const sanitizedErrorEvent = sessionModel.sanitizeSessionEvent({
+  type: 'page-error',
+  details: {
+    message: 'Invalid email: unique-entered-value',
+    filename: 'https://work.example.test/app.js?token=secret'
+  }
+});
+assert.equal(sanitizedErrorEvent.details.filename, 'https://work.example.test/app.js');
+assert.doesNotMatch(JSON.stringify(sanitizedErrorEvent), /unique-entered-value/);
+assert.match(sessionModel.buildSessionMarkdown(clickedSession.session), /form fields and printable keystrokes/);
+
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
+assert.deepEqual(manifest.optional_permissions, ['webNavigation']);
 assert.equal(
   manifest.commands['toggle-feedback-mode'].suggested_key.default,
   shared.SHORTCUT_LABEL
@@ -660,6 +715,15 @@ assert.match(contentSource, /function getAnchoredPanelPosition\(/);
 assert.match(contentSource, /function anchorPanelToViewportEdge\(/);
 assert.match(contentSource, /if \(panelCollapsed\) \{[\s\S]*anchorPanelToViewportEdge\(panelAnchor\);/);
 assert.match(backgroundSource, /files: \['shared\.js', 'visual-edit\.js', 'content\.js'\]/);
+assert.match(backgroundSource, /chrome\.webNavigation\.onHistoryStateUpdated/);
+assert.match(backgroundSource, /chrome\.webNavigation\.onDOMContentLoaded/);
+assert.match(backgroundSource, /chrome\.permissions\?\.onRemoved/);
+assert.match(backgroundSource, /LOCAL_STORAGE_SOFT_LIMIT_BYTES/);
+assert.match(backgroundSource, /ACTIVE_SESSION_KEY/);
+assert.match(sessionRecorderSource, /document\.addEventListener\('change', handleChange, true\)/);
+assert.doesNotMatch(sessionRecorderSource, /event\.target\.value/);
+assert.doesNotMatch(sessionRecorderSource, /event\.reason/);
+assert.match(sessionRecorderSource, /markRecordingError\(response\.reason\)/);
 assert.match(contentSource, /function cancelVisualEdit\(\) \{[\s\S]*if \(visualBusy\)[\s\S]*restoreVisualSession\(\);/);
 assert.match(
   contentSource,

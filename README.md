@@ -1,9 +1,10 @@
 # Dev Feedback Capture
 
-Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports three workflows:
+Dev Feedback Capture is a local-first Chromium extension that turns live pages, PDFs, and browser-visible surfaces into implementation-ready visual change specifications. It supports four workflows:
 
-> Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
+> Chrome Web Store v1.6 is public. This source checkout prepares v1.8; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser, privacy, and agent-handoff gates are completed and recorded.
 
+- `Feedback Session` records a user-started, tab-scoped timeline of page loads, routes, clicks, field changes, form submits, navigation keys, scroll checkpoints, and page errors.
 - `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
 - `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
 - `Region` mode captures the visible viewport and compiles a crop, vector annotations, best-effort DOM anchors, requested change, and acceptance checks into one visual change spec.
@@ -12,6 +13,9 @@ All feedback stays local in extension storage. Open History to review captures, 
 
 ## Features
 
+- User-started Feedback Sessions with a visible REC/Pause/Stop control, tab badge, local timeline review, issue-summary field, and JSON/Markdown export
+- Full-load, failed-navigation, SPA history, and fragment-route events with same-origin interaction capture that resumes when site access is available
+- Privacy-first session capture: form-field values and printable keystrokes are not directly read; URL queries/fragments, screenshots, audio, and video are excluded
 - Element capture with selector, text, styles, and note metadata
 - Pointer-first Visual Edit previews with drag-to-move, corner-handle resize, undo, redo, and reset
 - Original/proposed evidence plus explicit requested-mutation data; the live page is always restored
@@ -47,6 +51,16 @@ Use this path when developing the extension or reviewing source changes:
 4. Click `Load unpacked` and select the `webDevFeedbackExt` folder.
 
 ## Usage
+
+### Feedback Sessions
+
+1. Open the extension popup on the page where you want to begin reproducing an issue.
+2. Click `Start Feedback Session` and approve the one-time navigation-recording permission when Chrome asks.
+3. Follow the path to the issue. Use the in-page REC control to Pause before a sensitive step, Resume, or Stop.
+4. Stop the session from the page control or popup. The extension opens Feedback Sessions with the ordered timeline.
+5. Add what went wrong or what you expected, then download JSON or copy Markdown when you are ready to share it.
+
+Sessions record structured interaction metadata, not literal screen video. Page paths, titles, element labels, and sanitized error locations are included and may contain sensitive text supplied by the site, so Pause before sensitive steps. Cross-origin navigation remains in the timeline, but detailed page interactions pause when Chrome revokes page access; opening the extension popup on the new site grants user-invoked access and resumes the visible recorder.
 
 ### Element Mode
 
@@ -89,8 +103,11 @@ Stored feedback items use a discriminated shape:
 
 Older element-only captures are still loaded and normalized automatically.
 
+Feedback Sessions use a separate schema and storage namespace so existing feedback history stays compatible. Each session contains its status, start/end metadata, a user-authored issue summary, privacy declarations, and an ordered event timeline with sanitized page paths and semantic targets. Only the latest 20 sessions are retained; a session pauses at 1,500 events, 5 MiB, or the extension's conservative 8 MiB local-storage safety boundary.
+
 ## Export Formats
 
+- `Feedback Sessions` downloads a versioned JSON payload or copies a Markdown reproduction timeline. Session export is explicit and separate from visual-feedback History.
 - `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, before/proposed/annotated PNG evidence when available, and `report.html` in one ZIP. The bundle is assembled locally.
 
 - `Download JSON for MCP` includes the full saved payload, including region image data URLs, for explicit local import.
@@ -111,8 +128,9 @@ The extension requests:
 - `storage` for local history
 - `activeTab` for temporary, user-invoked access to the current tab
 - `scripting` to inject the in-page capture UI and history panel only when requested
+- Optional `webNavigation`, requested only when the user starts a Feedback Session, to record full loads, failed loads, SPA routes, and fragment navigation in that tab
 
-The extension does not use static host permissions, always-on content scripts, telemetry, or network sync. Region captures can include visible page content in screenshot data URLs; those crops stay in local extension storage until the user clears history or removes the extension.
+The extension does not use static host permissions, always-on content scripts, telemetry, or network sync. Feedback Session event collection is inactive until the user starts a session and remains limited to that tab. Region captures can include visible page content in screenshot data URLs; those crops stay in local extension storage until the user clears history or removes the extension.
 
 ## PDF Notes
 
@@ -131,6 +149,9 @@ The extension does not use static host permissions, always-on content scripts, t
 - `mcp/`: project-scoped stdio MCP companion and filesystem sidecar store
 - `capture.html` / `capture.js`: screenshot region selection editor
 - `popup.html` / `popup.js`: mode switch, current-tab actions, and History entry point
+- `session-model.js`: bounded Feedback Session schema, sanitization, URL redaction, and export formatting
+- `session-recorder.js`: user-visible in-page REC control and redacted interaction event capture
+- `sessions.html` / `sessions.js`: extension-owned session review, issue summary, deletion, and export
 - `history.html` / `history.js`: extension-owned history review and export controls
 - `ai-bundle.js`: local, dependency-free AI Bundle assembly and ZIP creation
 - `shared.js`: shared helpers, normalization, and export formatting
@@ -147,7 +168,7 @@ The extension does not use static host permissions, always-on content scripts, t
 
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
-3. Complete the manual unpacked-extension and MCP handoff gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.7.0` tag.
+3. Complete the manual unpacked-extension, Feedback Session, privacy, and MCP handoff gates in `docs/manual-release-checklist.md`, then create and push the matching `v1.8.0` tag.
 4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
@@ -161,9 +182,13 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
 - Region mode captures the current viewport only, not full-page stitched screenshots.
 - Cross-origin iframe DOM capture remains limited by browser security rules.
+- Feedback Sessions record a structured reproduction timeline, not literal tab video, browser chrome, network bodies, console logs, form-field contents, or printable keystrokes.
+- Cross-origin navigation is recorded, but DOM interaction detail requires user-invoked access on the new origin.
 
 ## Roadmap
 
+- Add optional, explicitly enabled local WebM tab video after binary storage, retention, redaction, workplace-policy, and Store disclosure gates are designed
+- Link Element, Visual, and Region captures directly to their active Feedback Session timeline
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add user-triggered import back into extension History

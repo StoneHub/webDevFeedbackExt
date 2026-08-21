@@ -26,6 +26,10 @@ const extensionFiles = [
   'manifest.json',
   'popup.html',
   'popup.js',
+  'session-model.js',
+  'session-recorder.js',
+  'sessions.html',
+  'sessions.js',
   'shared.js',
   'styles.css',
   'visual-edit.js'

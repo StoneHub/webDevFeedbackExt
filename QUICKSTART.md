@@ -2,7 +2,7 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-Chrome Web Store v1.6 is public. This source checkout prepares v1.7; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser and agent-handoff gates are completed and recorded.
+Chrome Web Store v1.6 is public. This source checkout prepares v1.8; the latest GitHub Release ZIP remains v1.2.0 until the deferred browser, privacy, and agent-handoff gates are completed and recorded.
 
 ## 1. Load the extension
 
@@ -18,7 +18,17 @@ Optional for local PDFs:
 7. Open the extension details page.
 8. Enable `Allow access to file URLs`.
 
-## 2. Capture an element
+## 2. Record a Feedback Session
+
+1. Open the page where you want to begin reproducing an issue.
+2. Open the extension popup and click `Start Feedback Session`.
+3. Approve the navigation-recording permission when Chrome asks.
+4. Follow the path to the issue. The page shows a visible REC control with Pause and Stop.
+5. Stop the session, add what went wrong in Feedback Sessions, then download JSON or copy Markdown when you choose.
+
+Feedback Sessions do not directly read form-field values or printable keystrokes, and they exclude URL queries/fragments, screenshots, audio, and video. They do include page paths, titles, element labels, and sanitized error locations, which may contain sensitive text supplied by the site; use Pause before sensitive steps.
+
+## 3. Capture an element
 
 1. Open any `http`, `https`, or `file` page you want to inspect.
 2. Open the extension popup.
@@ -27,7 +37,7 @@ Optional for local PDFs:
 5. Click a page element, add your note, and save it.
 6. The in-page capture list starts expanded. Use **⌄** to collapse it; the compact list stays on the nearest viewport edge as you drag it, and **⌃** expands it again.
 
-## 3. Preview a visual edit
+## 4. Preview a visual edit
 
 1. Open an injectable webpage and choose `Visual` in the extension popup.
 2. Click `Start Visual Edit`, then select one page element.
@@ -36,7 +46,7 @@ Optional for local PDFs:
 5. Add the implementation note and optional acceptance checks, then save the spec.
 6. The live page is restored; the original/proposed evidence and requested mutations remain in local History.
 
-## 4. Compile an annotated region spec
+## 5. Compile an annotated region spec
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
@@ -46,7 +56,7 @@ Optional for local PDFs:
 6. Describe the requested change and optionally add one acceptance check per line.
 7. Save the visual change spec.
 
-## 5. Export saved feedback
+## 6. Export saved feedback
 
 Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
 
@@ -58,7 +68,7 @@ Open the extension popup and select `Open History & Export`. This extension-owne
 
 AI Prompt is text-only. Use AI Bundle when the implementation handoff needs its numbered evidence images.
 
-## 6. Give a local agent project-scoped feedback
+## 7. Give a local agent project-scoped feedback
 
 1. In History, choose `Download JSON for MCP`.
 2. Configure the MCP companion with the absolute target project path and the folder containing that export.

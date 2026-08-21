@@ -2,7 +2,7 @@
   "slug": "dev-feedback-capture",
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
-  "summary": "Local-first Chromium extension and project-scoped MCP companion for actionable visual change specs.",
+  "summary": "Local-first Chromium extension for visual change specs, structured feedback-session timelines, and explicit project handoff.",
   "status": "public",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc",
@@ -23,17 +23,18 @@
   ],
   "privacy": {
     "storage": "local-first",
-    "summary": "Feedback stays in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, and no cloud sync or hosted AI integration is included."
+    "summary": "Feedback and structured session timelines stay in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, typed values and printable keystrokes are excluded from session capture, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
     "current": "Chrome Web Store v1.6 is public. GitHub Release v1.2.0 remains available for manual unpacked installation.",
-    "planned": "Publish v1.7 only after the recorded browser and agent-handoff release gates pass, then align the catalog download link.",
+    "planned": "Keep v1.8 source separate from the public v1.6 listing until the recorded browser, Feedback Session privacy, and agent-handoff gates pass, then align the catalog download link.",
     "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
     "assetNamePattern": "dev-feedback-capture-v{version}.zip",
     "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."
   },
   "highlights": [
     "Element capture with selectors and notes",
+    "User-started, redacted reproduction timelines for page navigation and interactions",
     "Reversible visual edit previews with original versus proposed evidence",
     "Annotated region specs with DOM anchors and acceptance checks",
     "Local AI Bundle export with structured context and evidence images",

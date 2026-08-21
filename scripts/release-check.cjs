@@ -21,6 +21,10 @@ const requiredFiles = [
   'manifest.json',
   'popup.html',
   'popup.js',
+  'session-model.js',
+  'session-recorder.js',
+  'sessions.html',
+  'sessions.js',
   'shared.js',
   'styles.css',
   'visual-edit.js',
@@ -41,6 +45,9 @@ const shippedJavaScriptFiles = [
   'content.js',
   'history.js',
   'popup.js',
+  'session-model.js',
+  'session-recorder.js',
+  'sessions.js',
   'shared.js',
   'visual-edit.js'
 ];
@@ -83,6 +90,7 @@ companionJavaScriptFiles.forEach((file) => {
 assert.equal(packageJson.version, manifest.version);
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
+assert.deepEqual(manifest.optional_permissions, ['webNavigation']);
 assert.equal(Array.isArray(manifest.content_scripts), false);
 assert.equal(Array.isArray(manifest.web_accessible_resources), false);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);

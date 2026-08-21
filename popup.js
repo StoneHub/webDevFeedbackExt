@@ -21,6 +21,8 @@
   let currentTabId = null;
   let selectedMode = window.localStorage.getItem(STORAGE_KEYS.captureMode) || 'element';
   let currentFeedbackMode = false;
+  let currentSessionState = { active: false, session: null };
+  let sessionClock = null;
 
   function getShortcutLabel() {
     return navigator.platform.toLowerCase().includes('mac') ? MAC_SHORTCUT_LABEL : SHORTCUT_LABEL;
@@ -43,17 +45,21 @@
     bindCaptureModeInputs();
     document.getElementById('primary-action-btn').addEventListener('click', handlePrimaryAction);
     document.getElementById('history-btn').addEventListener('click', openHistory);
+    document.getElementById('session-action-btn').addEventListener('click', handleSessionAction);
+    document.getElementById('sessions-btn').addEventListener('click', openSessions);
 
     if (!globalThis.chrome?.tabs || !globalThis.chrome?.storage || !globalThis.chrome?.runtime) {
       document.getElementById('page-label').textContent = 'Extension preview';
       updateUI(false, 0);
+      updateSessionUI({ active: false, session: null });
       document.getElementById('primary-action-btn').disabled = true;
+      document.getElementById('session-action-btn').disabled = true;
       setInfo('Open this popup from the installed extension to capture the active tab.');
       return;
     }
 
     await loadCurrentTab();
-    syncModeUi();
+    sessionClock = window.setInterval(updateSessionClock, 1000);
   }
 
   function bindCaptureModeInputs() {
@@ -88,14 +94,34 @@
     window.close();
   }
 
+  async function openSessions() {
+    await chrome.tabs.create({ url: chrome.runtime.getURL('sessions.html') });
+    window.close();
+  }
+
   async function refreshState() {
     const primaryButton = document.getElementById('primary-action-btn');
-    const itemCount = await getItemCount();
-    const feedbackState = await getFeedbackState();
+    const [itemCount, feedbackState, sessionState] = await Promise.all([
+      getItemCount(),
+      getFeedbackState(),
+      getSessionState()
+    ]);
 
     updateUI(feedbackState.feedbackMode, itemCount);
     primaryButton.disabled = !currentTabId;
     syncModeUi();
+    updateSessionUI(sessionState);
+
+    if (sessionState.active && currentTabId) {
+      const synced = await chrome.runtime.sendMessage({
+        action: 'sync-feedback-session-recorder',
+        tabId: currentTabId,
+        url: currentTab?.url || ''
+      }).catch(() => null);
+      if (synced?.interactionCapture === false) {
+        setWarning(synced.reason || 'Navigation is still recorded, but page interactions are unavailable on this surface.');
+      }
+    }
   }
 
   async function getItemCount() {
@@ -119,6 +145,68 @@
     } catch (error) {
       return { feedbackMode: false };
     }
+  }
+
+  async function getSessionState() {
+    if (!currentTabId) {
+      return { active: false, session: null };
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'get-feedback-session-state',
+      tabId: currentTabId
+    }).catch(() => null);
+    return response?.ok ? response : { active: false, session: null };
+  }
+
+  async function handleSessionAction() {
+    setWarning('');
+    setInfo('');
+
+    if (currentSessionState.active && currentSessionState.session) {
+      const response = await chrome.runtime.sendMessage({
+        action: 'stop-feedback-session',
+        sessionId: currentSessionState.session.id,
+        reason: 'user-stopped',
+        openReview: true
+      });
+      if (!response?.ok) {
+        setWarning(response?.reason || 'Unable to stop the Feedback Session.');
+        return;
+      }
+      window.close();
+      return;
+    }
+
+    if (currentSessionState.activeElsewhere) {
+      setWarning('A Feedback Session is already recording in another tab. Open that tab to stop it.');
+      return;
+    }
+
+    const permissionGranted = await chrome.permissions.request({
+      permissions: ['webNavigation']
+    });
+    if (!permissionGranted) {
+      setWarning('Feedback Session was not started because navigation recording permission was not approved.');
+      return;
+    }
+
+    const response = await chrome.runtime.sendMessage({
+      action: 'start-feedback-session',
+      tab: {
+        id: currentTab.id,
+        windowId: currentTab.windowId,
+        url: currentTab.url,
+        pendingUrl: currentTab.pendingUrl,
+        title: currentTab.title
+      }
+    });
+    if (!response?.ok) {
+      setWarning(response?.reason || 'Unable to start the Feedback Session.');
+      return;
+    }
+
+    window.close();
   }
 
   function syncModeUi() {
@@ -324,6 +412,55 @@
     statusText.textContent = feedbackMode ? 'ON' : 'OFF';
     statusText.classList.toggle('active', feedbackMode);
     itemCountEl.textContent = String(itemCount);
+  }
+
+  function updateSessionUI(sessionState) {
+    currentSessionState = sessionState || { active: false, session: null };
+    const actionButton = document.getElementById('session-action-btn');
+    const status = document.getElementById('session-status');
+    const dot = document.getElementById('session-dot');
+    const session = currentSessionState.session;
+    const activeHere = Boolean(currentSessionState.active && session);
+
+    dot.classList.remove('recording', 'paused');
+    if (activeHere) {
+      const isPaused = session.status === 'paused';
+      status.textContent = isPaused ? 'PAUSED' : 'RECORDING';
+      dot.classList.add(isPaused ? 'paused' : 'recording');
+      actionButton.textContent = 'Stop & Review Session';
+      actionButton.classList.add('stop');
+      actionButton.disabled = false;
+    } else if (currentSessionState.activeElsewhere) {
+      status.textContent = 'OTHER TAB';
+      actionButton.textContent = 'Session Active Elsewhere';
+      actionButton.classList.remove('stop');
+      actionButton.disabled = true;
+    } else {
+      status.textContent = 'OFF';
+      actionButton.textContent = 'Start Feedback Session';
+      actionButton.classList.remove('stop');
+      actionButton.disabled = !currentTabId || !canInjectIntoUrl(currentTab?.url || '');
+    }
+    updateSessionClock();
+  }
+
+  function updateSessionClock() {
+    const metrics = document.getElementById('session-metrics');
+    const session = currentSessionState.session;
+    if (!session) {
+      metrics.textContent = '0:00 · 0 events';
+      return;
+    }
+
+    const startedAt = Date.parse(session.startedAt);
+    const endedAt = session.endedAt ? Date.parse(session.endedAt) : Date.now();
+    const totalSeconds = Number.isFinite(startedAt) && Number.isFinite(endedAt)
+      ? Math.max(0, Math.floor((endedAt - startedAt) / 1000))
+      : 0;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const eventCount = Number.isFinite(session.eventCount) ? session.eventCount : 0;
+    metrics.textContent = `${minutes}:${String(seconds).padStart(2, '0')} · ${eventCount} event${eventCount === 1 ? '' : 's'}`;
   }
 
   document.addEventListener('DOMContentLoaded', () => {

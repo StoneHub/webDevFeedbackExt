@@ -230,6 +230,75 @@
       box-shadow: none;
     }
 
+    .session-card {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .session-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .session-state {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .session-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #aaa3b3;
+      box-shadow: 0 0 0 3px rgba(147, 141, 160, 0.12);
+    }
+
+    .session-dot.recording {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(182, 56, 73, 0.12);
+    }
+
+    .session-dot.paused {
+      background: #b6812f;
+      box-shadow: 0 0 0 3px rgba(182, 129, 47, 0.12);
+    }
+
+    .session-metrics {
+      color: var(--muted);
+      font: 700 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+      text-align: right;
+    }
+
+    .session-description,
+    .session-privacy {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .session-privacy {
+      padding-top: 9px;
+      border-top: 1px solid rgba(62, 55, 96, 0.10);
+    }
+
+    .session-card .btn {
+      min-height: 42px;
+      box-shadow: none;
+    }
+
+    .session-card .btn.secondary {
+      margin-top: 0;
+    }
+
     .status-grid {
       display: grid;
       gap: 8px;
@@ -371,6 +440,23 @@
     <div class="notice-stack">
       <div id="warning" class="warning" role="alert" style="display: none;"></div>
       <div id="info" class="info" role="status" aria-live="polite" style="display: none;"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Feedback Session</div>
+      <div class="session-card">
+        <div class="session-heading">
+          <div class="session-state">
+            <span class="session-dot" id="session-dot" aria-hidden="true"></span>
+            <span id="session-status">OFF</span>
+          </div>
+          <div class="session-metrics" id="session-metrics">0:00 · 0 events</div>
+        </div>
+        <p class="session-description">Record a replayable timeline of page loads, routes, clicks, form changes, submits, navigation keys, scrolls, and page errors in this tab.</p>
+        <button class="btn" id="session-action-btn" disabled>Start Feedback Session</button>
+        <button class="btn secondary" id="sessions-btn">Review Saved Sessions</button>
+        <p class="session-privacy">Field values and printable keys are not read. Page paths, titles, and element labels are recorded; Pause before sensitive steps. No screenshots, audio, or video.</p>
+      </div>
     </div>
 
     <div class="section">

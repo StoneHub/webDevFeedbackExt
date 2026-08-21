@@ -505,7 +505,7 @@ test('CLI speaks clean MCP over stdio', async (t) => {
   const tools = await client.listTools();
   assert.equal(tools.tools.some((tool) => tool.name === 'dev_feedback_list'), true);
   await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.match(diagnostics, /Dev Feedback MCP 1\.7\.0 connected/);
+  assert.match(diagnostics, /Dev Feedback MCP 1\.8\.0 connected/);
 });
 
 async function createFixture(t) {

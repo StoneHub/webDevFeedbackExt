@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.0 (Source candidate)
+
+- Added user-started, tab-scoped Feedback Sessions for recording a structured reproduction path across page loads, failed navigation, SPA routes, clicks, field changes, form submits, navigation keys, scroll checkpoints, and observed page errors.
+- Added a persistent in-page REC/Pause/Stop control plus a browser-action badge so session capture is never silent.
+- Added a separate local Feedback Sessions review surface with issue-summary editing, deletion, JSON download, and Markdown copy.
+- Added bounded session storage with a 20-session retention limit, 1,500-event and 5 MiB per-session limits, an 8 MiB local-storage safety boundary, and serialized event writes that survive Manifest V3 service-worker suspension.
+- Excluded direct form-field reads, password contents, printable keystrokes, URL query strings, URL fragments, raw application error messages, screenshots, audio, and video from Feedback Session capture; page paths, titles, element labels, and sanitized error locations remain visible in the reviewed timeline.
+- Added `webNavigation` as an optional permission requested only when a user starts a Feedback Session; no static host permission or always-on content script was added.
+- Kept literal WebM tab video out of this source candidate until binary storage, retention, workplace-policy, privacy disclosure, and browser-runtime gates are designed and approved.
+
 ## 1.7.0 (Release candidate)
 
 - Replaced the generic speech-bubble icon with the Browser Code mark across packaged 16, 48, and 128 pixel assets.

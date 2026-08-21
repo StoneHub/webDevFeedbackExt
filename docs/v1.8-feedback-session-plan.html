@@ -1,0 +1,1074 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dev Feedback Capture v1.8 plan for local, structured browser feedback sessions.">
+  <title>Dev Feedback Capture v1.8 — Feedback Session Plan</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f4f3ef;
+      --panel: #fffefa;
+      --panel-strong: #ffffff;
+      --panel-soft: #f7f6f1;
+      --ink: #171a19;
+      --muted: #5e6864;
+      --line: #d5d9d5;
+      --brand: #155eef;
+      --brand-soft: #eaf0ff;
+      --live: #d83a52;
+      --live-soft: #fff0f2;
+      --good: #137555;
+      --good-soft: #e8f7f0;
+      --warn: #9a5a00;
+      --warn-soft: #fff5dc;
+      --later: #6750a4;
+      --later-soft: #f1edff;
+      --shadow: 0 18px 48px rgba(38, 49, 44, .08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #0d1110;
+        --panel: #161b19;
+        --panel-strong: #1b211f;
+        --panel-soft: #202724;
+        --ink: #edf3f0;
+        --muted: #aab7b1;
+        --line: #35403b;
+        --brand: #8fb4ff;
+        --brand-soft: #1d2b4a;
+        --live: #ff8091;
+        --live-soft: #3b2027;
+        --good: #72d5ae;
+        --good-soft: #17382c;
+        --warn: #ffc363;
+        --warn-soft: #3a2b17;
+        --later: #c6b6ff;
+        --later-soft: #2b2542;
+        --shadow: none;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 9% 0%, color-mix(in srgb, var(--brand) 13%, transparent), transparent 30rem),
+        radial-gradient(circle at 92% 11%, color-mix(in srgb, var(--live) 8%, transparent), transparent 27rem),
+        var(--page);
+      color: var(--ink);
+      font: 16px/1.58 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a { color: var(--brand); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    code {
+      background: var(--brand-soft);
+      border-radius: 5px;
+      padding: .08rem .32rem;
+    }
+
+    main {
+      margin: 0 auto;
+      padding: 42px 0 80px;
+      width: min(1120px, calc(100% - 32px));
+    }
+
+    header, section {
+      background: color-mix(in srgb, var(--panel) 96%, transparent);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      padding: clamp(22px, 4vw, 38px);
+    }
+
+    header {
+      overflow: hidden;
+      position: relative;
+    }
+
+    header::after {
+      background: linear-gradient(90deg, var(--live), var(--brand));
+      border-radius: 99px;
+      content: "";
+      height: 8px;
+      position: absolute;
+      right: -36px;
+      top: 34px;
+      transform: rotate(-10deg);
+      width: 245px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.16;
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: clamp(2.25rem, 6vw, 4.9rem);
+      letter-spacing: -.052em;
+      margin: 0 0 18px;
+      max-width: 950px;
+    }
+
+    h2 {
+      font-size: clamp(1.45rem, 3.5vw, 2.25rem);
+      letter-spacing: -.028em;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+    }
+
+    p { max-width: 82ch; }
+    li + li { margin-top: .48rem; }
+
+    .eyebrow {
+      color: var(--brand);
+      font-size: .76rem;
+      font-weight: 850;
+      letter-spacing: .13em;
+      margin: 0 0 12px;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      color: var(--muted);
+      font-size: clamp(1.05rem, 2vw, 1.23rem);
+      margin-bottom: 0;
+      max-width: 850px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .chip, .status {
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: .74rem;
+      font-weight: 820;
+      letter-spacing: .03em;
+      padding: 5px 9px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .chip { color: var(--brand); }
+    .status.now { color: var(--good); }
+    .status.later { color: var(--later); }
+    .status.no { color: var(--muted); }
+
+    .decision {
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--brand-soft) 76%, var(--panel)), var(--panel));
+      border-left: 6px solid var(--brand);
+    }
+
+    .decision p:last-child { margin-bottom: 0; }
+
+    .cards {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .card {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+    }
+
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .card p { color: var(--muted); }
+    .card strong { color: var(--ink); }
+
+    .compare {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1.25fr 1fr;
+    }
+
+    .compare .card:first-child {
+      border-color: color-mix(in srgb, var(--good) 60%, var(--line));
+      box-shadow: inset 0 4px 0 var(--good);
+    }
+
+    .compare .card:last-child {
+      border-color: color-mix(in srgb, var(--later) 55%, var(--line));
+      box-shadow: inset 0 4px 0 var(--later);
+    }
+
+    .flow {
+      counter-reset: flow;
+      display: grid;
+      gap: 11px;
+      grid-template-columns: repeat(6, 1fr);
+    }
+
+    .flow article {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      min-height: 174px;
+      padding: 15px;
+    }
+
+    .flow article::before {
+      color: var(--live);
+      content: "0" counter(flow);
+      counter-increment: flow;
+      display: block;
+      font-size: 1.35rem;
+      font-weight: 900;
+      margin-bottom: 12px;
+    }
+
+    .flow p {
+      color: var(--muted);
+      font-size: .88rem;
+      margin-bottom: 0;
+    }
+
+    .mock-wrap {
+      align-items: start;
+      display: grid;
+      gap: 22px;
+      grid-template-columns: minmax(280px, .8fr) 1.6fr;
+    }
+
+    .popup {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      box-shadow: 0 16px 42px rgba(25, 30, 28, .16);
+      padding: 18px;
+    }
+
+    .popup-top {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .rec {
+      align-items: center;
+      color: var(--live);
+      display: flex;
+      font-size: .78rem;
+      font-weight: 850;
+      gap: 7px;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      background: var(--live);
+      border-radius: 50%;
+      box-shadow: 0 0 0 4px var(--live-soft);
+      height: 9px;
+      width: 9px;
+    }
+
+    .timer {
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+    }
+
+    .popup h3 {
+      font-size: 1.16rem;
+      margin: 18px 0 4px;
+    }
+
+    .popup .muted {
+      color: var(--muted);
+      font-size: .84rem;
+      margin: 0;
+    }
+
+    .scope {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      margin: 15px 0;
+      padding: 11px;
+    }
+
+    .scope b { display: block; font-size: .82rem; }
+    .scope small { color: var(--muted); }
+
+    .button-row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .fake-button {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font-size: .84rem;
+      font-weight: 800;
+      padding: 9px;
+      text-align: center;
+    }
+
+    .fake-button.stop {
+      background: var(--live);
+      border-color: var(--live);
+      color: #fff;
+    }
+
+    .timeline {
+      border-left: 2px solid var(--line);
+      list-style: none;
+      margin: 22px 0 0 8px;
+      padding: 0 0 0 22px;
+    }
+
+    .timeline li {
+      margin: 0 0 18px;
+      position: relative;
+    }
+
+    .timeline li::before {
+      background: var(--panel);
+      border: 3px solid var(--brand);
+      border-radius: 50%;
+      content: "";
+      height: 11px;
+      left: -29px;
+      position: absolute;
+      top: .36rem;
+      width: 11px;
+    }
+
+    .timeline li.issue::before { border-color: var(--live); }
+    .timeline time {
+      color: var(--muted);
+      display: inline-block;
+      font: .78rem ui-monospace, SFMono-Regular, Menlo, monospace;
+      min-width: 60px;
+    }
+
+    .timeline span { color: var(--muted); }
+
+    .architecture {
+      align-items: stretch;
+      display: grid;
+      gap: 10px;
+      grid-template-columns: 1fr auto 1.2fr auto 1.2fr auto 1fr;
+    }
+
+    .arch-node {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 15px;
+    }
+
+    .arch-node.core {
+      border-color: var(--brand);
+      box-shadow: inset 0 4px 0 var(--brand);
+    }
+
+    .arch-node small {
+      color: var(--muted);
+      display: block;
+      margin-top: 6px;
+    }
+
+    .arrow {
+      align-self: center;
+      color: var(--brand);
+      font-size: 1.45rem;
+      font-weight: 900;
+    }
+
+    .stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th, td {
+      border-top: 1px solid var(--line);
+      padding: 13px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: .73rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    tbody tr:first-child td { border-top-color: var(--brand); }
+
+    .yes { color: var(--good); font-weight: 800; }
+    .careful { color: var(--warn); font-weight: 800; }
+    .never { color: var(--live); font-weight: 800; }
+
+    .callout {
+      background: var(--warn-soft);
+      border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+      border-radius: 13px;
+      color: color-mix(in srgb, var(--ink) 85%, var(--warn));
+      padding: 15px 17px;
+    }
+
+    .callout.good {
+      background: var(--good-soft);
+      border-color: color-mix(in srgb, var(--good) 45%, var(--line));
+    }
+
+    .schema {
+      background: #111816;
+      border: 1px solid #2f3a35;
+      border-radius: 13px;
+      color: #d8e9e1;
+      font-size: .82rem;
+      line-height: 1.55;
+      margin: 18px 0 0;
+      overflow-x: auto;
+      padding: 18px;
+      white-space: pre;
+    }
+
+    .schema .key { color: #9fc0ff; }
+    .schema .value { color: #8be0b9; }
+    .schema .redacted { color: #ffbd7a; }
+
+    .gates {
+      counter-reset: gate;
+      display: grid;
+      gap: 12px;
+    }
+
+    .gate {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 46px 1fr;
+    }
+
+    .gate::before {
+      align-items: center;
+      background: var(--brand-soft);
+      border-radius: 12px;
+      color: var(--brand);
+      content: counter(gate);
+      counter-increment: gate;
+      display: flex;
+      font-size: 1.2rem;
+      font-weight: 900;
+      height: 42px;
+      justify-content: center;
+    }
+
+    .gate h3 { margin: 2px 0 4px; }
+    .gate p { color: var(--muted); margin: 0; }
+
+    .checklist {
+      display: grid;
+      gap: 0 24px;
+      grid-template-columns: 1fr 1fr;
+      list-style: none;
+      padding: 0;
+    }
+
+    .checklist li {
+      border-top: 1px solid var(--line);
+      margin: 0;
+      padding: 11px 0 11px 28px;
+      position: relative;
+    }
+
+    .checklist li::before {
+      border: 2px solid var(--brand);
+      border-radius: 4px;
+      content: "";
+      height: 14px;
+      left: 0;
+      position: absolute;
+      top: 16px;
+      width: 14px;
+    }
+
+    .sources {
+      color: var(--muted);
+      font-size: .9rem;
+      padding-left: 1.25rem;
+    }
+
+    .fine-print {
+      color: var(--muted);
+      font-size: .84rem;
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 900px) {
+      .cards, .compare, .mock-wrap { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: repeat(2, 1fr); }
+      .architecture { grid-template-columns: 1fr; }
+      .arrow { justify-self: center; transform: rotate(90deg); }
+    }
+
+    @media (max-width: 620px) {
+      main { width: min(100% - 20px, 1120px); padding-top: 20px; }
+      header, section { border-radius: 15px; padding: 20px; }
+      header::after { display: none; }
+      .flow, .checklist { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+
+    @media print {
+      :root {
+        color-scheme: light;
+        --page: #fff;
+        --panel: #fff;
+        --panel-strong: #fff;
+        --panel-soft: #f8f8f5;
+        --ink: #111;
+        --muted: #444;
+        --line: #bbb;
+        --brand: #174ea6;
+        --brand-soft: #eef3ff;
+        --live: #a52137;
+        --live-soft: #fff0f2;
+        --good: #176b4f;
+        --good-soft: #eaf7f1;
+        --warn: #7d4a00;
+        --warn-soft: #fff8e6;
+        --later: #594291;
+        --later-soft: #f2effd;
+      }
+      body { background: #fff; }
+      main { padding: 0; width: 100%; }
+      header, section { break-inside: avoid; box-shadow: none; }
+      .schema { white-space: pre-wrap; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Dev Feedback Capture · v1.8 plan · July 28, 2026</p>
+      <h1>Reproduce the path, not only the last screen.</h1>
+      <p class="lede">A Feedback Session should turn one deliberate browser journey into a compact, reviewable timeline: where the user went, what they interacted with, where capture paused, and which feedback item marks the issue. The first release is structured evidence—not continuous video or hidden surveillance.</p>
+      <div class="chips">
+        <span class="chip">Explicit start and stop</span>
+        <span class="chip">One target tab</span>
+        <span class="chip">Local only</span>
+        <span class="chip">Values redacted</span>
+        <span class="chip">Review before export</span>
+      </div>
+    </header>
+
+    <section class="decision">
+      <p class="eyebrow">Product decision</p>
+      <h2>Best path: ship a structured timeline MVP now; prove WebM separately later.</h2>
+      <p><strong>Why:</strong> a timeline is smaller, searchable, agent-readable, compatible with the extension’s existing feedback bundles, and can redact sensitive values before storage. It directly answers “how did I get here?” without turning the extension into a general screen recorder.</p>
+      <p><strong>Counterpoint / risk:</strong> a timeline will not preserve every animation, hover state, transient overlay, canvas change, or visual timing issue. A user who expects literal playback may call it incomplete. The UI and Store copy must say <em>Feedback Session timeline</em>, never “screen recording,” until a real video path passes its own privacy and runtime gates.</p>
+      <p><strong>Next step:</strong> implement the timeline behind one explicit <strong>Start session</strong> action, validate it in unpacked Edge and Chrome on a purpose-built test journey, then decide whether a tab-video spike earns v1.9 scope.</p>
+    </section>
+
+    <section>
+      <h2>Now versus later</h2>
+      <div class="compare">
+        <article class="card">
+          <span class="status now">v1.8 MVP</span>
+          <h3>Structured feedback timeline</h3>
+          <ul>
+            <li>Records committed page loads, same-document route changes, reloads, back/forward transitions, and navigation failures for the target tab.</li>
+            <li>Records safe interaction summaries: click, submit, control change, a small allowlist of non-text keys, and debounced scroll checkpoints.</li>
+            <li>Links existing Element, Visual, and Region feedback items to the active session.</li>
+            <li>Shows a persistent recording indicator, duration, event count, scope, pause, and stop.</li>
+            <li>Saves locally in bounded per-session records and exports readable Markdown plus structured JSON.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="status later">Optional later</span>
+          <h3>User-triggered WebM tab capture</h3>
+          <ul>
+            <li>Requires a separate <code>tabCapture</code> permission and explicit user gesture.</li>
+            <li>Likely needs an offscreen document and <code>MediaRecorder</code> because a Manifest V3 service worker cannot own a long-lived DOM media pipeline.</li>
+            <li>Captures tab content, not the browser address bar or all desktop activity.</li>
+            <li>Audio stays off by default; video redaction is a separate unsolved product problem.</li>
+            <li>Must stream to bounded local storage and explicit download—not accumulate in extension history.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>The user flow</h2>
+      <div class="flow">
+        <article>
+          <h3>Name the session</h3>
+          <p>Open the extension, choose <strong>Start feedback session</strong>, and optionally enter a short goal such as “Checkout failure.”</p>
+        </article>
+        <article>
+          <h3>Confirm scope</h3>
+          <p>See the target tab, current origin, URL-redaction policy, and the exact events that will and will not be stored.</p>
+        </article>
+        <article>
+          <h3>Reproduce</h3>
+          <p>Use the site normally. The badge and popup keep a visible red recording state with elapsed time and event count.</p>
+        </article>
+        <article>
+          <h3>Mark the issue</h3>
+          <p>Use Element, Visual, or Region capture—or add a short marker note. The new feedback item joins the current timeline.</p>
+        </article>
+        <article>
+          <h3>Stop and review</h3>
+          <p>Stop recording, inspect the ordered path, remove irrelevant events, and verify every redaction before export.</p>
+        </article>
+        <article>
+          <h3>Hand off</h3>
+          <p>Download a versioned local JSON timeline or copy a concise Markdown reproduction path after adding the issue summary.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>The recording state must be impossible to miss</h2>
+      <div class="mock-wrap">
+        <div class="popup" aria-label="Concept for the active Feedback Session popup">
+          <div class="popup-top">
+            <div class="rec"><span class="dot"></span> Recording</div>
+            <div class="timer">03:42</div>
+          </div>
+          <h3>Checkout failure</h3>
+          <p class="muted">18 structured events</p>
+          <div class="scope">
+            <b>Current tab only</b>
+            <small>app.example.test · query and fragment removed</small>
+          </div>
+          <div class="button-row">
+            <div class="fake-button">Pause</div>
+            <div class="fake-button stop">Stop &amp; review</div>
+          </div>
+        </div>
+        <div>
+          <p><strong>Session scope is one tab, not the whole browser.</strong> Switching tabs does not begin collecting from the other tab. If a link opens a new tab, v1.8 remains bound to the original tab and does not silently follow it.</p>
+          <p><strong>Cross-origin navigation is a visible boundary.</strong> The navigation itself may appear in the timeline, but page interaction capture pauses when temporary <code>activeTab</code> access ends. The user can click the extension and explicitly resume on the new site. No broad, permanent all-sites access is required for the MVP.</p>
+          <div class="callout"><strong>Honest wording:</strong> “Recording” means an ordered structured timeline. The session does not take a screenshot on every action and does not capture pixels continuously.</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Example handoff timeline</h2>
+      <ol class="timeline">
+        <li><time>00:00</time> <strong>Session started</strong> <span>on <code>/orders</code></span></li>
+        <li><time>00:04</time> <strong>Clicked “Order 1042” link</strong> <span><code>a[data-order-row]</code></span></li>
+        <li><time>00:05</time> <strong>Navigation committed</strong> <span><code>/orders/1042</code> · link</span></li>
+        <li><time>00:09</time> <strong>Clicked “Refund” button</strong> <span><code>button[aria-label="Refund order"]</code></span></li>
+        <li><time>00:12</time> <strong>Changed “Reason” select</strong> <span>value not stored</span></li>
+        <li><time>00:15</time> <strong>Submitted “Refund order” form</strong> <span>field values not stored</span></li>
+        <li class="issue"><time>00:17</time> <strong>Page error observed</strong> <span>“Error banner never clears.” added as the session summary during review</span></li>
+        <li><time>00:24</time> <strong>Session stopped</strong> <span>8 structured events</span></li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>What the MVP records</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Signal</th>
+            <th>Stored detail</th>
+            <th>Guardrail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="yes">Session state</span></td>
+            <td>Start, pause, resume, stop, interruption, derived duration, event count, and truncation state.</td>
+            <td>Only after an explicit user action; one active session at a time.</td>
+          </tr>
+          <tr>
+            <td><span class="yes">Navigation</span></td>
+            <td>Main-frame committed/completed/error events; SPA route and fragment updates; transition type and qualifiers.</td>
+            <td>Store origin + pathname. Remove the complete query string and fragment. Ignore subframe noise in v1.8.</td>
+          </tr>
+          <tr>
+            <td><span class="yes">Click</span></td>
+            <td>Pointer button, semantic target role/tag, bounded label, stable best-effort selector.</td>
+            <td>Bound target text and collect it only from button/link-like controls; input values are never read.</td>
+          </tr>
+          <tr>
+            <td><span class="yes">Form intent</span></td>
+            <td>Submit event, form name or label, and which safe control kinds changed.</td>
+            <td>No field values, autofill content, password content, or serialized form data. Checkbox/radio checked state may be recorded.</td>
+          </tr>
+          <tr>
+            <td><span class="careful">Keyboard</span></td>
+            <td>Only action keys useful for reproduction: Enter, Escape, Tab, arrows, Space, and named shortcuts.</td>
+            <td>Never record printable keys, composition events, key sequences, or clipboard content.</td>
+          </tr>
+          <tr>
+            <td><span class="careful">Scroll</span></td>
+            <td>Debounced final scroll coordinates plus viewport dimensions.</td>
+            <td>No high-frequency pointer or scroll stream; coalesce repeated events.</td>
+          </tr>
+          <tr>
+            <td><span class="never">Never by default</span></td>
+            <td>Raw keystrokes, field values, passwords, cookies, storage, request/response bodies, headers, tokens, clipboard, microphone, webcam, or continuous screenshots.</td>
+            <td>These are outside the extension’s focused purpose and are not required to reproduce a browser path.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Architecture: one authoritative session controller</h2>
+      <div class="architecture" aria-label="Feedback Session architecture">
+        <div class="arch-node">
+          <strong>Popup + badge</strong>
+          <small>Explicit controls, timer, scope, count, paused state.</small>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="arch-node core">
+          <strong>Background session controller</strong>
+          <small>Owns one session, tab ID, event sequence, mutation queue, active marker, restart reconciliation, and caps.</small>
+        </div>
+        <div class="arrow" aria-hidden="true">↔</div>
+        <div class="stack">
+          <div class="arch-node">
+            <strong>Navigation listeners</strong>
+            <small><code>webNavigation</code> and tab lifecycle events, main frame only.</small>
+          </div>
+          <div class="arch-node">
+            <strong>Session content recorder</strong>
+            <small>Capture-phase event listeners; semantic summaries only.</small>
+          </div>
+        </div>
+        <div class="arrow" aria-hidden="true">→</div>
+        <div class="arch-node">
+          <strong>Local session store</strong>
+          <small>One bounded local record per session plus a 20-session index, then review/export.</small>
+        </div>
+      </div>
+      <div class="cards" style="margin-top:16px">
+        <article class="card">
+          <h3>Static browser listeners</h3>
+          <p>Register Manifest V3 event listeners synchronously in <code>background.js</code>. Each listener exits immediately when no session is active. Do not depend on an in-memory service worker timer to preserve state.</p>
+        </article>
+        <article class="card">
+          <h3>Serialized, bounded writes</h3>
+          <p>Reuse the background mutation-queue pattern. Store each sanitized session separately from visual feedback history, cap it at 1,500 events or 5 MiB, enforce an 8 MiB local-storage safety boundary, and retain only the latest 20 sessions.</p>
+        </article>
+        <article class="card">
+          <h3>Crash and restart truth</h3>
+          <p>Keep the active marker in <code>chrome.storage.session</code>. A service-worker restart preserves it; a browser or extension restart clears it, and reconciliation finalizes any unmatched local recording as <code>interrupted</code>.</p>
+        </article>
+      </div>
+      <p class="fine-print">Implemented files: <code>session-recorder.js</code> for page events and visible controls, <code>session-model.js</code> for schema/redaction/export, controller helpers in <code>background.js</code>, and the separate <code>sessions.html</code>/<code>sessions.js</code> review surface.</p>
+    </section>
+
+    <section>
+      <h2>Local data model</h2>
+      <p>Session records use a new schema and new storage prefix. Existing feedback history remains readable and unchanged; direct linkage from Element, Visual, and Region items is deferred.</p>
+      <pre class="schema" aria-label="Example Feedback Session data model">{
+  <span class="key">"schemaVersion"</span>: <span class="value">1</span>,
+  <span class="key">"id"</span>: <span class="value">"session-7a4…"</span>,
+  <span class="key">"status"</span>: <span class="value">"completed"</span>,
+  <span class="key">"tabId"</span>: <span class="value">81</span>,
+  <span class="key">"startedAt"</span>: <span class="value">"2026-07-28T14:03:11.000Z"</span>,
+  <span class="key">"endedAt"</span>: <span class="value">"2026-07-28T14:07:02.000Z"</span>,
+  <span class="key">"startUrl"</span>: <span class="value">"https://app.example.test/orders"</span>,
+  <span class="key">"lastUrl"</span>: <span class="value">"https://app.example.test/orders/1042"</span>,
+  <span class="key">"summary"</span>: <span class="value">"Refund submit leaves the error banner visible."</span>,
+  <span class="key">"eventCount"</span>: <span class="value">8</span>,
+  <span class="key">"truncated"</span>: <span class="value">false</span>,
+  <span class="key">"privacy"</span>: {
+    <span class="key">"typedValues"</span>: <span class="value">"not-recorded"</span>,
+    <span class="key">"queryStrings"</span>: <span class="value">"removed"</span>,
+    <span class="key">"fragments"</span>: <span class="value">"removed"</span>,
+    <span class="key">"video"</span>: <span class="value">"not-recorded"</span>
+  },
+  <span class="key">"events"</span>: [{
+    <span class="key">"sequence"</span>: <span class="value">6</span>,
+    <span class="key">"timestamp"</span>: <span class="value">"2026-07-28T14:03:26.203Z"</span>,
+    <span class="key">"elapsedMs"</span>: <span class="value">15203</span>,
+    <span class="key">"type"</span>: <span class="value">"submit"</span>,
+    <span class="key">"pageUrl"</span>: <span class="value">"https://app.example.test/orders/1042"</span>,
+    <span class="key">"details"</span>: {
+      <span class="key">"method"</span>: <span class="value">"POST"</span>,
+      <span class="key">"target"</span>: {
+        <span class="key">"tag"</span>: <span class="value">"form"</span>,
+        <span class="key">"selector"</span>: <span class="value">"main &gt; form:nth-of-type(1)"</span>
+      },
+      <span class="key">"redactions"</span>: [<span class="redacted">"query"</span>, <span class="redacted">"fragment"</span>]
+    }
+  }]
+}</pre>
+      <div class="callout good" style="margin-top:16px"><strong>Size budget:</strong> v1.8 retains the latest 20 sessions and caps each one at 1,500 structured events or 5 MiB, with an 8 MiB total local-storage safety boundary. Reaching any cap marks the record truncated, pauses collection, changes the in-page state to LIMIT, and requires Stop &amp; Review before another session.</div>
+    </section>
+
+    <section>
+      <h2>Privacy and redaction model</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Before capture</h3>
+          <p>The start confirmation names the tab, site scope, URL policy, data exclusions, retention behavior, and cross-origin pause rule. Recording begins only after the user confirms.</p>
+        </article>
+        <article class="card">
+          <h3>Before storage</h3>
+          <p>The content recorder constructs the smallest semantic event it can. The background controller validates and sanitizes again before assigning sequence order and writing locally.</p>
+        </article>
+        <article class="card">
+          <h3>Before export</h3>
+          <p>The user reviews the timeline, adds or edits the issue summary, deletes unwanted sessions, and explicitly downloads JSON or copies Markdown. No provider, webhook, MCP host, or network destination receives it automatically.</p>
+        </article>
+      </div>
+      <table style="margin-top:16px">
+        <thead>
+          <tr>
+            <th>Risky surface</th>
+            <th>v1.8 rule</th>
+            <th>User-visible result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Passwords and sensitive inputs</td>
+            <td>Ignore all values. Suppress labels/text when a target is inside a password, payment, one-time-code, or explicitly private control.</td>
+            <td>“Changed protected input — value not recorded.”</td>
+          </tr>
+          <tr>
+            <td>URL secrets and identifiers</td>
+            <td>Keep origin and pathname. Remove the complete query string and complete fragment before local storage.</td>
+            <td><code>/callback</code> plus a query/fragment redaction marker</td>
+          </tr>
+          <tr>
+            <td>Visible target text</td>
+            <td>Cap length, collect text only from button/link-like controls, and prefer role/accessibility labels. Never read text-field contents.</td>
+            <td>“Clicked button ‘Save item’.”</td>
+          </tr>
+          <tr>
+            <td>Cross-origin frames</td>
+            <td>Do not attempt to pierce browser security boundaries. Record only the safe top-level interaction or that an unavailable frame was involved.</td>
+            <td>“Interacted with embedded frame — details unavailable.”</td>
+          </tr>
+          <tr>
+            <td>Protected browser pages</td>
+            <td>Do not inject. Record a pause/boundary event if the browser reports navigation, and explain that recording is unavailable.</td>
+            <td>“Session paused on a protected page.”</td>
+          </tr>
+          <tr>
+            <td>Retention</td>
+            <td>Local until deleted, with per-session deletion, clear-all, a latest-20-session limit, and 1,500-event, 5 MiB per-session, and 8 MiB total soft limits.</td>
+            <td>Feedback Sessions shows date, duration, event count, status, summary, and Delete.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Permission plan</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Capability</th>
+            <th>Permission</th>
+            <th>Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Start on the current tab and inject the recorder</td>
+            <td><code>activeTab</code> + <code>scripting</code></td>
+            <td><span class="yes">Keep existing.</span> This preserves a user-gesture boundary and avoids permanent all-sites access.</td>
+          </tr>
+          <tr>
+            <td>Persist bounded session records locally</td>
+            <td><code>storage</code></td>
+            <td><span class="yes">Keep existing.</span> Enforce caps before considering <code>unlimitedStorage</code>.</td>
+          </tr>
+          <tr>
+            <td>Record full loads, SPA history updates, fragment changes, and navigation errors</td>
+            <td><code>webNavigation</code></td>
+            <td><span class="careful">Optional permission.</span> Request it in context only when the user presses Start; denial stops the workflow cleanly.</td>
+          </tr>
+          <tr>
+            <td>Continue page interactions after crossing to another origin</td>
+            <td>New user gesture / optional host grant</td>
+            <td><span class="careful">Pause by default.</span> v1.8 should ask the user to resume on the new site; do not add required <code>&lt;all_urls&gt;</code> access.</td>
+          </tr>
+          <tr>
+            <td>Literal tab video</td>
+            <td><code>tabCapture</code>, likely <code>offscreen</code></td>
+            <td><span class="never">Not in v1.8.</span> Add only after a separate technical, privacy, file-size, and Store-review spike.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout" style="margin-top:16px"><strong>Implemented permission boundary:</strong> navigation events continue for the bound tab under optional <code>webNavigation</code>. Same-origin action capture is re-injected after full loads; cross-origin action detail records a gap until the user opens the extension on the new origin. No broad host permission is requested.</div>
+    </section>
+
+    <section>
+      <h2>Export contract</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Feedback Session JSON</h3>
+          <p>Versioned session metadata, ordered sanitized events, privacy declarations, redaction markers, gap/interruption markers, and truthful truncation state.</p>
+        </article>
+        <article class="card">
+          <h3>Copied Markdown</h3>
+          <p>A concise human-readable path with timestamps, route changes, semantic targets, issue summary, privacy exclusions, and actual capture gaps.</p>
+        </article>
+        <article class="card">
+          <h3>Existing evidence</h3>
+          <p>Element, Visual, Region, History, AI Bundle, and MCP exports retain their current compatibility. Direct linkage into Feedback Sessions is a later additive change.</p>
+        </article>
+      </div>
+      <p>The export must distinguish <strong>observed</strong>, <strong>redacted</strong>, <strong>unavailable</strong>, and <strong>truncated</strong> evidence. A coding agent should be able to reconstruct the path without assuming that an omitted field was empty or that a paused interval was recorded.</p>
+    </section>
+
+    <section>
+      <h2>Release gates</h2>
+      <div class="gates">
+        <div class="gate">
+          <div>
+            <h3>Approve the scope and language</h3>
+            <p>Confirm “structured Feedback Session timeline” as the v1.8 product. WebM, audio, network inspection, console capture, multi-tab following, and broad host access remain excluded.</p>
+          </div>
+        </div>
+        <div class="gate">
+          <div>
+            <h3>Prove the browser lifecycle</h3>
+            <p>Validate the implemented start → interaction → same-origin full navigation → re-injection → SPA navigation → pause/resume → stop path in both unpacked Edge and Chrome.</p>
+          </div>
+        </div>
+        <div class="gate">
+          <div>
+            <h3>Lock the schema and redactors</h3>
+            <p>Add compatibility tests for legacy feedback items, deterministic event ordering, duplicate suppression, URL sanitation, selector/label sanitation, protected inputs, and cap handling.</p>
+          </div>
+        </div>
+        <div class="gate">
+          <div>
+            <h3>Complete repo checks</h3>
+            <p>Run <code>npm test</code>, <code>npm run check</code>, package verification, and <code>git diff --check</code>. These prove source/package contracts, not browser behavior.</p>
+          </div>
+        </div>
+        <div class="gate">
+          <div>
+            <h3>Complete manual runtime proof</h3>
+            <p>Load the exact unpacked v1.8 source in the active browser profile and complete the checklist below. Also re-test Element and Region modes per the repository contract.</p>
+          </div>
+        </div>
+        <div class="gate">
+          <div>
+            <h3>Update public truth before upload</h3>
+            <p>Match the privacy policy, Store data-use disclosures, permission justification, README, changelog, screenshots, package version, and actual behavior. Read the live Store state before replacing any in-review package.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Manual test checklist</h2>
+      <ul class="checklist">
+        <li>Start requires an explicit click and shows the target tab, origin, URL policy, and exclusions.</li>
+        <li>The action badge and popup show recording, elapsed time, event count, scope, pause, and stop.</li>
+        <li>Only one active session can exist; a second start offers to return to or stop the current session.</li>
+        <li>Click a button and link; confirm semantic target data is useful and bounded.</li>
+        <li>Type email, password, one-time code, free text, and payment-like data; confirm no printable keys or values are stored.</li>
+        <li>Change checkbox, radio, select, and text input; confirm only safe change intent is recorded.</li>
+        <li>Submit a form; confirm form values and serialized form data are absent.</li>
+        <li>Scroll repeatedly; confirm events coalesce into a small number of final checkpoints.</li>
+        <li>Use Enter, Escape, Tab, arrows, and Space; confirm only the allowlisted key name is stored.</li>
+        <li>Perform same-origin full navigation and confirm the next interaction is recorded without duplicates.</li>
+        <li>Use <code>history.pushState</code>, fragment navigation, reload, and back/forward; confirm distinct ordered route events.</li>
+        <li>Trigger a failed page load and confirm a navigation-error event without sensitive network detail.</li>
+        <li>Cross to a new origin; confirm interaction recording pauses visibly and does not silently inject.</li>
+        <li>Resume on the new origin only through an explicit user gesture; confirm the gap is preserved in export.</li>
+        <li>Open a link in a new tab; confirm the session stays on its original target unless the user explicitly transfers it.</li>
+        <li>Switch away from and back to the target tab; confirm no events are collected from the other tab.</li>
+        <li>Visit a protected browser page, hosted PDF, local PDF, and cross-origin iframe; confirm graceful boundary events.</li>
+        <li>Pause and resume; confirm no page interactions are stored during the paused interval.</li>
+        <li>Reload the extension or restart the browser mid-session; confirm an honest interrupted/resumed state with no fabricated continuity.</li>
+        <li>Create Element, Visual, and Region feedback during a session; confirm each item links once and remains valid in ordinary History.</li>
+        <li>Stop and review; delete one event, edit the session name/marker note, and delete a whole session.</li>
+        <li>Export Feedback Session JSON and copy Markdown; confirm stable ordering, redactions, gaps, summary text, and privacy declarations.</li>
+        <li>Hit the 1,500-event, 5 MiB session, and 8 MiB local-storage safety caps in test fixtures; confirm the visible LIMIT state, automatic pause, and truthful truncated marker.</li>
+        <li>Confirm there are no network requests, telemetry calls, microphone/webcam access, or continuous screenshots.</li>
+        <li>Re-test ordinary Element and Region mode in unpacked Edge/Chrome, then run the repo and package gates.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>WebM later: proof required before roadmap commitment</h2>
+      <div class="cards">
+        <article class="card">
+          <span class="status later">Technical proof</span>
+          <h3>Capture survives the real journey</h3>
+          <p>Prove one user-triggered stream across reload, same-tab cross-origin navigation, tab mute/audio routing, pause/resume, browser sleep, extension reload, and stop. Test Chrome and Edge separately.</p>
+        </article>
+        <article class="card">
+          <span class="status later">Privacy proof</span>
+          <h3>Users understand pixels are sensitive</h3>
+          <p>Video may contain typed values, private customer data, notifications, and secrets that structured redaction would omit. Require a separate consent screen, obvious indicator, no audio by default, and pre-export preview.</p>
+        </article>
+        <article class="card">
+          <span class="status later">Storage proof</span>
+          <h3>Bounded capture without data loss</h3>
+          <p>Choose chunking, temporary storage, maximum duration/size, recovery after interruption, explicit download, and deletion. Never keep an unbounded WebM blob in <code>chrome.storage.local</code>.</p>
+        </article>
+      </div>
+      <p><strong>Only then choose:</strong> WebM as an optional supplement linked to the structured timeline, or no video at all. The timeline remains the durable source for search, export, agent handoff, and redaction.</p>
+    </section>
+
+    <section>
+      <h2>Deliberately out of scope for v1.8</h2>
+      <div class="cards">
+        <article class="card">
+          <span class="status no">Not v1.8</span>
+          <h3>General monitoring</h3>
+          <p>No background browsing history, always-on recorder, hidden capture, employee surveillance, cross-profile activity, or collection outside the selected tab and explicit session.</p>
+        </article>
+        <article class="card">
+          <span class="status no">Not v1.8</span>
+          <h3>Deep diagnostics</h3>
+          <p>No DevTools protocol, network waterfall, console log archive, request/response bodies, cookies, local storage dump, performance trace, or automatic app-error stack capture.</p>
+        </article>
+        <article class="card">
+          <span class="status no">Not v1.8</span>
+          <h3>Cloud collaboration</h3>
+          <p>No upload, sync, hosted playback, shared link, team account, analytics, or automatic agent delivery. Export remains an explicit local action.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Primary technical references</h2>
+      <ul class="sources">
+        <li><a href="https://developer.chrome.com/docs/extensions/reference/api/webNavigation">Chrome <code>webNavigation</code> API</a> — committed/completed/error events, History API updates, fragment updates, transitions, event ordering, and permission requirement.</li>
+        <li><a href="https://developer.chrome.com/docs/extensions/develop/concepts/activeTab">Chrome <code>activeTab</code> concept</a> — temporary access granted by a user gesture and revoked at the cross-origin boundary.</li>
+        <li><a href="https://developer.chrome.com/docs/extensions/reference/api/tabCapture">Chrome <code>tabCapture</code> API</a> — user-invoked access to a tab media stream and the separate permission required for future WebM work.</li>
+        <li><a href="https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions">Chrome permission guidance</a> — request only necessary access and prefer optional permissions where the feature allows it.</li>
+        <li><a href="../README.md">Current Dev Feedback Capture behavior and privacy boundary</a>.</li>
+        <li><a href="./manual-release-checklist.md">Current manual release checklist</a>.</li>
+      </ul>
+      <p class="fine-print">This file is a product and implementation plan, not runtime proof. API assumptions—especially re-injection after navigation, exact warning text, tab-video lifecycle, and Edge parity—remain explicit spike and manual-browser gates.</p>
+    </section>
+  </main>
+</body>
+</html>

@@ -11,7 +11,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 
 import { createDevFeedbackServer } from '../mcp/server.mjs';
-import { createProjectStore } from '../mcp/store.mjs';
+import { constants, createProjectStore } from '../mcp/store.mjs';
 
 const VALID_PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const VALID_PNG_BYTES = Buffer.from(VALID_PNG_DATA_URL.split(',')[1], 'base64');
@@ -21,11 +21,7 @@ const PACKAGE_VERSION = JSON.parse(await fs.readFile(new URL('../package.json', 
 
 test('project store supports agent feedback, revisions, evidence, and briefs', async (t) => {
   const fixture = await createFixture(t);
-  const store = await createProjectStore({
-    projectRoot: fixture.projectRoot,
-    inboxRoots: [fixture.inboxRoot],
-    clock: sequenceClock()
-  });
+  const store = await createProjectStore(inboxOptions(fixture, { clock: sequenceClock() }));
 
   const initial = await store.getProjectStatus();
   assert.equal(initial.itemCount, 0);
@@ -199,7 +195,7 @@ test('History JSON import is idempotent and strips embedded evidence', async (t)
     }]
   }));
 
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot], clock: sequenceClock() });
+  const store = await createProjectStore(inboxOptions(fixture, { clock: sequenceClock() }));
   const first = await store.importFeedbackExport({ path: exportPath });
   assert.equal(first.imported.length, 2);
   assert.equal(first.updated.length, 0);
@@ -224,9 +220,191 @@ test('History JSON import is idempotent and strips embedded evidence', async (t)
   await assert.rejects(() => store.importFeedbackExport({ path: outsidePath }), /outside the configured/);
 });
 
+test('inbox discovery lists only valid captures and latest import needs no path', async (t) => {
+  const fixture = await createFixture(t);
+  const validExports = [
+    ['older.json', '2026-07-18T12:00:00.000Z', 'older-item', 'Older'],
+    ['tie-b.json', '2026-07-18T12:02:00.000Z', 'tie-b-item', 'Tie B'],
+    ['tie-a.json', '2026-07-18T12:02:00.000Z', 'tie-a-item', 'Tie A'],
+    ['newest.json', '2026-07-18T12:03:00.000Z', 'newest-item', 'Newest']
+  ];
+  for (const [fileName, modifiedAt, id, note] of validExports) {
+    const filePath = path.join(fixture.inboxRoot, fileName);
+    await fs.writeFile(filePath, JSON.stringify(historyExport('inbox-site', id, note)));
+    const time = new Date(modifiedAt);
+    await fs.utimes(filePath, time, time);
+  }
+  await fs.writeFile(path.join(fixture.inboxRoot, 'invalid.json'), '{not-json');
+  await fs.writeFile(path.join(fixture.inboxRoot, 'not-a-capture.json'), JSON.stringify({ version: 1 }));
+  await fs.writeFile(path.join(fixture.inboxRoot, 'empty-capture.json'), JSON.stringify({ histories: [] }));
+  await fs.writeFile(path.join(fixture.projectRoot, 'project-root-capture.json'), JSON.stringify(historyExport('project-site', 'project-item', 'Project')));
+
+  const store = await createProjectStore(inboxOptions(fixture));
+  const projectBeforeImport = await snapshotOutsideSidecar(fixture.projectRoot);
+  const listed = await store.listInboxCaptures();
+  assert.equal(listed.total, 4);
+  assert.deepEqual(listed.captures.map((capture) => capture.fileName), [
+    'newest.json',
+    'tie-a.json',
+    'tie-b.json',
+    'older.json'
+  ]);
+  const inboxRoot = await fs.realpath(fixture.inboxRoot);
+  assert.equal(listed.captures.every((capture) => capture.path.startsWith(`${inboxRoot}${path.sep}`)), true);
+
+  const imported = await store.importLatestInboxCapture();
+  assert.equal(imported.sourceFile, 'newest.json');
+  assert.deepEqual(imported.imported.length, 1);
+  assert.equal((await store.listFeedback()).total, 1);
+  assert.deepEqual(await snapshotOutsideSidecar(fixture.projectRoot), projectBeforeImport);
+
+  const repeated = await store.importLatestInboxCapture();
+  assert.deepEqual(repeated.skipped, imported.imported);
+  assert.equal((await store.listFeedback()).total, 1);
+});
+
+test('inbox latest import rejects when no valid capture JSON exists', async (t) => {
+  const fixture = await createFixture(t);
+  await fs.writeFile(path.join(fixture.inboxRoot, 'invalid.json'), '{not-json');
+  await fs.writeFile(path.join(fixture.inboxRoot, 'not-a-capture.json'), JSON.stringify({ histories: [] }));
+  const store = await createProjectStore(inboxOptions(fixture));
+
+  assert.deepEqual((await store.listInboxCaptures()).captures, []);
+  await assert.rejects(() => store.importLatestInboxCapture(), /No valid feedback capture JSON files found/);
+});
+
+test('configured inbox roots must canonicalize inside the approved Downloads root', async (t) => {
+  const fixture = await createFixture(t);
+  const outsideRoot = path.join(fixture.tempRoot, 'outside-downloads');
+  await fs.mkdir(outsideRoot);
+
+  await assert.rejects(
+    () => createProjectStore({
+      projectRoot: fixture.projectRoot,
+      inboxRoots: [outsideRoot],
+      approvedDownloadsRoot: fixture.inboxRoot
+    }),
+    /approved Downloads directory or one of its children/
+  );
+
+  const linkedOutside = path.join(fixture.inboxRoot, 'linked-outside');
+  await fs.symlink(outsideRoot, linkedOutside, 'dir');
+  await assert.rejects(
+    () => createProjectStore({
+      projectRoot: fixture.projectRoot,
+      inboxRoots: [linkedOutside],
+      approvedDownloadsRoot: fixture.inboxRoot
+    }),
+    /approved Downloads directory or one of its children/
+  );
+  await assert.rejects(() => fs.access(path.join(fixture.projectRoot, '.dev-feedback')));
+});
+
+test('latest inbox import skips files that fail the full import contract', async (t) => {
+  const fixture = await createFixture(t);
+  const validPath = path.join(fixture.inboxRoot, 'valid.json');
+  await fs.writeFile(validPath, JSON.stringify(historyExport('valid-site', 'valid-item', 'Valid capture')));
+
+  const badEvidence = historyExport('bad-evidence-site', 'bad-evidence-item', 'Bad evidence');
+  badEvidence.histories[0].items[0].evidence = {
+    before: { mimeType: 'image/png', dataUrl: 'data:image/png;base64,bm90LWEtcG5n' }
+  };
+  const badEvidencePath = path.join(fixture.inboxRoot, 'bad-evidence.json');
+  await fs.writeFile(badEvidencePath, JSON.stringify(badEvidence));
+
+  const tooManyGroupsPath = path.join(fixture.inboxRoot, 'too-many-groups.json');
+  await fs.writeFile(tooManyGroupsPath, JSON.stringify({
+    histories: Array.from({ length: constants.MAX_IMPORT_HISTORIES + 1 }, (_, index) => ({
+      storageKey: `group-${index}`,
+      items: []
+    }))
+  }));
+
+  const tooManyItems = historyExport('too-many-items-site', 'template-item', 'Too many items');
+  tooManyItems.histories[0].items = Array.from(
+    { length: constants.MAX_IMPORT_ITEMS + 1 },
+    (_, index) => ({ ...tooManyItems.histories[0].items[0], id: `item-${index}` })
+  );
+  const tooManyItemsPath = path.join(fixture.inboxRoot, 'too-many-items.json');
+  await fs.writeFile(tooManyItemsPath, JSON.stringify(tooManyItems));
+
+  const oversizedPath = path.join(fixture.inboxRoot, 'oversized.json');
+  await fs.writeFile(oversizedPath, '{');
+  await fs.truncate(oversizedPath, constants.MAX_IMPORT_BYTES + 1);
+
+  const filesByAge = [validPath, badEvidencePath, tooManyGroupsPath, tooManyItemsPath, oversizedPath];
+  for (let index = 0; index < filesByAge.length; index += 1) {
+    const time = new Date(Date.UTC(2026, 6, 18, 12, index));
+    await fs.utimes(filesByAge[index], time, time);
+  }
+
+  const store = await createProjectStore(inboxOptions(fixture));
+  const listed = await store.listInboxCaptures();
+  assert.deepEqual(listed.captures.map((capture) => capture.fileName), ['valid.json']);
+  const imported = await store.importLatestInboxCapture();
+  assert.equal(imported.sourceFile, 'valid.json');
+  assert.equal(imported.imported.length, 1);
+});
+
+test('inbox discovery bounds depth, candidate count, and bytes before parsing', async (t) => {
+  const depthFixture = await createFixture(t);
+  let deepRoot = depthFixture.inboxRoot;
+  for (let depth = 0; depth <= constants.MAX_INBOX_DISCOVERY_DEPTH; depth += 1) {
+    deepRoot = path.join(deepRoot, `depth-${depth}`);
+    await fs.mkdir(deepRoot);
+  }
+  await fs.writeFile(path.join(deepRoot, 'too-deep.json'), JSON.stringify(historyExport('deep-site', 'deep-item', 'Deep')));
+  const depthStore = await createProjectStore(inboxOptions(depthFixture));
+  assert.deepEqual((await depthStore.listInboxCaptures()).captures, []);
+
+  const countFixture = await createFixture(t);
+  for (let index = 0; index <= constants.MAX_INBOX_CANDIDATE_FILES; index += 1) {
+    await fs.writeFile(path.join(countFixture.inboxRoot, `candidate-${String(index).padStart(4, '0')}.json`), '{}');
+  }
+  const countStore = await createProjectStore(inboxOptions(countFixture));
+  await assert.rejects(() => countStore.listInboxCaptures(), /candidate-file limit/);
+
+  const byteFixture = await createFixture(t);
+  const halfBudget = Math.floor(constants.MAX_INBOX_DISCOVERY_BYTES / 2) + 1;
+  for (const fileName of ['bytes-a.json', 'bytes-b.json']) {
+    const filePath = path.join(byteFixture.inboxRoot, fileName);
+    await fs.writeFile(filePath, '{');
+    await fs.truncate(filePath, halfBudget);
+  }
+  const byteStore = await createProjectStore(inboxOptions(byteFixture));
+  await assert.rejects(() => byteStore.listInboxCaptures(), /byte budget/);
+});
+
+test('inbox discovery and import reject static file and directory symlinks', async (t) => {
+  const fixture = await createFixture(t);
+  const targetPath = path.join(fixture.inboxRoot, 'capture-target.data');
+  await fs.writeFile(targetPath, JSON.stringify(historyExport('symlink-site', 'symlink-item', 'Symlink')));
+  const fileLink = path.join(fixture.inboxRoot, 'linked-capture.json');
+  await fs.symlink(targetPath, fileLink, 'file');
+
+  const outsideDirectory = path.join(fixture.tempRoot, 'outside-directory');
+  await fs.mkdir(outsideDirectory);
+  await fs.writeFile(path.join(outsideDirectory, 'nested.json'), JSON.stringify(historyExport('nested-site', 'nested-item', 'Nested')));
+  const directoryLink = path.join(fixture.inboxRoot, 'linked-directory');
+  await fs.symlink(outsideDirectory, directoryLink, 'dir');
+
+  const store = await createProjectStore(inboxOptions(fixture));
+  assert.deepEqual((await store.listInboxCaptures()).captures, []);
+  await assert.rejects(() => store.importFeedbackExport({ path: fileLink }), /symlink/);
+  await assert.rejects(
+    () => store.importFeedbackExport({ path: path.join(directoryLink, 'nested.json') }),
+    /outside the configured project\/inbox roots|symlink/
+  );
+  await assert.rejects(() => store.importLatestInboxCapture(), /No valid feedback capture JSON files found/);
+});
+
 test('MCP protocol exposes project-scoped tools and resources', async (t) => {
   const fixture = await createFixture(t);
-  const { server } = await createDevFeedbackServer({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot], version: '1.7.0-test' });
+  await fs.writeFile(
+    path.join(fixture.inboxRoot, 'protocol-history.json'),
+    JSON.stringify(historyExport('protocol-site', 'protocol-capture', 'Protocol capture'))
+  );
+  const { server } = await createDevFeedbackServer(inboxOptions(fixture, { version: '1.7.0-test' }));
   const client = new Client({ name: 'mcp-test-client', version: '1.0.0' }, { capabilities: {} });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -244,6 +422,8 @@ test('MCP protocol exposes project-scoped tools and resources', async (t) => {
     'dev_feedback_evidence_attach',
     'dev_feedback_get',
     'dev_feedback_import',
+    'dev_feedback_import_latest',
+    'dev_feedback_inbox_list',
     'dev_feedback_list',
     'dev_feedback_project_status',
     'dev_feedback_status_update'
@@ -251,11 +431,22 @@ test('MCP protocol exposes project-scoped tools and resources', async (t) => {
   const toolByName = Object.fromEntries(tools.tools.map((tool) => [tool.name, tool]));
   assert.equal(toolByName.dev_feedback_get.annotations.readOnlyHint, true);
   assert.equal(toolByName.dev_feedback_import.annotations.idempotentHint, true);
+  assert.equal(toolByName.dev_feedback_import_latest.annotations.idempotentHint, true);
+  assert.equal(toolByName.dev_feedback_inbox_list.annotations.readOnlyHint, true);
   assert.equal(toolByName.dev_feedback_status_update.annotations.idempotentHint, false);
+
+  const inbox = await client.callTool({ name: 'dev_feedback_inbox_list', arguments: {} });
+  assert.equal(inbox.isError, undefined);
+  assert.deepEqual(inbox.structuredContent.captures.map((capture) => capture.fileName), ['protocol-history.json']);
+
+  const latest = await client.callTool({ name: 'dev_feedback_import_latest', arguments: {} });
+  assert.equal(latest.isError, undefined);
+  assert.equal(latest.structuredContent.sourceFile, 'protocol-history.json');
+  assert.equal(latest.structuredContent.imported.length, 1);
 
   const project = await client.callTool({ name: 'dev_feedback_project_status', arguments: {} });
   assert.equal(project.isError, undefined);
-  assert.equal(project.structuredContent.itemCount, 0);
+  assert.equal(project.structuredContent.itemCount, 1);
 
   const created = await client.callTool({
     name: 'dev_feedback_create',
@@ -294,7 +485,7 @@ test('imports require one explicit history group and never follow sibling eviden
     ]
   };
   await fs.writeFile(exportPath, JSON.stringify(payload));
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot] });
+  const store = await createProjectStore(inboxOptions(fixture));
   await assert.rejects(() => store.importFeedbackExport({ path: exportPath }), /multiple site\/file groups/);
   const imported = await store.importFeedbackExport({ path: exportPath, storageKey: 'site-b' });
   assert.equal(imported.imported.length, 1);
@@ -318,7 +509,7 @@ test('legacy reimports stay stable and content changes cannot overwrite a differ
     { type: 'element', pageUrl: 'https://legacy.test/', selector: '#save', note: 'Original note' }
   ] }] };
   await fs.writeFile(exportPath, JSON.stringify(payload));
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot], clock: sequenceClock() });
+  const store = await createProjectStore(inboxOptions(fixture, { clock: sequenceClock() }));
   const first = await store.importFeedbackExport({ path: exportPath });
   const feedbackId = first.imported[0];
   payload.exportedAt = 'second';
@@ -349,7 +540,7 @@ test('changed identified import resets review and replaces removed extension evi
     annotations: []
   };
   await fs.writeFile(exportPath, JSON.stringify({ histories: [{ storageKey: 'identified', items: [item] }] }));
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot], clock: sequenceClock() });
+  const store = await createProjectStore(inboxOptions(fixture, { clock: sequenceClock() }));
   const first = await store.importFeedbackExport({ path: exportPath });
   const feedbackId = first.imported[0];
   const original = await store.getFeedback(feedbackId);
@@ -375,7 +566,7 @@ test('legacy WebP evidence remains import-compatible', async (t) => {
     id: 'webp-item', type: 'region', pageUrl: 'https://webp.test/', note: 'Keep WebP', annotations: [],
     screenshot: { mimeType: 'image/webp', dataUrl: `data:image/webp;base64,${VALID_WEBP_BYTES.toString('base64')}` }
   }] }] }));
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot] });
+  const store = await createProjectStore(inboxOptions(fixture));
   const imported = await store.importFeedbackExport({ path: exportPath });
   const evidence = await store.readEvidence(imported.imported[0], 'before');
   assert.equal(evidence.mimeType, 'image/webp');
@@ -384,7 +575,7 @@ test('legacy WebP evidence remains import-compatible', async (t) => {
 
 test('oversized image dimensions fail before evidence is stored', async (t) => {
   const fixture = await createFixture(t);
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot] });
+  const store = await createProjectStore(inboxOptions(fixture));
   const created = await store.createFeedback({ clientRequestId: 'dimension-test', subject: { kind: 'project' }, request: { summary: 'Reject image bombs' } });
   const oversized = Buffer.from(VALID_PNG_BYTES);
   oversized.writeUInt32BE(20000, 16);
@@ -430,7 +621,7 @@ test('sidecar and evidence symlink/hash defenses fail closed', async (t) => {
   );
   await fs.unlink(path.join(fixture.projectRoot, '.dev-feedback'));
 
-  const store = await createProjectStore({ projectRoot: fixture.projectRoot, inboxRoots: [fixture.inboxRoot] });
+  const store = await createProjectStore(inboxOptions(fixture));
   const created = await store.createFeedback({
     clientRequestId: 'tamper/item',
     subject: { kind: 'project' },
@@ -454,8 +645,12 @@ test('sidecar and evidence symlink/hash defenses fail closed', async (t) => {
 
 test('read-only MCP rejects mutations as tool execution errors', async (t) => {
   const fixture = await createFixture(t);
-  await createProjectStore({ projectRoot: fixture.projectRoot });
-  const { server } = await createDevFeedbackServer({ projectRoot: fixture.projectRoot, readOnly: true });
+  await fs.writeFile(
+    path.join(fixture.inboxRoot, 'read-only-capture.json'),
+    JSON.stringify(historyExport('read-only-site', 'read-only-capture', 'Read only capture'))
+  );
+  await createProjectStore(inboxOptions(fixture));
+  const { server } = await createDevFeedbackServer(inboxOptions(fixture, { readOnly: true }));
   const client = new Client({ name: 'read-only-test', version: '1.0.0' }, { capabilities: {} });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -474,6 +669,11 @@ test('read-only MCP rejects mutations as tool execution errors', async (t) => {
   });
   assert.equal(response.isError, true);
   assert.match(response.content[0].text, /read-only mode/);
+
+  const latest = await client.callTool({ name: 'dev_feedback_import_latest', arguments: {} });
+  assert.equal(latest.isError, true);
+  assert.match(latest.content[0].text, /read-only mode/);
+  assert.deepEqual(await fs.readdir(path.join(fixture.projectRoot, '.dev-feedback', 'items')), []);
 });
 
 test('read-only and CLI configuration fail without creating implicit project state', async (t) => {
@@ -495,7 +695,7 @@ test('CLI speaks clean MCP over stdio', async (t) => {
   const client = new Client({ name: 'stdio-test-client', version: '1.0.0' }, { capabilities: {} });
   const transport = new StdioClientTransport({
     command: process.execPath,
-    args: [path.join(process.cwd(), 'mcp', 'cli.mjs'), '--project', fixture.projectRoot, '--inbox', fixture.inboxRoot],
+    args: [path.join(process.cwd(), 'mcp', 'cli.mjs'), '--project', fixture.projectRoot],
     cwd: process.cwd(),
     stderr: 'pipe'
   });
@@ -519,6 +719,58 @@ async function createFixture(t) {
   await fs.mkdir(inboxRoot, { recursive: true });
   t.after(() => fs.rm(tempRoot, { recursive: true, force: true }));
   return { tempRoot, projectRoot, inboxRoot };
+}
+
+function inboxOptions(fixture, overrides = {}) {
+  return {
+    projectRoot: fixture.projectRoot,
+    inboxRoots: [fixture.inboxRoot],
+    approvedDownloadsRoot: fixture.inboxRoot,
+    ...overrides
+  };
+}
+
+async function snapshotOutsideSidecar(projectRoot) {
+  const snapshot = [];
+  async function visit(directory, relativeRoot = '') {
+    const entries = await fs.readdir(directory, { withFileTypes: true });
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const relativePath = relativeRoot ? `${relativeRoot}/${entry.name}` : entry.name;
+      if (relativePath === '.dev-feedback') continue;
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        snapshot.push([`${relativePath}/`, 'directory']);
+        await visit(entryPath, relativePath);
+      } else if (entry.isFile()) {
+        snapshot.push([relativePath, (await fs.readFile(entryPath)).toString('base64')]);
+      } else {
+        snapshot.push([relativePath, 'other']);
+      }
+    }
+  }
+  await visit(projectRoot);
+  return snapshot;
+}
+
+function historyExport(storageKey, id, note) {
+  return {
+    schemaVersion: 1,
+    exportedAt: '2026-07-18T12:00:00.000Z',
+    histories: [{
+      storageKey,
+      items: [{
+        id,
+        type: 'element',
+        pageUrl: `https://${storageKey}.test/`,
+        pageTitle: 'Inbox capture',
+        selector: '#capture',
+        note,
+        timestamp: '2026-07-18T11:00:00.000Z',
+        elementInfo: { tag: 'button', text: 'Capture' },
+        position: { x: 1, y: 2 }
+      }]
+    }]
+  };
 }
 
 function sequenceClock() {

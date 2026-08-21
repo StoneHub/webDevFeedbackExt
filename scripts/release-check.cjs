@@ -23,12 +23,15 @@ const requiredFiles = [
   'popup.js',
   'shared.js',
   'styles.css',
-  'visual-edit.js',
   'mcp/cli.mjs',
   'mcp/server.mjs',
   'mcp/store.mjs',
   'docs/mcp-local-agent.md',
-  'docs/v1.6-local-mcp-plan.html',
+  'docs/manual-release-checklist.md',
+  'CONTEXT.md',
+  'docs/agents/issue-tracker.md',
+  'docs/agents/triage-labels.md',
+  'docs/agents/domain.md',
   'icon16.png',
   'icon48.png',
   'icon128.png'
@@ -41,8 +44,7 @@ const shippedJavaScriptFiles = [
   'content.js',
   'history.js',
   'popup.js',
-  'shared.js',
-  'visual-edit.js'
+  'shared.js'
 ];
 
 const companionJavaScriptFiles = [
@@ -83,9 +85,9 @@ companionJavaScriptFiles.forEach((file) => {
 assert.equal(packageJson.version, manifest.version);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.ok(manifest.name.length <= 45, 'Manifest name exceeds the Chrome Web Store limit');
-assert.equal(manifest.description, 'Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.');
+assert.equal(manifest.description, 'Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.');
 assert.ok(manifest.description.length <= 132, 'Manifest description exceeds the Chrome Web Store limit');
-assert.equal(productJson.summary, manifest.description);
+assert.equal(productJson.summary, 'Capture browser elements or regions and send local, structured feedback to a coding agent.');
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);

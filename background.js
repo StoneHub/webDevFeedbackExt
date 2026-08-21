@@ -26,11 +26,6 @@
       return true;
     }
 
-    if (request.action === 'capture-visual-edit-viewport') {
-      respondAsync(captureVisualEditViewport(sender.tab), sendResponse);
-      return true;
-    }
-
     if (request.action === 'notify-feedback-updated') {
       respondAsync(notifyFeedbackUpdated(request.tabId), sendResponse);
       return true;
@@ -127,26 +122,12 @@
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
-        files: ['shared.js', 'visual-edit.js', 'content-proposal.js', 'content.js']
+        files: ['shared.js', 'content.js']
       });
       return { ok: true };
     } catch (error) {
       return { ok: false, reason: error.message || 'Unable to inject the feedback UI on this page.' };
     }
-  }
-
-  async function captureVisualEditViewport(tab) {
-    if (!tab?.id || !tab.windowId || !canInjectIntoUrl(tab.url || '')) {
-      return { ok: false, reason: 'Visual evidence requires the active injectable page.' };
-    }
-
-    const activeTabs = await chrome.tabs.query({ active: true, windowId: tab.windowId });
-    if (!activeTabs.some((activeTab) => activeTab.id === tab.id)) {
-      return { ok: false, reason: 'Keep the edited page active while capturing visual evidence.' };
-    }
-
-    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
-    return { ok: true, dataUrl };
   }
 
   async function startRegionCapture(tab, viewportMetrics) {

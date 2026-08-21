@@ -260,8 +260,9 @@
   }
 
   function downloadJson() {
-    downloadFile('dev-feedback-history.json', JSON.stringify(buildExportPayload(), null, 2), 'application/json');
-    setStatus('JSON export downloaded. A local MCP companion can import this explicit handoff.');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    downloadFile(`dev-feedback-codex-inbox-${timestamp}.json`, JSON.stringify(buildExportPayload(), null, 2), 'application/json');
+    setStatus('Codex handoff downloaded to your browser Downloads folder. The local MCP companion can import the newest valid capture.');
   }
 
   async function downloadAiBundle() {

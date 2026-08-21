@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture: AI UI Review & Prompts",
-  "version": "1.7.2",
-  "description": "Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.",
+  "version": "1.8.0",
+  "description": "Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.",
   "permissions": [
     "storage",
     "activeTab",

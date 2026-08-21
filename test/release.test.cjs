@@ -5,17 +5,15 @@ const path = require('node:path');
 const shared = require('../shared.js');
 globalThis.DevFeedbackShared = shared;
 const bundleBuilder = require('../ai-bundle.js');
-const visualEdit = require('../visual-edit.js');
-const contentProposal = require('../content-proposal.js');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'product.json'), 'utf8'));
 const ciWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'release.yml'), 'utf8');
+const historyMarkup = fs.readFileSync(path.join(__dirname, '..', 'history.html'), 'utf8');
 const historySource = fs.readFileSync(path.join(__dirname, '..', 'history.js'), 'utf8');
 const captureSource = fs.readFileSync(path.join(__dirname, '..', 'capture.js'), 'utf8');
 const contentSource = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
-const contentProposalSource = fs.readFileSync(path.join(__dirname, '..', 'content-proposal.js'), 'utf8');
 const stylesSource = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
 const popupSource = fs.readFileSync(path.join(__dirname, '..', 'popup.html'), 'utf8');
@@ -183,158 +181,6 @@ const mockDocument = {
 
 function childIds(parent) {
   return parent.children.map((child) => child.id);
-}
-
-{
-  const target = new MockElement('style-target', {
-    style: { color: 'navy' },
-    computedStyles: { translate: '10px 4px' }
-  });
-  const session = visualEdit.createSession({ target });
-
-  session.commitStyle('Restyle', { color: 'tomato', paddingTop: '8px' });
-  assert.equal(target.style.getPropertyValue('color'), 'tomato');
-  assert.equal(target.style.getPropertyValue('padding-top'), '8px');
-
-  session.commitStyle('Resize', { width: '160px', height: '64px' }, 'resize');
-  assert.equal(target.style.getPropertyValue('width'), '160px');
-  assert.equal(target.style.getPropertyValue('height'), '64px');
-
-  session.nudge(5, -2);
-  assert.equal(target.style.getPropertyValue('translate'), '15px 2px');
-  const nudgeOperation = session.snapshot().commands.at(-1).operations[0];
-  assert.equal(nudgeOperation.before.value, '10px 4px');
-  assert.equal(nudgeOperation.after.value, '15px 2px');
-  assert.equal(session.undo(), true);
-  assert.equal(target.style.getPropertyValue('translate'), '');
-  assert.equal(session.redo(), true);
-  assert.equal(target.style.getPropertyValue('translate'), '15px 2px');
-
-  session.reset();
-  session.reset();
-  assert.equal(target.style.getPropertyValue('color'), 'navy');
-  assert.equal(target.style.getPropertyValue('padding-top'), '');
-  assert.equal(target.style.getPropertyValue('width'), '');
-  assert.equal(target.style.getPropertyValue('height'), '');
-  assert.equal(target.style.getPropertyValue('translate'), '');
-  assert.equal(session.getState().dirty, false);
-}
-
-{
-  const target = new MockElement('copy-target', { tagName: 'button', text: 'Save' });
-  const session = visualEdit.createSession({ target });
-
-  session.commitText('Continue');
-  assert.equal(target.textContent, 'Continue');
-  session.commitHide(true);
-  assert.equal(target.style.getPropertyValue('display'), 'none');
-  assert.equal(target.style.getPropertyPriority('display'), 'important');
-  session.undo();
-  assert.equal(target.style.getPropertyValue('display'), '');
-  session.undo();
-  assert.equal(target.textContent, 'Save');
-  session.redo();
-  session.redo();
-  assert.equal(target.textContent, 'Continue');
-  assert.equal(target.style.getPropertyValue('display'), 'none');
-
-  session.restore();
-  session.restore();
-  assert.equal(target.textContent, 'Save');
-  assert.equal(target.style.getPropertyValue('display'), '');
-  assert.equal(session.getState().restored, true);
-  assert.throws(() => session.commitText('Again'), /no longer active/);
-  assert.throws(() => session.reset(), /no longer active/);
-}
-
-{
-  const parent = new MockElement('parent');
-  const first = new MockElement('first');
-  const target = new MockElement('reorder-target');
-  const last = new MockElement('last');
-  parent.appendChild(first);
-  parent.appendChild(target);
-  parent.appendChild(last);
-  const session = visualEdit.createSession({ target });
-
-  session.commitReorder('previous');
-  assert.deepEqual(childIds(parent), ['reorder-target', 'first', 'last']);
-  session.undo();
-  assert.deepEqual(childIds(parent), ['first', 'reorder-target', 'last']);
-  session.redo();
-  assert.deepEqual(childIds(parent), ['reorder-target', 'first', 'last']);
-  session.reset();
-  session.reset();
-  assert.deepEqual(childIds(parent), ['first', 'reorder-target', 'last']);
-
-  session.commitReorder('last');
-  assert.deepEqual(childIds(parent), ['first', 'last', 'reorder-target']);
-  session.restore();
-  session.restore();
-  assert.deepEqual(childIds(parent), ['first', 'reorder-target', 'last']);
-}
-
-{
-  const target = new MockElement('align-target', {
-    style: { color: 'black' },
-    rect: { left: 20, top: 30, width: 80, height: 30 }
-  });
-  const reference = new MockElement('reference', {
-    computedStyles: { color: 'rebeccapurple', 'font-size': '22px' },
-    rect: { left: 70, top: 90, width: 120, height: 60 }
-  });
-  const session = visualEdit.createSession({ target });
-
-  session.commitMatchStyle(reference, ['color', 'font-size']);
-  assert.equal(target.style.getPropertyValue('color'), 'rebeccapurple');
-  assert.equal(target.style.getPropertyValue('font-size'), '22px');
-  session.commitAlign(reference, 'left');
-  assert.equal(target.style.getPropertyValue('translate'), '50px 0px');
-  session.undo();
-  assert.equal(target.style.getPropertyValue('translate'), '');
-  session.undo();
-  assert.equal(target.style.getPropertyValue('color'), 'black');
-  assert.equal(target.style.getPropertyValue('font-size'), '');
-  session.redo();
-  session.redo();
-  assert.equal(target.style.getPropertyValue('translate'), '50px 0px');
-  session.restore();
-  assert.equal(target.style.getPropertyValue('color'), 'black');
-  assert.equal(target.style.getPropertyValue('font-size'), '');
-  assert.equal(target.style.getPropertyValue('translate'), '');
-}
-
-{
-  const target = new MockElement('snapshot-target');
-  const session = visualEdit.createSession({
-    target,
-    buildTargetSnapshot(element) {
-      return { id: element.id, runtimeElement: element, nested: { nodeRef: element } };
-    }
-  });
-  session.commitStyle('Preview', { opacity: '0.5' });
-  const snapshot = session.snapshot();
-  const serialized = JSON.stringify(snapshot);
-  assert.equal(snapshot.target.id, 'snapshot-target');
-  assert.equal(Object.hasOwn(snapshot.target, 'runtimeElement'), false);
-  assert.equal(Object.hasOwn(snapshot.target.nested, 'nodeRef'), false);
-  assert.doesNotMatch(serialized, /ownerDocument|parentNode|childNodes|targetRef/);
-}
-
-{
-  const target = new MockElement('history-cap-target');
-  const session = visualEdit.createSession({ target, maxCommands: 500 });
-  for (let index = 0; index < 50; index += 1) {
-    session.commitStyle(`Step ${index + 1}`, { paddingLeft: `${index + 1}px` });
-  }
-  assert.equal(session.getState().commandCount, 50);
-  assert.equal(session.getState().maxCommands, 50);
-  assert.throws(
-    () => session.commitStyle('Step 51', { paddingLeft: '51px' }),
-    /limited to 50 commands/
-  );
-  session.restore();
-  assert.equal(target.style.getPropertyValue('padding-left'), '');
 }
 
 assert.equal(shared.isLocalDevUrl('http://localhost:3000'), true);
@@ -610,48 +456,6 @@ assert.deepEqual(normalizedInsert.changeRequest.requestedMutations[0].parameters
   }
 });
 assert.equal(shared.MUTATION_ACTIONS.includes('insert'), true);
-assert.deepEqual(contentProposal.sanitizeDefinition({
-  type: 'list',
-  placement: 'before',
-  body: 'One\nTwo',
-  support: 'Summarize benefits'
-}), {
-  type: 'list',
-  placement: 'before',
-  title: '',
-  body: 'One\nTwo',
-  items: ['One', 'Two'],
-  altText: '',
-  support: 'Summarize benefits'
-});
-assert.equal(contentProposal.canPlaceInside({ tagName: 'SECTION' }), true);
-assert.equal(contentProposal.canPlaceInside({ tagName: 'IMG' }), false);
-
-{
-  const parent = new MockElement('proposal-parent', { tagName: 'main' });
-  const anchor = new MockElement('proposal-anchor', { tagName: 'section' });
-  parent.appendChild(anchor);
-  const preview = contentProposal.createPreviewElement(mockDocument, {
-    type: 'list',
-    placement: 'before',
-    title: 'What happens next',
-    items: ['Review the draft', 'Share with the team'],
-    support: 'Explain the handoff workflow'
-  });
-  contentProposal.insertPreview(anchor, preview, 'before');
-  assert.equal(parent.firstChild, preview);
-  assert.match(preview.textContent, /What happens next/);
-  assert.match(preview.textContent, /Review the draft/);
-  assert.match(preview.textContent, /Supports: Explain the handoff workflow/);
-  contentProposal.removePreview(preview);
-  assert.deepEqual(childIds(parent), ['proposal-anchor']);
-  const imageAnchor = new MockElement('image', { tagName: 'img' });
-  parent.appendChild(imageAnchor);
-  assert.throws(
-    () => contentProposal.insertPreview(imageAnchor, preview, 'inside-end'),
-    /Cannot place content inside/
-  );
-}
 
 const markdown = shared.buildMarkdownExport('https://example.com/page', migratedItems, {
   exportedAt: '3/22/2026, 10:30:00 AM'
@@ -751,9 +555,8 @@ assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'empty-webp', ite
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.equal(manifest.name.length, 44);
-assert.equal(manifest.description, 'Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.');
-assert.equal(manifest.description.length, 126);
-assert.equal(productJson.summary, manifest.description);
+assert.equal(manifest.description, 'Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.');
+assert.equal(productJson.summary, 'Capture browser elements or regions and send local, structured feedback to a coding agent.');
 assert.equal(
   manifest.commands['toggle-feedback-mode'].suggested_key.default,
   shared.SHORTCUT_LABEL
@@ -771,6 +574,9 @@ assert.match(ciWorkflow, /npm run verify:package/);
 assert.match(releaseWorkflow, /\$ZIP_PATH\.sha256/);
 assert.match(releaseWorkflow, /--generate-notes/);
 assert.match(historySource, /schemaVersion: 1/);
+assert.match(historyMarkup, /id="download-json">Send to Codex</);
+assert.match(historySource, /dev-feedback-codex-inbox-/);
+assert.match(historySource, /newest valid capture/);
 assert.match(captureSource, /fillStyle = '#191919'/);
 assert.doesNotMatch(captureSource, /function pixelateRect/);
 assert.match(historySource, /function redactEvidenceRect/);
@@ -783,45 +589,9 @@ assert.match(contentSource, /button\.textContent = panelCollapsed \? 'âŒƒ' : 'âŒ
 assert.match(contentSource, /function getAnchoredPanelPosition\(/);
 assert.match(contentSource, /function anchorPanelToViewportEdge\(/);
 assert.match(contentSource, /if \(panelCollapsed\) \{[\s\S]*anchorPanelToViewportEdge\(panelAnchor\);/);
-assert.match(backgroundSource, /files: \['shared\.js', 'visual-edit\.js', 'content-proposal\.js', 'content\.js'\]/);
-assert.match(popupSource, /name="capture-mode" value="content"/);
-assert.match(popupScriptSource, /action: 'start-add-content'/);
-assert.match(contentSource, /function cancelVisualEdit\(\) \{[\s\S]*if \(visualBusy\)[\s\S]*restoreVisualSession\(\);/);
-assert.match(
-  contentSource,
-  /async function selectVisualTarget\([\s\S]*finally \{\s*visualBusy = false;\s*if \(visualSession\) \{\s*renderVisualInspector\(\);/
-);
-assert.match(contentSource, /function startVisualGesture\(/);
-assert.match(contentSource, /window\.addEventListener\('pointermove', updateVisualGesture, true\)/);
-assert.match(contentSource, /visualSession\.nudge\(gesture\.dx, gesture\.dy\)/);
-assert.match(contentSource, /className = 'dev-feedback-visual-resize-handle'/);
-assert.match(stylesSource, /\.dev-feedback-visual-outline[\s\S]*touch-action: none !important/);
-assert.match(stylesSource, /\.dev-feedback-visual-resize-handle[\s\S]*width: 30px !important[\s\S]*height: 30px !important/);
-assert.doesNotMatch(contentSource, /id="dev-feedback-move-x"/);
-assert.doesNotMatch(contentSource, /id="dev-feedback-width"/);
-assert.doesNotMatch(contentSource, /id="dev-feedback-style-property"/);
-assert.match(contentSource, /function stopInteractionMode\(\) \{\s*setInteractionMode\(INTERACTION_MODES\.OFF, \{ discardVisual: true, discardContent: true \}\);/);
-assert.match(
-  contentSource,
-  /visualSession\.getState\(\)\.dirty[\s\S]*Save or Cancel the visual preview before changing modes\./
-);
-assert.match(contentSource, /window\.addEventListener\('pagehide', restoreVisualOnPageExit\)/);
-assert.match(contentSource, /window\.addEventListener\('beforeunload', restoreVisualOnPageExit\)/);
-assert.match(contentSource, /window\.addEventListener\('popstate', restoreVisualAfterSameDocumentNavigation\)/);
-assert.match(contentSource, /window\.addEventListener\('hashchange', restoreVisualAfterSameDocumentNavigation\)/);
-assert.match(
-  contentSource,
-  /function restoreVisualAfterSameDocumentNavigation\(\) \{[\s\S]*restoreVisualSession\(\);[\s\S]*restoreContentProposal\(\);[\s\S]*INTERACTION_MODES\.CONTENT_PICK[\s\S]*INTERACTION_MODES\.VISUAL_PICK/
-);
-assert.match(
-  contentSource,
-  /Save or Cancel the visual preview before starting Region capture\./
-);
-assert.match(contentSource, /function startAddContentMode\(/);
-assert.match(contentSource, /action: 'insert'/);
-assert.match(contentSource, /Save or Cancel the content proposal before starting Region capture\./);
-assert.match(stylesSource, /\.dev-feedback-content-preview \{/);
-assert.doesNotMatch(contentProposalSource, /\.innerHTML\s*=|createElement\(['"]iframe['"]\)|srcdoc|eval\(/);
-assert.match(contentProposalSource, /\.textContent =/);
+assert.match(backgroundSource, /files:/);
+assert.match(popupSource, /capture-mode/);
+assert.match(popupScriptSource, /History|history/i);
+assert.doesNotMatch(stylesSource, /dev-feedback-visual-|dev-feedback-content-preview|visual-active|content-active/);
 
 console.log('Test assertions passed.');

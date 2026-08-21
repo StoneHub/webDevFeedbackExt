@@ -4,18 +4,18 @@
 
 Make Dev Feedback Capture a small, credible software offering in the `monroes.tech/software` catalog.
 
-The product story is: a Chromium extension for collecting structured feedback from pages and PDFs, with local-first storage and exports that help developers or agents act on the feedback.
+The product story is: a Chromium extension for collecting structured feedback from pages and PDFs, with local-first History and one explicit Agent Handoff that helps a developer or coding agent act on the feedback.
 
 ## Current State
 
 - `product.json` exists for catalog ingestion.
-- `CHANGELOG.md` has the published `1.2.0` entry and an unreleased `1.3.0` section.
+- `CHANGELOG.md` preserves historical release entries and submission notes.
 - `LICENSE` marks the project as source-visible with all rights reserved.
-- `npm run package` creates the next versioned release zip at `dist/dev-feedback-capture-v1.3.0.zip` from the current source checkout.
+- `npm run package` creates the versioned release zip from the current source checkout.
 - `.github/workflows/release.yml` publishes a zip asset when a matching `v*` tag is pushed.
 - GitHub Release `v1.2.0` is published with `dev-feedback-capture-v1.2.0.zip`.
 
-`product.json.downloadUrl` currently points to the published `v1.2.0` asset. Do not update it to v1.3.0 until the manual browser gate passes and that asset is actually published. The latest-release API remains the preferred source for consumers that can resolve the newest matching asset automatically.
+`product.json.downloadUrl` remains a fallback to a known published asset. Do not update it until the active browser capture core passes the manual browser gate and the matching asset is actually published. The latest-release API remains the preferred source for consumers that can resolve the newest matching asset automatically.
 
 ## Catalog Metadata
 
@@ -43,17 +43,17 @@ Counterpoint: a checked-in static `downloadUrl` is simpler, but it will drift ev
    ```
 
 3. Manually load the unpacked extension in Chrome or Edge.
-4. Test Element mode on an HTTP page.
-5. Test Region mode on a normal page or rendered PDF.
-6. Open the extension-owned History page and confirm JSON and self-contained HTML downloads plus Markdown and AI Prompt copy actions work for both Element and Region captures.
-7. Create and push a matching tag:
+4. Test Element capture on an HTTP page.
+5. Test Region capture on a normal page and a rendered PDF.
+6. Open History and confirm saved Element and Region/PDF records, local exports, and `Send to Codex` MCP import.
+7. Create and push a matching tag only after the active release gates are approved:
 
    ```bash
-   git tag v1.3.0
-   git push origin v1.3.0
+   git tag v<version>
+   git push origin v<version>
    ```
 
-8. Verify GitHub Releases contains `dev-feedback-capture-v1.3.0.zip`.
+8. Verify GitHub Releases contains `dev-feedback-capture-v<version>.zip`.
 9. Update `product.json.downloadUrl` only if the site requires a static URL. Prefer automatic latest-release resolution.
 
 ## Public Copy Rules

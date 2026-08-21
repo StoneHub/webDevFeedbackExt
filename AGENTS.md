@@ -26,6 +26,23 @@ This project should support Monroe's public story as a software engineer who bui
 - Keep permissions minimal and user-triggered.
 - Preserve local-history compatibility when changing saved item shapes.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs are tracked in StoneHub/webDevFeedbackExt GitHub Issues.
+See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The repo uses the five canonical Matt triage labels.
+See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository.
+See `docs/agents/domain.md`.
+
 ## Verification
 
 - Run `npm test` and `npm run check` before claiming behavior is ready.

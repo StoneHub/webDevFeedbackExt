@@ -442,10 +442,8 @@
       annotations = resolvedAnnotations;
       const beforeImage = cropSelectedRegion();
       const storageKey = makeStorageKey(session.pageUrl || session.rawTabUrl || '');
-      const item = {
+      const item = globalThis.DevFeedbackShared.createRegionRecord({
         id: buildFeedbackId(),
-        type: CAPTURE_TYPE_REGION,
-        captureType: CAPTURE_TYPE_REGION,
         pageUrl: session.pageUrl || session.rawTabUrl || '',
         pageTitle: session.pageTitle || '',
         viewportRect: roundRect(selection),
@@ -464,7 +462,7 @@
         sourceKind: detectSourceKind(session.pageUrl || session.rawTabUrl || ''),
         note: note.slice(0, MAX_NOTE_LENGTH),
         timestamp: new Date().toISOString()
-      };
+      });
 
       const result = await chrome.runtime.sendMessage({ action: 'add-feedback-item', storageKey, item });
       if (!result?.ok) {

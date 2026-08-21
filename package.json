@@ -1,12 +1,12 @@
 {
   "name": "dev-feedback-capture",
   "private": true,
-  "version": "1.7.2",
+  "version": "1.8.0",
   "license": "UNLICENSED",
-  "description": "Pick and annotate browser UI for AI-ready prompts and local visual change specs",
+  "description": "Capture browser elements and regions for local implementation handoffs",
   "scripts": {
     "test": "npm run test:extension && npm run test:mcp",
-    "test:extension": "node test/release.test.cjs",
+    "test:extension": "node --test test/browser-core.test.cjs && node test/release.test.cjs",
     "test:mcp": "node --test test/mcp.test.mjs",
     "check": "node scripts/release-check.cjs",
     "package": "node scripts/package-extension.cjs",

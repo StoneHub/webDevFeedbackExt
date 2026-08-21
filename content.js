@@ -41,11 +41,7 @@
 
   const INTERACTION_MODES = Object.freeze({
     OFF: 'off',
-    ELEMENT: 'element',
-    VISUAL_PICK: 'visual-pick',
-    VISUAL_EDIT: 'visual-edit',
-    CONTENT_PICK: 'content-pick',
-    CONTENT_EDIT: 'content-edit'
+    ELEMENT: 'element'
   });
 
   let feedbackMode = false;
@@ -61,20 +57,6 @@
   let markerLayer = null;
   let decorationFrame = 0;
   let modalReturnFocus = null;
-  let visualSession = null;
-  let visualTarget = null;
-  let visualOriginalInfo = null;
-  let visualBeforeViewport = null;
-  let visualInitialContext = null;
-  let visualLastRect = null;
-  let visualBusy = false;
-  let visualGesture = null;
-  let contentAnchor = null;
-  let contentAnchorInfo = null;
-  let contentBeforeViewport = null;
-  let contentInitialContext = null;
-  let contentPreview = null;
-  let contentBusy = false;
 
   function init() {
     if (!document.body) {
@@ -101,8 +83,6 @@
             <span class="dev-feedback-panel-subtitle">Local page review history</span>
           </span>
           <span class="dev-feedback-count">0</span>
-          <span class="dev-feedback-visual-dirty" aria-label="Unsaved visual edit" title="Unsaved visual edit">V*</span>
-          <span class="dev-feedback-content-dirty" aria-label="Unsaved content proposal" title="Unsaved content proposal">C*</span>
         </div>
         <div class="dev-feedback-panel-controls">
           <button class="dev-feedback-panel-toggle" id="dev-feedback-panel-toggle" title="Collapse changes" aria-label="Collapse changes" aria-expanded="true">⌄</button>
@@ -114,97 +94,9 @@
         <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-markdown">Markdown</button>
         <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-copy-ai">AI Prompt</button>
         <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-capture-region">Capture Region</button>
-        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-start-visual">Visual Edit</button>
-        <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-start-content">Add Content</button>
         <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-clear">Clear</button>
       </div>
       <div class="dev-feedback-items"></div>
-      <section class="dev-feedback-visual-inspector" aria-labelledby="dev-feedback-visual-title">
-        <div class="dev-feedback-visual-heading">
-          <div>
-            <div class="dev-feedback-modal-section-title">Visual Edit</div>
-            <div id="dev-feedback-visual-title" class="dev-feedback-visual-title">Pick one page element</div>
-          </div>
-          <button class="dev-feedback-btn dev-feedback-btn-tertiary" id="dev-feedback-visual-pick-again" type="button">Pick another</button>
-        </div>
-        <p class="dev-feedback-visual-status" id="dev-feedback-visual-status" role="status" aria-live="polite">Click an element on the page to begin.</p>
-        <div class="dev-feedback-operation-chips" id="dev-feedback-operation-chips" aria-label="Applied visual edits"></div>
-        <div class="dev-feedback-visual-history" role="toolbar" aria-label="Visual edit history">
-          <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-visual-undo" type="button">Undo</button>
-          <button class="dev-feedback-btn dev-feedback-btn-secondary" id="dev-feedback-visual-redo" type="button">Redo</button>
-          <button class="dev-feedback-btn dev-feedback-btn-tertiary" id="dev-feedback-visual-reset" type="button">Reset</button>
-        </div>
-
-        <div class="dev-feedback-direct-edit-guide" aria-label="Direct editing instructions">
-          <strong>Direct edit</strong>
-          <span>Drag the outline to move the selected element.</span>
-          <span>Drag the corner handle to resize it.</span>
-        </div>
-
-        <fieldset class="dev-feedback-control-group dev-feedback-request-fields">
-          <legend>Save change spec</legend>
-          <label class="dev-feedback-field-label" for="dev-feedback-visual-note">Implementation request</label>
-          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-visual-note" maxlength="${MAX_NOTE_LENGTH}" placeholder="Describe what should be implemented..."></textarea>
-          <label class="dev-feedback-field-label" for="dev-feedback-visual-acceptance">Acceptance checks (one per line)</label>
-          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-visual-acceptance" maxlength="2000" placeholder="The element visibly matches the proposed state."></textarea>
-          <div class="dev-feedback-inline-actions">
-            <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-save-visual" type="button">Save spec</button>
-            <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-cancel-visual" type="button">Cancel &amp; restore</button>
-          </div>
-        </fieldset>
-      </section>
-      <section class="dev-feedback-content-inspector" aria-labelledby="dev-feedback-content-title">
-        <div class="dev-feedback-visual-heading">
-          <div>
-            <div class="dev-feedback-modal-section-title">Add Content</div>
-            <div id="dev-feedback-content-title" class="dev-feedback-visual-title">Pick a placement anchor</div>
-          </div>
-          <button class="dev-feedback-btn dev-feedback-btn-tertiary" id="dev-feedback-content-pick-again" type="button">Pick another</button>
-        </div>
-        <p class="dev-feedback-visual-status" id="dev-feedback-content-status" role="status" aria-live="polite">Click an existing page element to choose where the new content belongs.</p>
-
-        <fieldset class="dev-feedback-control-group dev-feedback-content-fields">
-          <legend>Proposed block</legend>
-          <div class="dev-feedback-field-grid">
-            <label class="dev-feedback-field-label" for="dev-feedback-content-type">Content type</label>
-            <select class="dev-feedback-compact-select" id="dev-feedback-content-type">
-              <option value="text">Text</option>
-              <option value="image">Image placeholder</option>
-              <option value="list">List</option>
-              <option value="frame">HTML / embed frame</option>
-            </select>
-            <label class="dev-feedback-field-label" for="dev-feedback-content-placement">Placement</label>
-            <select class="dev-feedback-compact-select" id="dev-feedback-content-placement">
-              <option value="after">After anchor</option>
-              <option value="before">Before anchor</option>
-              <option value="inside-end">Inside, at end</option>
-              <option value="inside-start">Inside, at start</option>
-            </select>
-          </div>
-
-          <label class="dev-feedback-field-label" for="dev-feedback-content-heading">Heading or label</label>
-          <input class="dev-feedback-compact-input" id="dev-feedback-content-heading" maxlength="160" placeholder="Optional heading">
-
-          <label class="dev-feedback-field-label" id="dev-feedback-content-body-label" for="dev-feedback-content-body">Filler content</label>
-          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-body" maxlength="2000" placeholder="Draft the copy or basic filler..."></textarea>
-
-          <div id="dev-feedback-content-alt-group" hidden>
-            <label class="dev-feedback-field-label" for="dev-feedback-content-alt">Image description / alt text</label>
-            <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-alt" maxlength="500" placeholder="Describe the image or asset needed..."></textarea>
-          </div>
-
-          <label class="dev-feedback-field-label" for="dev-feedback-content-support">What should this content communicate or support?</label>
-          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-support" maxlength="1000" placeholder="Explain the purpose, user need, data source, or behavior this block should support..."></textarea>
-
-          <label class="dev-feedback-field-label" for="dev-feedback-content-acceptance">Acceptance checks (one per line)</label>
-          <textarea class="dev-feedback-compact-textarea" id="dev-feedback-content-acceptance" maxlength="2000" placeholder="The new content appears in the intended location."></textarea>
-
-          <div class="dev-feedback-inline-actions">
-            <button class="dev-feedback-btn dev-feedback-btn-primary" id="dev-feedback-save-content" type="button">Save insert spec</button>
-            <button class="dev-feedback-btn dev-feedback-btn-danger" id="dev-feedback-cancel-content" type="button">Cancel &amp; restore</button>
-          </div>
-        </fieldset>
-      </section>
       <div class="dev-feedback-panel-footer">Feedback is stored locally in this browser.</div>
     `;
     document.body.appendChild(feedbackPanel);
@@ -216,11 +108,7 @@
     feedbackPanel.querySelector('#dev-feedback-copy-markdown').addEventListener('click', copyAsMarkdown);
     feedbackPanel.querySelector('#dev-feedback-copy-ai').addEventListener('click', copyAsAiPrompt);
     feedbackPanel.querySelector('#dev-feedback-capture-region').addEventListener('click', startRegionCapture);
-    feedbackPanel.querySelector('#dev-feedback-start-visual').addEventListener('click', startVisualEditMode);
-    feedbackPanel.querySelector('#dev-feedback-start-content').addEventListener('click', startAddContentMode);
     feedbackPanel.querySelector('#dev-feedback-clear').addEventListener('click', clearAllFeedback);
-    bindVisualInspector();
-    bindContentInspector();
   }
 
   function togglePanelCollapsed() {
@@ -245,35 +133,6 @@
       return;
     }
     togglePanelCollapsed();
-  }
-
-  function bindVisualInspector() {
-    feedbackPanel.querySelector('#dev-feedback-visual-pick-again').addEventListener('click', pickAnotherVisualTarget);
-    feedbackPanel.querySelector('#dev-feedback-visual-undo').addEventListener('click', () => runVisualCommand(() => visualSession.undo()));
-    feedbackPanel.querySelector('#dev-feedback-visual-redo').addEventListener('click', () => runVisualCommand(() => visualSession.redo()));
-    feedbackPanel.querySelector('#dev-feedback-visual-reset').addEventListener('click', resetVisualSession);
-    feedbackPanel.querySelector('#dev-feedback-save-visual').addEventListener('click', saveVisualSpec);
-    feedbackPanel.querySelector('#dev-feedback-cancel-visual').addEventListener('click', cancelVisualEdit);
-  }
-
-  function bindContentInspector() {
-    const ids = [
-      'dev-feedback-content-type',
-      'dev-feedback-content-placement',
-      'dev-feedback-content-heading',
-      'dev-feedback-content-body',
-      'dev-feedback-content-alt',
-      'dev-feedback-content-support'
-    ];
-    ids.forEach((id) => {
-      const field = feedbackPanel.querySelector(`#${id}`);
-      field.addEventListener(field.tagName === 'SELECT' ? 'change' : 'input', updateContentPreview);
-    });
-    feedbackPanel.querySelector('#dev-feedback-content-type').addEventListener('change', syncContentFieldLabels);
-    feedbackPanel.querySelector('#dev-feedback-content-pick-again').addEventListener('click', pickAnotherContentAnchor);
-    feedbackPanel.querySelector('#dev-feedback-save-content').addEventListener('click', saveContentSpec);
-    feedbackPanel.querySelector('#dev-feedback-cancel-content').addEventListener('click', cancelContentProposal);
-    syncContentFieldLabels();
   }
 
   function clampPanelToViewport() {
@@ -374,10 +233,6 @@
     window.addEventListener('resize', handleViewportResize, { passive: true });
     window.addEventListener('scroll', scheduleDecorationRefresh, true);
     document.addEventListener('keydown', handleGlobalKeydown);
-    window.addEventListener('pagehide', restoreVisualOnPageExit);
-    window.addEventListener('beforeunload', restoreVisualOnPageExit);
-    window.addEventListener('popstate', restoreVisualAfterSameDocumentNavigation);
-    window.addEventListener('hashchange', restoreVisualAfterSameDocumentNavigation);
   }
 
   function handleViewportResize() {
@@ -398,25 +253,6 @@
     if (event.key === 'Escape' && captureModal.classList.contains('visible')) {
       event.preventDefault();
       closeCaptureModal();
-      return;
-    }
-
-    if (event.key === 'Escape' && contentPreview && !contentBusy) {
-      event.preventDefault();
-      cancelContentProposal();
-      return;
-    }
-
-    const editable = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
-    if (!editable && visualSession && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-      event.preventDefault();
-      runVisualCommand(() => event.shiftKey ? visualSession.redo() : visualSession.undo());
-      return;
-    }
-
-    if (!editable && visualSession && event.ctrlKey && event.key.toLowerCase() === 'y') {
-      event.preventDefault();
-      runVisualCommand(() => visualSession.redo());
       return;
     }
 
@@ -450,50 +286,19 @@
     setInteractionMode(enabled ? INTERACTION_MODES.ELEMENT : INTERACTION_MODES.OFF);
   }
 
-  function setInteractionMode(nextMode, options = {}) {
+  function setInteractionMode(nextMode) {
     if (interactionMode === nextMode) {
       return true;
-    }
-    if ((visualBusy && visualSession) || contentBusy) {
-      showNotification('Wait for the current visual evidence capture to finish.', 'error');
-      return false;
-    }
-    if (
-      visualSession
-      && !String(nextMode).startsWith('visual-')
-      && visualSession.getState().dirty
-      && !options.discardVisual
-    ) {
-      showNotification('Save or Cancel the visual preview before changing modes.', 'error');
-      return false;
-    }
-    if (visualSession && !String(nextMode).startsWith('visual-')) {
-      restoreVisualSession();
-    }
-    if (
-      contentPreview
-      && !String(nextMode).startsWith('content-')
-      && !options.discardContent
-    ) {
-      showNotification('Save or Cancel the content proposal before changing modes.', 'error');
-      return false;
-    }
-    if (contentPreview && !String(nextMode).startsWith('content-')) {
-      restoreContentProposal();
     }
     interactionMode = nextMode;
     feedbackMode = nextMode === INTERACTION_MODES.ELEMENT;
     feedbackPanel.classList.toggle('visible', nextMode !== INTERACTION_MODES.OFF);
-    feedbackPanel.classList.toggle('visual-active', String(nextMode).startsWith('visual-'));
-    feedbackPanel.classList.toggle('content-active', String(nextMode).startsWith('content-'));
     closeCaptureModal();
     if (nextMode === INTERACTION_MODES.OFF) {
       disableElementHighlighting();
     } else {
       enableElementHighlighting();
     }
-    renderVisualInspector();
-    renderContentInspector();
     scheduleDecorationRefresh();
     if (nextMode !== INTERACTION_MODES.OFF) {
       window.requestAnimationFrame(() => {
@@ -508,49 +313,7 @@
   }
 
   function stopInteractionMode() {
-    setInteractionMode(INTERACTION_MODES.OFF, { discardVisual: true, discardContent: true });
-  }
-
-  function startVisualEditMode() {
-    if (!globalThis.DevFeedbackVisualEdit?.createSession) {
-      showNotification('Visual Edit did not load. Refresh the page and try again.', 'error');
-      return { ok: false, reason: 'Visual Edit engine unavailable.' };
-    }
-    if (visualBusy) {
-      return { ok: false, reason: 'Wait for the current visual evidence capture to finish.' };
-    }
-    if (visualSession?.getState().dirty) {
-      return { ok: false, reason: 'Save or Cancel the current visual preview before starting another.' };
-    }
-    if (visualSession) {
-      restoreVisualSession();
-    }
-    setInteractionMode(INTERACTION_MODES.VISUAL_PICK);
-    setPanelCollapsed(true);
-    showNotification('Visual Edit: pick one page element.');
-    return { ok: true };
-  }
-
-  function startAddContentMode() {
-    if (!globalThis.DevFeedbackContentProposal?.createPreviewElement) {
-      showNotification('Add Content did not load. Refresh the page and try again.', 'error');
-      return { ok: false, reason: 'Add Content engine unavailable.' };
-    }
-    if (visualBusy || contentBusy) {
-      return { ok: false, reason: 'Wait for the current evidence capture to finish.' };
-    }
-    if (visualSession?.getState().dirty) {
-      return { ok: false, reason: 'Save or Cancel the visual preview before adding content.' };
-    }
-    if (contentPreview) {
-      return { ok: false, reason: 'Save or Cancel the current content proposal before starting another.' };
-    }
-    if (!setInteractionMode(INTERACTION_MODES.CONTENT_PICK)) {
-      return { ok: false, reason: 'Finish the current preview before adding content.' };
-    }
-    setPanelCollapsed(true);
-    showNotification('Add Content: pick the element that should anchor the new block.');
-    return { ok: true };
+    setInteractionMode(INTERACTION_MODES.OFF);
   }
 
   function enableElementHighlighting() {
@@ -571,7 +334,7 @@
   }
 
   function handleMouseOver(event) {
-    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || interactionMode === INTERACTION_MODES.CONTENT_EDIT || isOurElement(event.target)) {
+    if (interactionMode === INTERACTION_MODES.OFF || isOurElement(event.target)) {
       return;
     }
 
@@ -579,7 +342,7 @@
   }
 
   function handleMouseOut(event) {
-    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || interactionMode === INTERACTION_MODES.CONTENT_EDIT || isOurElement(event.target)) {
+    if (interactionMode === INTERACTION_MODES.OFF || isOurElement(event.target)) {
       return;
     }
 
@@ -587,7 +350,7 @@
   }
 
   function handleElementClick(event) {
-    if (interactionMode === INTERACTION_MODES.OFF || interactionMode === INTERACTION_MODES.VISUAL_EDIT || interactionMode === INTERACTION_MODES.CONTENT_EDIT) {
+    if (interactionMode !== INTERACTION_MODES.ELEMENT) {
       return;
     }
 
@@ -598,13 +361,7 @@
 
     event.preventDefault();
     event.stopPropagation();
-    if (interactionMode === INTERACTION_MODES.ELEMENT) {
-      captureElement(target);
-    } else if (interactionMode === INTERACTION_MODES.VISUAL_PICK) {
-      selectVisualTarget(target);
-    } else if (interactionMode === INTERACTION_MODES.CONTENT_PICK) {
-      selectContentAnchor(target);
-    }
+    captureElement(target);
   }
 
   function isOurElement(element) {
@@ -614,8 +371,7 @@
         (element.id && element.id.startsWith('dev-feedback')) ||
         (typeof element.closest === 'function' && element.closest(SELECTORS.panel)) ||
         (typeof element.closest === 'function' && element.closest(SELECTORS.modal)) ||
-        (typeof element.closest === 'function' && element.closest(SELECTORS.markerLayer)) ||
-        (typeof element.closest === 'function' && element.closest('[data-dev-feedback-content-preview]'))
+        (typeof element.closest === 'function' && element.closest(SELECTORS.markerLayer))
       )
     );
   }
@@ -628,790 +384,6 @@
     showCaptureModal();
   }
 
-  async function selectVisualTarget(element) {
-    if (visualBusy || isOurElement(element)) {
-      return;
-    }
-    if (element === document.body || element === document.documentElement || element.contains(feedbackPanel)) {
-      showNotification('Pick a specific page element rather than the document root.', 'error');
-      return;
-    }
-    visualBusy = true;
-    element.classList.remove('dev-feedback-highlight');
-    try {
-      const originalInfo = buildElementSnapshot(element);
-      const beforeViewport = await captureVisualViewport();
-      if (!beforeViewport) {
-        throw new Error('Unable to capture before evidence. Keep this tab visible and try again.');
-      }
-      visualTarget = element;
-      visualOriginalInfo = originalInfo;
-      visualBeforeViewport = beforeViewport;
-      visualInitialContext = buildPageContext();
-      visualLastRect = originalInfo.rect;
-      visualSession = globalThis.DevFeedbackVisualEdit.createSession({
-        target: element,
-        maxCommands: 24,
-        buildTargetSnapshot: buildVisualTargetSnapshot
-      });
-      interactionMode = INTERACTION_MODES.VISUAL_EDIT;
-      feedbackPanel.classList.add('visual-active');
-      clearVisualRequestFields();
-      placePanelOppositeTarget(originalInfo.rect);
-      setPanelCollapsed(false);
-      renderVisualInspector('Preview changes here. The page is restored after Save or Cancel.');
-      scheduleDecorationRefresh();
-    } catch (error) {
-      restoreVisualSession();
-      interactionMode = INTERACTION_MODES.VISUAL_PICK;
-      showNotification(error.message || 'Unable to start a visual edit for this element.', 'error');
-    } finally {
-      visualBusy = false;
-      if (visualSession) {
-        renderVisualInspector();
-      }
-    }
-  }
-
-  async function selectContentAnchor(element) {
-    if (contentBusy || isOurElement(element)) {
-      return;
-    }
-    if (element === document.body || element === document.documentElement || element.contains(feedbackPanel)) {
-      showNotification('Pick a specific page element to anchor the new content.', 'error');
-      return;
-    }
-
-    contentBusy = true;
-    element.classList.remove('dev-feedback-highlight');
-    try {
-      const anchorInfo = buildElementSnapshot(element);
-      const beforeViewport = await captureVisualViewport();
-      if (!beforeViewport) {
-        throw new Error('Unable to capture before evidence. Keep this tab visible and try again.');
-      }
-      restoreContentProposal();
-      contentBusy = true;
-      contentAnchor = element;
-      contentAnchor.classList.add('dev-feedback-selected');
-      contentAnchorInfo = anchorInfo;
-      contentBeforeViewport = beforeViewport;
-      contentInitialContext = buildPageContext();
-      clearContentFields();
-      interactionMode = INTERACTION_MODES.CONTENT_EDIT;
-      feedbackPanel.classList.add('content-active');
-      placePanelOppositeTarget(anchorInfo.rect);
-      setPanelCollapsed(false);
-      updateContentPreview();
-      renderContentInspector('Preview this block, add its purpose, then save the insert spec.');
-      scheduleDecorationRefresh();
-    } catch (error) {
-      restoreContentProposal();
-      interactionMode = INTERACTION_MODES.CONTENT_PICK;
-      showNotification(error.message || 'Unable to start a content proposal for this element.', 'error');
-    } finally {
-      contentBusy = false;
-      renderContentInspector();
-    }
-  }
-
-  function clearContentFields() {
-    feedbackPanel.querySelector('#dev-feedback-content-type').value = 'text';
-    feedbackPanel.querySelector('#dev-feedback-content-placement').value = 'after';
-    feedbackPanel.querySelector('#dev-feedback-content-heading').value = '';
-    feedbackPanel.querySelector('#dev-feedback-content-body').value = '';
-    feedbackPanel.querySelector('#dev-feedback-content-alt').value = '';
-    feedbackPanel.querySelector('#dev-feedback-content-support').value = '';
-    feedbackPanel.querySelector('#dev-feedback-content-acceptance').value = '';
-    syncContentFieldLabels();
-  }
-
-  function readContentDefinition() {
-    const body = feedbackPanel.querySelector('#dev-feedback-content-body').value;
-    return globalThis.DevFeedbackContentProposal.sanitizeDefinition({
-      type: feedbackPanel.querySelector('#dev-feedback-content-type').value,
-      placement: feedbackPanel.querySelector('#dev-feedback-content-placement').value,
-      title: feedbackPanel.querySelector('#dev-feedback-content-heading').value,
-      body,
-      items: body.split(/\r?\n/),
-      altText: feedbackPanel.querySelector('#dev-feedback-content-alt').value,
-      support: feedbackPanel.querySelector('#dev-feedback-content-support').value
-    });
-  }
-
-  function syncContentFieldLabels() {
-    const type = feedbackPanel.querySelector('#dev-feedback-content-type').value;
-    const bodyLabel = feedbackPanel.querySelector('#dev-feedback-content-body-label');
-    const bodyField = feedbackPanel.querySelector('#dev-feedback-content-body');
-    const altGroup = feedbackPanel.querySelector('#dev-feedback-content-alt-group');
-    altGroup.hidden = type !== 'image';
-
-    if (type === 'list') {
-      bodyLabel.textContent = 'List items (one per line)';
-      bodyField.placeholder = 'First item\nSecond item\nThird item';
-    } else if (type === 'frame') {
-      bodyLabel.textContent = 'Frame placeholder details';
-      bodyField.placeholder = 'Describe the widget, embed, HTML fragment, or external content area...';
-    } else if (type === 'image') {
-      bodyLabel.textContent = 'Caption or filler copy';
-      bodyField.placeholder = 'Optional caption or supporting text...';
-    } else {
-      bodyLabel.textContent = 'Filler content';
-      bodyField.placeholder = 'Draft the copy or basic filler...';
-    }
-  }
-
-  function updateContentPreview() {
-    syncContentFieldLabels();
-    globalThis.DevFeedbackContentProposal.removePreview(contentPreview);
-    contentPreview = null;
-    if (!contentAnchor?.isConnected) {
-      renderContentInspector();
-      return;
-    }
-
-    const definition = readContentDefinition();
-    try {
-      const preview = globalThis.DevFeedbackContentProposal.createPreviewElement(document, definition);
-      globalThis.DevFeedbackContentProposal.insertPreview(contentAnchor, preview, definition.placement);
-      contentPreview = preview;
-      renderContentInspector();
-      scheduleDecorationRefresh();
-    } catch (error) {
-      renderContentInspector(error.message || 'That placement is not supported for this anchor.');
-    }
-  }
-
-  function renderContentInspector(statusMessage) {
-    if (!feedbackPanel) {
-      return;
-    }
-    const inspector = feedbackPanel.querySelector('.dev-feedback-content-inspector');
-    if (!inspector) {
-      return;
-    }
-    const contentActive = String(interactionMode).startsWith('content-');
-    const canPlaceInside = globalThis.DevFeedbackContentProposal?.canPlaceInside(contentAnchor);
-    feedbackPanel.querySelectorAll('#dev-feedback-content-placement option').forEach((option) => {
-      option.disabled = option.value.startsWith('inside-') && !canPlaceInside;
-    });
-    feedbackPanel.classList.toggle('content-active', contentActive);
-    feedbackPanel.classList.toggle('content-dirty', Boolean(contentPreview));
-    feedbackPanel.querySelector('#dev-feedback-content-title').textContent = contentAnchor
-      ? `${contentAnchorInfo?.tag || 'element'} · ${contentAnchorInfo?.selector || ''}`
-      : 'Pick a placement anchor';
-    const status = feedbackPanel.querySelector('#dev-feedback-content-status');
-    if (statusMessage) {
-      status.textContent = statusMessage;
-    } else if (!contentAnchor) {
-      status.textContent = 'Click an existing page element to choose where the new content belongs.';
-    } else if (contentPreview) {
-      status.textContent = 'Reversible content preview is active.';
-    }
-    inspector.querySelector('fieldset').disabled = !contentAnchor || contentBusy;
-    feedbackPanel.querySelector('#dev-feedback-save-content').disabled = !contentPreview || contentBusy;
-    feedbackPanel.querySelector('#dev-feedback-content-pick-again').disabled = !contentAnchor;
-    const closeButton = feedbackPanel.querySelector('#dev-feedback-panel-close');
-    if (contentActive) {
-      closeButton.title = 'Stop Add Content and restore page';
-      closeButton.setAttribute('aria-label', closeButton.title);
-    }
-  }
-
-  function pickAnotherContentAnchor() {
-    if (contentBusy) {
-      showNotification('Wait for the current evidence capture to finish.', 'error');
-      return;
-    }
-    restoreContentProposal();
-    interactionMode = INTERACTION_MODES.CONTENT_PICK;
-    feedbackPanel.classList.add('content-active');
-    setPanelCollapsed(true);
-    renderContentInspector('Click another page element to choose a new anchor.');
-    scheduleDecorationRefresh();
-  }
-
-  function cancelContentProposal() {
-    if (contentBusy) {
-      showNotification('Wait for the current evidence capture to finish.', 'error');
-      return;
-    }
-    restoreContentProposal();
-    interactionMode = INTERACTION_MODES.CONTENT_PICK;
-    feedbackPanel.classList.add('content-active');
-    setPanelCollapsed(true);
-    renderContentInspector('Preview removed. Pick another placement anchor.');
-    showNotification('Content proposal cancelled and page restored.');
-    scheduleDecorationRefresh();
-  }
-
-  function restoreContentProposal() {
-    globalThis.DevFeedbackContentProposal?.removePreview(contentPreview);
-    contentAnchor?.classList.remove('dev-feedback-selected');
-    contentPreview = null;
-    contentAnchor = null;
-    contentAnchorInfo = null;
-    contentBeforeViewport = null;
-    contentInitialContext = null;
-    contentBusy = false;
-    feedbackPanel?.classList.remove('content-dirty');
-  }
-
-  async function saveContentSpec() {
-    if (!contentAnchor || !contentPreview || contentBusy) {
-      return;
-    }
-    const definition = readContentDefinition();
-    const hasUsefulInput = Boolean(
-      definition.title || definition.body || definition.altText || definition.items.length || definition.support
-    );
-    if (!hasUsefulInput) {
-      const supportField = feedbackPanel.querySelector('#dev-feedback-content-support');
-      showNotification('Add filler content or describe what this block should support.', 'error');
-      supportField.focus();
-      return;
-    }
-    if (!contentAnchor.isConnected || !contentPreview.isConnected || !sameContentViewport()) {
-      showNotification('The page moved or changed. Pick the placement anchor again.', 'error');
-      return;
-    }
-
-    contentBusy = true;
-    renderContentInspector('Capturing proposed evidence...');
-    try {
-      const proposedViewport = await captureVisualViewport();
-      if (!proposedViewport?.dataUrl || !contentBeforeViewport?.dataUrl) {
-        throw new Error('Could not capture both before and proposed evidence. Nothing was saved.');
-      }
-      const evidenceRect = buildEvidenceRect(contentAnchorInfo.rect, getViewportRect(contentPreview));
-      const [beforeDataUrl, proposedDataUrl] = await Promise.all([
-        cropViewportImage(contentBeforeViewport.dataUrl, evidenceRect),
-        cropViewportImage(proposedViewport.dataUrl, evidenceRect)
-      ]);
-      if (!beforeDataUrl || !proposedDataUrl) {
-        throw new Error('Content proposal evidence could not be cropped. Nothing was saved.');
-      }
-
-      const summary = definition.support
-        || definition.title
-        || `Add a ${globalThis.DevFeedbackContentProposal.getTypeLabel(definition.type)} block`;
-      const acceptance = feedbackPanel.querySelector('#dev-feedback-content-acceptance').value
-        .split(/\r?\n/)
-        .map((criterion) => criterion.trim())
-        .filter(Boolean)
-        .slice(0, 12);
-      const item = {
-        specVersion: 2,
-        id: buildFeedbackId(),
-        type: CAPTURE_TYPE_ELEMENT,
-        captureType: CAPTURE_TYPE_ELEMENT,
-        selector: contentAnchorInfo.selector,
-        pageUrl: window.location.href,
-        pageTitle: document.title,
-        elementInfo: toStoredElementInfo(contentAnchorInfo),
-        proposedElementInfo: toStoredElementInfo(buildElementSnapshot(contentPreview)),
-        position: contentAnchorInfo.position,
-        pageContext: contentInitialContext,
-        changeRequest: {
-          kind: 'requested-mutation',
-          summary: summary.slice(0, MAX_NOTE_LENGTH),
-          requestedMutations: [{
-            id: `insert-${Date.now()}`,
-            action: 'insert',
-            target: toMutationTargetSnapshot(contentAnchorInfo),
-            parameters: {
-              placement: definition.placement,
-              content: definition
-            }
-          }]
-        },
-        evidence: {
-          before: { mimeType: 'image/png', dataUrl: beforeDataUrl, source: { kind: 'captured' } },
-          proposed: { mimeType: 'image/png', dataUrl: proposedDataUrl, source: { kind: 'rendered-preview' } }
-        },
-        acceptance,
-        note: summary.slice(0, MAX_NOTE_LENGTH),
-        timestamp: new Date().toISOString()
-      };
-
-      restoreContentProposal();
-      contentBusy = true;
-      const nextItems = await runFeedbackMutation('add-feedback-item', { item });
-      if (!nextItems) {
-        throw new Error('Unable to store the content insertion spec.');
-      }
-      feedbackItems = sanitizeFeedbackItems(nextItems, window.location.href, document.title);
-      interactionMode = INTERACTION_MODES.CONTENT_PICK;
-      feedbackPanel.classList.add('content-active');
-      setPanelCollapsed(true);
-      updateFeedbackPanel();
-      renderContentInspector('Saved locally. Pick another placement anchor.');
-      scheduleDecorationRefresh();
-      showNotification('Content insert spec saved and page restored.');
-    } catch (error) {
-      restoreContentProposal();
-      interactionMode = INTERACTION_MODES.CONTENT_PICK;
-      renderContentInspector('Save failed after restoring the page. Pick the anchor again.');
-      showNotification(error.message || 'Unable to save the content insert spec.', 'error');
-    } finally {
-      contentBusy = false;
-      renderContentInspector();
-    }
-  }
-
-  function sameContentViewport() {
-    const viewport = contentInitialContext?.viewport;
-    return contentInitialContext?.url === window.location.href
-      && viewport
-      && Math.abs(viewport.scrollX - window.scrollX) <= 2
-      && Math.abs(viewport.scrollY - window.scrollY) <= 2
-      && Math.abs(viewport.width - window.innerWidth) <= 2
-      && Math.abs(viewport.height - window.innerHeight) <= 2
-      && Math.abs(viewport.devicePixelRatio - window.devicePixelRatio) <= 0.02;
-  }
-
-  function buildVisualTargetSnapshot(element) {
-    return toMutationTargetSnapshot(buildElementSnapshot(element));
-  }
-
-  function toMutationTargetSnapshot(snapshot) {
-    return {
-      selectors: snapshot.selectors,
-      tag: snapshot.tag,
-      role: snapshot.role,
-      text: snapshot.text,
-      rect: snapshot.rect,
-      surroundingText: snapshot.surroundingText,
-      parentLayout: snapshot.parentLayout
-    };
-  }
-
-  function clearVisualRequestFields() {
-    feedbackPanel.querySelector('#dev-feedback-visual-note').value = '';
-    feedbackPanel.querySelector('#dev-feedback-visual-acceptance').value = '';
-  }
-
-  function placePanelOppositeTarget(rect) {
-    feedbackPanel.style.top = `${clamp(18, 8, Math.max(8, window.innerHeight - feedbackPanel.offsetHeight - 8))}px`;
-    if (rect.x + rect.width / 2 > window.innerWidth / 2) {
-      feedbackPanel.style.left = '18px';
-      feedbackPanel.style.right = 'auto';
-    } else {
-      feedbackPanel.style.left = 'auto';
-      feedbackPanel.style.right = '18px';
-    }
-  }
-
-  function runVisualCommand(command, onApplied) {
-    if (!visualSession || visualBusy) {
-      return false;
-    }
-    try {
-      const result = command();
-      if (result !== null && result !== false && onApplied) {
-        onApplied();
-      }
-      if (visualTarget?.isConnected) {
-        const rect = getViewportRect(visualTarget);
-        if (rect.width > 0 && rect.height > 0) {
-          visualLastRect = rect;
-        }
-      }
-      renderVisualInspector();
-      scheduleDecorationRefresh();
-      return result !== null && result !== false;
-    } catch (error) {
-      showNotification(error.message || 'Unable to apply that visual edit.', 'error');
-      return false;
-    }
-  }
-
-  function resetVisualSession() {
-    if (!visualSession) {
-      return;
-    }
-    visualSession.reset();
-    renderVisualInspector('All preview edits reset.');
-    scheduleDecorationRefresh();
-  }
-
-  function pickAnotherVisualTarget() {
-    if (visualBusy) {
-      showNotification('Wait for the current visual evidence capture to finish.', 'error');
-      return;
-    }
-    if (visualSession?.getState().dirty) {
-      showNotification('Save, Reset, or Cancel the current preview before picking another element.', 'error');
-      return;
-    }
-    restoreVisualSession();
-    interactionMode = INTERACTION_MODES.VISUAL_PICK;
-    feedbackPanel.classList.add('visual-active');
-    setPanelCollapsed(true);
-    renderVisualInspector('Click another page element to begin.');
-    scheduleDecorationRefresh();
-  }
-
-  function cancelVisualEdit() {
-    if (visualBusy) {
-      showNotification('Wait for the current visual evidence capture to finish.', 'error');
-      return;
-    }
-    restoreVisualSession();
-    interactionMode = INTERACTION_MODES.VISUAL_PICK;
-    feedbackPanel.classList.add('visual-active');
-    setPanelCollapsed(true);
-    renderVisualInspector('Preview restored. Pick another element.');
-    showNotification('Visual preview cancelled and page restored.');
-  }
-
-  function restoreVisualSession() {
-    clearVisualGestureListeners();
-    if (visualSession) {
-      try {
-        visualSession.restore();
-      } catch (error) {
-        console.debug('Unable to restore visual edit session:', error.message);
-      }
-    }
-    visualSession = null;
-    visualTarget = null;
-    visualOriginalInfo = null;
-    visualBeforeViewport = null;
-    visualInitialContext = null;
-    visualLastRect = null;
-    visualBusy = false;
-    if (feedbackPanel) {
-      feedbackPanel.classList.remove('visual-dirty');
-    }
-  }
-
-  function restoreVisualOnPageExit() {
-    if (!visualSession && !contentPreview) {
-      return;
-    }
-    restoreVisualSession();
-    restoreContentProposal();
-    interactionMode = INTERACTION_MODES.OFF;
-    feedbackMode = false;
-    disableElementHighlighting();
-    if (feedbackPanel) {
-      feedbackPanel.classList.remove('visible', 'visual-active', 'content-active');
-    }
-  }
-
-  function restoreVisualAfterSameDocumentNavigation() {
-    if (!visualSession && !contentPreview) {
-      return;
-    }
-    const wasContent = Boolean(contentPreview);
-    restoreVisualSession();
-    restoreContentProposal();
-    interactionMode = wasContent ? INTERACTION_MODES.CONTENT_PICK : INTERACTION_MODES.VISUAL_PICK;
-    feedbackMode = false;
-    feedbackPanel.classList.add('visible', wasContent ? 'content-active' : 'visual-active');
-    setPanelCollapsed(true);
-    if (wasContent) {
-      renderContentInspector('Page navigation restored the preview. Pick an anchor again.');
-    } else {
-      renderVisualInspector('Page navigation restored the preview. Pick an element again.');
-    }
-    scheduleDecorationRefresh();
-  }
-
-  function renderVisualInspector(statusMessage) {
-    if (!feedbackPanel) {
-      return;
-    }
-    const inspector = feedbackPanel.querySelector('.dev-feedback-visual-inspector');
-    if (!inspector) {
-      return;
-    }
-    const visualActive = String(interactionMode).startsWith('visual-');
-    feedbackPanel.classList.toggle('visual-active', visualActive);
-    const state = visualSession?.getState();
-    feedbackPanel.classList.toggle('visual-dirty', Boolean(state?.dirty));
-    const title = feedbackPanel.querySelector('#dev-feedback-visual-title');
-    title.textContent = visualTarget
-      ? `${visualOriginalInfo?.tag || 'element'} · ${visualOriginalInfo?.selector || ''}`
-      : 'Pick one page element';
-    if (statusMessage) {
-      feedbackPanel.querySelector('#dev-feedback-visual-status').textContent = statusMessage;
-    } else if (!visualTarget) {
-      feedbackPanel.querySelector('#dev-feedback-visual-status').textContent = 'Click an element on the page to begin.';
-    } else {
-      feedbackPanel.querySelector('#dev-feedback-visual-status').textContent = state?.dirty
-        ? `${state.appliedCommandCount} reversible edit${state.appliedCommandCount === 1 ? '' : 's'} applied.`
-        : 'No preview edits yet.';
-    }
-    const chips = feedbackPanel.querySelector('#dev-feedback-operation-chips');
-    chips.replaceChildren();
-    const commands = visualSession?.snapshot().commands || [];
-    commands.forEach((command) => {
-      const chip = document.createElement('span');
-      chip.className = 'dev-feedback-operation-chip';
-      chip.textContent = command.label;
-      chips.appendChild(chip);
-    });
-    feedbackPanel.querySelector('#dev-feedback-visual-undo').disabled = !state?.canUndo;
-    feedbackPanel.querySelector('#dev-feedback-visual-redo').disabled = !state?.canRedo;
-    feedbackPanel.querySelector('#dev-feedback-visual-reset').disabled = !state?.dirty;
-    feedbackPanel.querySelector('#dev-feedback-save-visual').disabled = !state?.dirty || visualBusy;
-    feedbackPanel.querySelector('#dev-feedback-visual-pick-again').disabled = !visualTarget;
-    const closeButton = feedbackPanel.querySelector('#dev-feedback-panel-close');
-    closeButton.title = visualActive ? 'Stop Visual Edit and restore page' : 'Stop element mode';
-    closeButton.setAttribute('aria-label', closeButton.title);
-    inspector.querySelectorAll('fieldset').forEach((fieldset) => {
-      fieldset.disabled = !visualSession || visualBusy;
-    });
-  }
-
-  async function saveVisualSpec() {
-    if (!visualSession || visualBusy) {
-      return;
-    }
-    const noteField = feedbackPanel.querySelector('#dev-feedback-visual-note');
-    const note = noteField.value.trim();
-    if (!note) {
-      showNotification('Add an implementation request before saving.', 'error');
-      noteField.focus();
-      return;
-    }
-    const state = visualSession.getState();
-    if (!state.dirty) {
-      showNotification('Apply at least one visual edit before saving.', 'error');
-      return;
-    }
-    if (!visualTarget?.isConnected || !sameVisualViewport()) {
-      showNotification('The page moved or changed. Reset and pick the element again.', 'error');
-      return;
-    }
-
-    visualBusy = true;
-    let finalStatus = '';
-    renderVisualInspector('Capturing proposed evidence...');
-    try {
-      const proposedViewport = await captureVisualViewport();
-      if (!proposedViewport?.dataUrl || !visualBeforeViewport?.dataUrl) {
-        throw new Error('Could not capture both before and proposed evidence. Nothing was saved.');
-      }
-      const currentRect = getViewportRect(visualTarget);
-      const evidenceRect = buildEvidenceRect(visualOriginalInfo.rect, currentRect.width > 0 ? currentRect : visualLastRect);
-      const [beforeDataUrl, proposedDataUrl] = await Promise.all([
-        cropViewportImage(visualBeforeViewport.dataUrl, evidenceRect),
-        cropViewportImage(proposedViewport.dataUrl, evidenceRect)
-      ]);
-      if (!beforeDataUrl || !proposedDataUrl) {
-        throw new Error('Visual evidence could not be cropped. Nothing was saved.');
-      }
-
-      const sessionSnapshot = visualSession.snapshot();
-      const proposedElementInfo = buildElementSnapshot(visualTarget);
-      const requestedMutations = buildRequestedMutations(sessionSnapshot, proposedElementInfo);
-      if (!requestedMutations.length) {
-        throw new Error('No supported visual mutations were produced. Nothing was saved.');
-      }
-      const acceptance = feedbackPanel.querySelector('#dev-feedback-visual-acceptance').value
-        .split(/\r?\n/)
-        .map((criterion) => criterion.trim())
-        .filter(Boolean)
-        .slice(0, 12);
-      const item = {
-        specVersion: 2,
-        id: buildFeedbackId(),
-        type: CAPTURE_TYPE_ELEMENT,
-        captureType: CAPTURE_TYPE_ELEMENT,
-        selector: visualOriginalInfo.selector,
-        pageUrl: window.location.href,
-        pageTitle: document.title,
-        elementInfo: toStoredElementInfo(visualOriginalInfo),
-        proposedElementInfo: toStoredElementInfo(proposedElementInfo),
-        position: visualOriginalInfo.position,
-        pageContext: visualInitialContext,
-        changeRequest: {
-          kind: 'requested-mutation',
-          summary: note.slice(0, MAX_NOTE_LENGTH),
-          requestedMutations
-        },
-        evidence: {
-          before: { mimeType: 'image/png', dataUrl: beforeDataUrl, source: { kind: 'captured' } },
-          proposed: { mimeType: 'image/png', dataUrl: proposedDataUrl, source: { kind: 'rendered-preview' } }
-        },
-        acceptance,
-        note: note.slice(0, MAX_NOTE_LENGTH),
-        timestamp: new Date().toISOString()
-      };
-
-      visualSession.restore();
-      visualSession = null;
-      const nextItems = await runFeedbackMutation('add-feedback-item', { item });
-      if (!nextItems) {
-        throw new Error('Unable to store the visual change spec.');
-      }
-      feedbackItems = sanitizeFeedbackItems(nextItems, window.location.href, document.title);
-      restoreVisualSession();
-      interactionMode = INTERACTION_MODES.VISUAL_PICK;
-      feedbackPanel.classList.add('visual-active');
-      setPanelCollapsed(true);
-      updateFeedbackPanel();
-      finalStatus = 'Saved locally. Pick another element.';
-      scheduleDecorationRefresh();
-      showNotification('Visual change spec saved and page restored.');
-    } catch (error) {
-      showNotification(error.message || 'Unable to save the visual change spec.', 'error');
-      if (visualSession) {
-        finalStatus = 'Save failed. Your reversible preview is still active.';
-      } else {
-        restoreVisualSession();
-        interactionMode = INTERACTION_MODES.VISUAL_PICK;
-        finalStatus = 'Save failed after restoring the page. Pick the element again.';
-      }
-    } finally {
-      visualBusy = false;
-      renderVisualInspector(finalStatus);
-    }
-  }
-
-  function toStoredElementInfo(info) {
-    return {
-      tag: info.tag,
-      classes: info.classes,
-      text: info.text,
-      styles: info.styles,
-      role: info.role,
-      surroundingText: info.surroundingText,
-      parentLayout: info.parentLayout
-    };
-  }
-
-  function buildRequestedMutations(sessionSnapshot, proposedInfo) {
-    return sessionSnapshot.commands.slice(0, 24).flatMap((command, index) => {
-      const operations = command.operations || [];
-      const target = command.target || sessionSnapshot.target;
-      let action = command.kind;
-      if (action === 'text') action = 'rewrite';
-      if (action === 'style' || action === 'match-style') action = 'restyle';
-      if (action === 'align') action = 'move';
-      let parameters = {};
-
-      if (action === 'rewrite') {
-        const operation = operations.find((candidate) => candidate.kind === 'text');
-        parameters = { text: operation?.after?.value || proposedInfo.text };
-      } else if (action === 'hide') {
-        parameters = { hidden: operations.some((operation) => operation.after?.value === 'none') };
-      } else if (action === 'reorder') {
-        parameters = { index: Math.max(0, Array.from(visualTarget.parentElement?.children || []).indexOf(visualTarget)) };
-      } else if (action === 'move') {
-        const operation = operations.find((candidate) => candidate.property === 'translate');
-        const before = parseTranslateValue(operation?.before?.value);
-        const after = parseTranslateValue(operation?.after?.value);
-        parameters = { deltaX: after.x - before.x, deltaY: after.y - before.y };
-      } else if (action === 'resize') {
-        operations.forEach((operation) => {
-          if (operation.property === 'width' || operation.property === 'height') {
-            parameters[operation.property] = Math.max(0, Number.parseFloat(operation.after?.value) || 0);
-          }
-        });
-      } else if (action === 'restyle') {
-        parameters = {
-          styles: operations.reduce((styles, operation) => {
-            if (operation.property && operation.after?.value !== undefined) {
-              styles[operation.property] = operation.after.value;
-            }
-            return styles;
-          }, {})
-        };
-      }
-
-      return [{
-        id: command.id || `mutation-${index + 1}`,
-        action,
-        target,
-        parameters
-      }];
-    });
-  }
-
-  function parseTranslateValue(value) {
-    const match = String(value || '').trim().match(/^(-?\d+(?:\.\d+)?)px(?:\s+(-?\d+(?:\.\d+)?)px)?$/);
-    return match ? { x: Number(match[1]), y: Number(match[2] || 0) } : { x: 0, y: 0 };
-  }
-
-  function sameVisualViewport() {
-    const viewport = visualInitialContext?.viewport;
-    return visualInitialContext?.url === window.location.href
-      && viewport
-      && Math.abs(viewport.scrollX - window.scrollX) <= 2
-      && Math.abs(viewport.scrollY - window.scrollY) <= 2
-      && Math.abs(viewport.width - window.innerWidth) <= 2
-      && Math.abs(viewport.height - window.innerHeight) <= 2
-      && Math.abs(viewport.devicePixelRatio - window.devicePixelRatio) <= 0.02;
-  }
-
-  async function captureVisualViewport() {
-    const elements = [feedbackPanel, captureModal, markerLayer];
-    const visibility = elements.map((element) => element?.style.visibility || '');
-    const highlighted = Array.from(document.querySelectorAll('.dev-feedback-highlight'));
-    const selected = Array.from(document.querySelectorAll('.dev-feedback-selected'));
-    elements.forEach((element) => {
-      if (element) element.style.visibility = 'hidden';
-    });
-    highlighted.forEach((element) => element.classList.remove('dev-feedback-highlight'));
-    selected.forEach((element) => element.classList.remove('dev-feedback-selected'));
-    try {
-      await nextAnimationFrame();
-      await nextAnimationFrame();
-      const response = await chrome.runtime.sendMessage({ action: 'capture-visual-edit-viewport' });
-      return response?.ok && /^data:image\/png;base64,/i.test(response.dataUrl || '')
-        ? { dataUrl: response.dataUrl, metrics: getViewportMetrics() }
-        : null;
-    } finally {
-      elements.forEach((element, index) => {
-        if (element) element.style.visibility = visibility[index];
-      });
-      if (interactionMode !== INTERACTION_MODES.VISUAL_EDIT) {
-        highlighted.forEach((element) => element.classList.add('dev-feedback-highlight'));
-      }
-      scheduleDecorationRefresh();
-    }
-  }
-
-  function buildEvidenceRect(originalRect, proposedRect) {
-    const padding = 24;
-    const left = Math.max(0, Math.min(originalRect.x, proposedRect.x) - padding);
-    const top = Math.max(0, Math.min(originalRect.y, proposedRect.y) - padding);
-    const right = Math.min(window.innerWidth, Math.max(originalRect.x + originalRect.width, proposedRect.x + proposedRect.width) + padding);
-    const bottom = Math.min(window.innerHeight, Math.max(originalRect.y + originalRect.height, proposedRect.y + proposedRect.height) + padding);
-    return { x: left, y: top, width: Math.max(1, right - left), height: Math.max(1, bottom - top) };
-  }
-
-  async function cropViewportImage(dataUrl, rect) {
-    const image = await loadDataImage(dataUrl);
-    const scaleX = image.naturalWidth / window.innerWidth;
-    const scaleY = image.naturalHeight / window.innerHeight;
-    const sourceX = Math.round(rect.x * scaleX);
-    const sourceY = Math.round(rect.y * scaleY);
-    const sourceWidth = Math.max(1, Math.round(rect.width * scaleX));
-    const sourceHeight = Math.max(1, Math.round(rect.height * scaleY));
-    const canvas = document.createElement('canvas');
-    canvas.width = sourceWidth;
-    canvas.height = sourceHeight;
-    const context = canvas.getContext('2d');
-    if (!context) {
-      return '';
-    }
-    context.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, sourceWidth, sourceHeight);
-    return canvas.toDataURL('image/png');
-  }
-
-  function loadDataImage(dataUrl) {
-    return new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error('Unable to decode captured visual evidence.'));
-      image.src = dataUrl;
-    });
-  }
 
   function buildElementSnapshot(element) {
     const computedStyles = window.getComputedStyle(element);
@@ -1631,10 +603,8 @@
       return;
     }
 
-    const item = {
+    const item = globalThis.DevFeedbackShared.createElementRecord({
       id: buildFeedbackId(),
-      type: CAPTURE_TYPE_ELEMENT,
-      captureType: CAPTURE_TYPE_ELEMENT,
       selector: elementInfo.selector,
       pageUrl: window.location.href,
       pageTitle: document.title,
@@ -1651,7 +621,7 @@
       pageContext: buildPageContext(),
       note: note.slice(0, MAX_NOTE_LENGTH),
       timestamp: new Date().toISOString()
-    };
+    });
 
     const nextItems = await runFeedbackMutation('add-feedback-item', { item });
     if (!nextItems) {
@@ -1666,26 +636,6 @@
   }
 
   async function startRegionCapture() {
-    if (visualBusy || contentBusy) {
-      const reason = 'Wait for the current visual evidence capture to finish.';
-      showNotification(reason, 'error');
-      return { ok: false, reason };
-    }
-    if (visualSession?.getState().dirty) {
-      const reason = 'Save or Cancel the visual preview before starting Region capture.';
-      showNotification(reason, 'error');
-      return { ok: false, reason };
-    }
-    if (contentPreview) {
-      const reason = 'Save or Cancel the content proposal before starting Region capture.';
-      showNotification(reason, 'error');
-      return { ok: false, reason };
-    }
-    if (visualSession || String(interactionMode).startsWith('visual-')) {
-      setInteractionMode(INTERACTION_MODES.OFF, { discardVisual: true });
-    } else if (String(interactionMode).startsWith('content-')) {
-      setInteractionMode(INTERACTION_MODES.OFF, { discardContent: true });
-    }
     const visibility = [feedbackPanel, captureModal, markerLayer].map((element) => element?.style.visibility || '');
     [feedbackPanel, captureModal, markerLayer].forEach((element) => {
       if (element) {
@@ -2016,109 +966,7 @@
     });
   }
 
-  function startVisualGesture(event, kind, outline) {
-    if (!visualSession || !visualTarget?.isConnected || visualBusy || !event.isPrimary) {
-      return;
-    }
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return;
-    }
-    const rect = getViewportRect(visualTarget);
-    if (!(rect.width > 0) || !(rect.height > 0)) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    visualGesture = {
-      kind,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startRect: rect,
-      preview: outline,
-      dx: 0,
-      dy: 0,
-      width: rect.width,
-      height: rect.height
-    };
-    outline.classList.add('direct-editing');
-    outline.setPointerCapture?.(event.pointerId);
-    window.addEventListener('pointermove', updateVisualGesture, true);
-    window.addEventListener('pointerup', finishVisualGesture, true);
-    window.addEventListener('pointercancel', cancelVisualGesture, true);
-  }
-
-  function updateVisualGesture(event) {
-    if (!visualGesture || event.pointerId !== visualGesture.pointerId) {
-      return;
-    }
-    event.preventDefault();
-    const dx = Math.round(event.clientX - visualGesture.startX);
-    const dy = Math.round(event.clientY - visualGesture.startY);
-    visualGesture.dx = dx;
-    visualGesture.dy = dy;
-    if (visualGesture.kind === 'move') {
-      visualGesture.preview.style.left = `${visualGesture.startRect.x + dx}px`;
-      visualGesture.preview.style.top = `${visualGesture.startRect.y + dy}px`;
-      return;
-    }
-    visualGesture.width = Math.max(24, Math.round(visualGesture.startRect.width + dx));
-    visualGesture.height = Math.max(24, Math.round(visualGesture.startRect.height + dy));
-    visualGesture.preview.style.width = `${visualGesture.width}px`;
-    visualGesture.preview.style.height = `${visualGesture.height}px`;
-  }
-
-  function finishVisualGesture(event) {
-    if (!visualGesture || event.pointerId !== visualGesture.pointerId) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    const gesture = visualGesture;
-    clearVisualGestureListeners();
-    if (gesture.kind === 'move') {
-      if (gesture.dx || gesture.dy) {
-        runVisualCommand(() => visualSession.nudge(gesture.dx, gesture.dy));
-      } else {
-        scheduleDecorationRefresh();
-      }
-      return;
-    }
-    if (
-      Math.round(gesture.width) !== Math.round(gesture.startRect.width)
-      || Math.round(gesture.height) !== Math.round(gesture.startRect.height)
-    ) {
-      runVisualCommand(() => visualSession.commitStyle('Resize element', {
-        width: `${gesture.width}px`,
-        height: `${gesture.height}px`,
-        'box-sizing': 'border-box'
-      }, 'resize'));
-    } else {
-      scheduleDecorationRefresh();
-    }
-  }
-
-  function cancelVisualGesture(event) {
-    if (!visualGesture || (event?.pointerId !== undefined && event.pointerId !== visualGesture.pointerId)) {
-      return;
-    }
-    event?.preventDefault();
-    clearVisualGestureListeners();
-    scheduleDecorationRefresh();
-  }
-
-  function clearVisualGestureListeners() {
-    visualGesture?.preview?.classList.remove('direct-editing');
-    visualGesture = null;
-    window.removeEventListener('pointermove', updateVisualGesture, true);
-    window.removeEventListener('pointerup', finishVisualGesture, true);
-    window.removeEventListener('pointercancel', cancelVisualGesture, true);
-  }
-
   function applyDecorations() {
-    if (visualGesture) {
-      return;
-    }
     clearDecorations();
 
     const fragment = document.createDocumentFragment();
@@ -2143,41 +991,6 @@
       badge.style.left = `${clamp(rect.right - 12, 8, Math.max(8, window.innerWidth - 32))}px`;
       fragment.appendChild(badge);
     });
-
-    if (visualTarget && String(interactionMode).startsWith('visual-')) {
-      const measured = visualTarget.isConnected ? getViewportRect(visualTarget) : null;
-      const rect = measured?.width > 0 && measured?.height > 0 ? measured : visualLastRect;
-      if (rect) {
-        const outline = document.createElement('div');
-        outline.className = 'dev-feedback-visual-outline';
-        outline.style.left = `${rect.x}px`;
-        outline.style.top = `${rect.y}px`;
-        outline.style.width = `${Math.max(1, rect.width)}px`;
-        outline.style.height = `${Math.max(1, rect.height)}px`;
-        outline.setAttribute('role', 'group');
-        outline.setAttribute('aria-label', 'Selected element. Drag to move; drag the corner handle to resize.');
-
-        const label = document.createElement('span');
-        label.className = 'dev-feedback-visual-outline-label';
-        label.textContent = 'Drag to move';
-        outline.appendChild(label);
-
-        const handle = document.createElement('button');
-        handle.type = 'button';
-        handle.className = 'dev-feedback-visual-resize-handle';
-        handle.setAttribute('aria-label', 'Drag to resize selected element');
-        handle.addEventListener('pointerdown', (event) => startVisualGesture(event, 'resize', outline));
-        outline.appendChild(handle);
-
-        outline.addEventListener('pointerdown', (event) => {
-          if (event.target === handle) {
-            return;
-          }
-          startVisualGesture(event, 'move', outline);
-        });
-        fragment.appendChild(outline);
-      }
-    }
 
     markerLayer.replaceChildren(fragment);
   }
@@ -2359,16 +1172,6 @@
     if (request.action === 'set-feedback-mode') {
       setFeedbackMode(Boolean(request.enabled));
       sendResponse({ feedbackMode, itemCount: feedbackItems.length });
-      return;
-    }
-
-    if (request.action === 'start-visual-edit') {
-      sendResponse(startVisualEditMode());
-      return;
-    }
-
-    if (request.action === 'start-add-content') {
-      sendResponse(startAddContentMode());
       return;
     }
 

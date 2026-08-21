@@ -134,6 +134,43 @@
     });
   }
 
+  function createCaptureRecord(input = {}) {
+    if (input.type !== CAPTURE_TYPE_ELEMENT && input.type !== CAPTURE_TYPE_REGION) {
+      throw new TypeError(`Unsupported capture type: ${input.type || 'missing'}.`);
+    }
+
+    if (input.type === CAPTURE_TYPE_ELEMENT && (typeof input.selector !== 'string' || !input.selector.trim())) {
+      throw new TypeError('Capture Record requires a valid element selector.');
+    }
+
+    if (input.type === CAPTURE_TYPE_REGION && !input.screenshot) {
+      throw new TypeError('Capture Record requires region evidence.');
+    }
+
+    const raw = {
+      ...input,
+      id: typeof input.id === 'string' && input.id ? input.id : buildFeedbackId(),
+      captureType: input.type,
+      timestamp: typeof input.timestamp === 'string' ? input.timestamp : new Date().toISOString()
+    };
+    const [record] = sanitizeFeedbackItems([raw], input.pageUrl, input.pageTitle);
+    if (!record) {
+      throw new TypeError('Capture Record input did not produce a valid record.');
+    }
+    if (record.type === CAPTURE_TYPE_REGION && !record.screenshot?.dataUrl) {
+      throw new TypeError('Capture Record requires valid region evidence.');
+    }
+    return record;
+  }
+
+  function createElementRecord(input = {}) {
+    return createCaptureRecord({ ...input, type: CAPTURE_TYPE_ELEMENT });
+  }
+
+  function createRegionRecord(input = {}) {
+    return createCaptureRecord({ ...input, type: CAPTURE_TYPE_REGION });
+  }
+
   function normalizeFeedbackItem(item, fallbackUrl, fallbackTitle) {
     if (!item || typeof item !== 'object') {
       return null;
@@ -885,6 +922,9 @@
     buildFeedbackId,
     buildMarkdownExport,
     canInjectIntoUrl,
+    createCaptureRecord,
+    createElementRecord,
+    createRegionRecord,
     detectSourceKind,
     escapeCssIdentifier,
     formatTimestamp,

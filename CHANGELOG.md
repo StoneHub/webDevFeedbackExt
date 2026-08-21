@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.0 (Unreleased)
+
+- Refocused the active product on Element capture, Region/PDF capture, History, and one explicit Agent Handoff.
+- Removed the active Visual Edit and Add Content creators while keeping their historical Capture Records readable.
+- Added canonical Capture Record constructors shared by Element and Region saves.
+- Renamed the History JSON handoff to `Send to Codex` and gave each Downloads export a unique filename.
+- Added bounded MCP inbox discovery and newest-valid import under the user's Downloads directory.
+- Removed stale implementation plans and added current issue-tracker, triage-label, and domain-document instructions.
+- Kept Feedback Sessions on the checkpointed experiment branch rather than shipping them in this release.
+
 ## 1.7.2 (Submitted August 3, 2026)
 
 - Added Add Content mode for anchoring proposed text, image placeholders, lists, and safe HTML/embed-frame placeholders to existing page elements.

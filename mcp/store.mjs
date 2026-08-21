@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import shared from '../shared.js';
@@ -12,6 +14,10 @@ const MAX_EVIDENCE_BYTES = 25 * 1024 * 1024;
 const MAX_IMPORT_EVIDENCE_BYTES = 100 * 1024 * 1024;
 const MAX_IMPORT_HISTORIES = 200;
 const MAX_IMPORT_ITEMS = 2000;
+const MAX_INBOX_CAPTURES = 200;
+const MAX_INBOX_DISCOVERY_DEPTH = 2;
+const MAX_INBOX_CANDIDATE_FILES = 200;
+const MAX_INBOX_DISCOVERY_BYTES = 100 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 16384;
 const MAX_IMAGE_PIXELS = 40_000_000;
 const STATUS_VALUES = Object.freeze([
@@ -32,9 +38,17 @@ const IMAGE_TYPES = Object.freeze({
 
 export async function createProjectStore(options = {}) {
   const projectRoot = await resolveExistingDirectory(options.projectRoot || process.cwd());
-  const allowedImportRoots = await Promise.all(
-    [projectRoot, ...(options.inboxRoots || [])].map(resolveExistingDirectory)
-  );
+  const configuredInboxRoots = Array.isArray(options.inboxRoots) ? options.inboxRoots : [];
+  const approvedDownloadsRoot = configuredInboxRoots.length
+    ? await resolveExistingDirectory(options.approvedDownloadsRoot || path.join(os.homedir(), 'Downloads'))
+    : '';
+  const inboxRoots = Array.from(new Set(await Promise.all(configuredInboxRoots.map(resolveExistingDirectory))));
+  for (const inboxRoot of inboxRoots) {
+    if (!isPathInside(approvedDownloadsRoot, inboxRoot)) {
+      throw new Error(`Inbox root must be the approved Downloads directory or one of its children: ${inboxRoot}.`);
+    }
+  }
+  const allowedImportRoots = Array.from(new Set([projectRoot, ...inboxRoots]));
   const clock = typeof options.clock === 'function' ? options.clock : () => new Date();
   const readOnly = Boolean(options.readOnly);
   const sidecarRoot = path.join(projectRoot, '.dev-feedback');
@@ -136,6 +150,8 @@ export async function createProjectStore(options = {}) {
       schemaVersion: STORE_SCHEMA_VERSION,
       project: { ...project, root: projectRoot },
       storePath: sidecarRoot,
+      approvedDownloadsRoot,
+      inboxRoots,
       allowedImportRoots,
       itemCount: items.length,
       statusCounts: counts
@@ -160,6 +176,85 @@ export async function createProjectStore(options = {}) {
 
   async function getFeedback(feedbackId) {
     return readItem(feedbackId);
+  }
+
+  async function listInboxCaptures(options = {}) {
+    const discovered = await discoverInboxCaptures(
+      inboxRoots,
+      (payload) => preflightImportPayload(payload, {}, { allowMultiple: true, requireItems: true })
+    );
+    const limit = clampInteger(options.limit, 1, MAX_INBOX_CAPTURES, MAX_INBOX_CAPTURES);
+    return {
+      schemaVersion: STORE_SCHEMA_VERSION,
+      inboxRoots,
+      captures: discovered.captures.slice(0, limit),
+      total: discovered.total
+    };
+  }
+
+  async function importLatestInboxCapture(input = {}) {
+    const listed = await discoverInboxCaptures(inboxRoots, (payload) => preflightImportPayload(payload, input, { requireItems: true }));
+    const latest = listed.captures[0];
+    if (!latest) throw new Error('No valid feedback capture JSON files found in the configured inbox.');
+    return importFeedbackExport({ path: latest.path, storageKey: input.storageKey });
+  }
+
+  function preflightImportPayload(payload, input = {}, validationOptions = {}) {
+    const rawHistories = Array.isArray(payload?.histories) ? payload.histories : null;
+    if (!rawHistories) throw new Error('Import must be a standalone History JSON export.');
+    if (rawHistories.length > MAX_IMPORT_HISTORIES) {
+      throw new Error(`Import exceeds ${MAX_IMPORT_HISTORIES} history groups.`);
+    }
+    const requestedStorageKey = sanitizeText(input.storageKey, 2000);
+    const requiresStorageKey = rawHistories.length > 1 && !requestedStorageKey;
+    if (requiresStorageKey && !validationOptions.allowMultiple) {
+      const keys = rawHistories.map((history) => sanitizeText(history?.storageKey, 2000) || '(missing)').join(', ');
+      throw new Error(`This export contains multiple site/file groups. Re-run with one explicit storageKey: ${keys}`);
+    }
+    const histories = requestedStorageKey
+      ? rawHistories.filter((history) => history?.storageKey === requestedStorageKey)
+      : rawHistories;
+    if (!histories.length) {
+      throw new Error(`storageKey was not found in the export: ${requestedStorageKey}.`);
+    }
+    const itemCount = histories.reduce((sum, history) => sum + (Array.isArray(history?.items) ? history.items.length : 0), 0);
+    if (itemCount > MAX_IMPORT_ITEMS) throw new Error(`Import exceeds ${MAX_IMPORT_ITEMS} feedback items.`);
+    if (validationOptions.requireItems && !itemCount) throw new Error('Import contains no feedback items.');
+
+    const entries = [];
+    let totalEvidenceBytes = 0;
+    for (const history of histories) {
+      const storageKey = sanitizeText(history?.storageKey, 2000);
+      const rawItems = Array.isArray(history?.items) ? history.items : [];
+      for (let itemIndex = 0; itemIndex < rawItems.length; itemIndex += 1) {
+        const rawItem = rawItems[itemIndex];
+        const normalized = shared.normalizeFeedbackItem(rawItem, rawItem?.pageUrl, rawItem?.pageTitle);
+        if (!normalized) {
+          throw new Error(`Invalid feedback item at history ${storageKey || '(missing)'}, index ${itemIndex}.`);
+        }
+        const canonicalId = buildImportedId(normalized, rawItem, storageKey, itemIndex);
+        const preparedEvidence = prepareImportEvidence(rawItem, normalized);
+        totalEvidenceBytes += preparedEvidence.reduce((sum, evidence) => sum + evidence.bytes.length, 0);
+        if (totalEvidenceBytes > MAX_IMPORT_EVIDENCE_BYTES) {
+          throw new Error(`Import evidence exceeds ${MAX_IMPORT_EVIDENCE_BYTES} aggregate bytes.`);
+        }
+        entries.push({
+          normalized,
+          canonicalId,
+          sourceItemId: typeof rawItem?.id === 'string' ? rawItem.id : canonicalId,
+          sourceItemSha256: hashJson(rawItem),
+          preparedEvidence
+        });
+      }
+    }
+    return {
+      histories,
+      requestedStorageKey,
+      requiresStorageKey,
+      storageKeys: histories.map((history) => sanitizeText(history?.storageKey, 2000)).filter(Boolean),
+      itemCount,
+      entries
+    };
   }
 
   async function createFeedback(input = {}, actor = {}) {
@@ -276,8 +371,8 @@ export async function createProjectStore(options = {}) {
       if (!kind) {
         throw new Error(`kind must be one of: ${EVIDENCE_KINDS.join(', ')}.`);
       }
-      const sourcePath = await resolveAllowedFile(input.path, allowedImportRoots);
-      const evidence = await copyEvidenceFile(sourcePath, item.id, kind, input.redactionState, 'agent');
+      const source = await readAllowedFileBounded(input.path, allowedImportRoots, MAX_EVIDENCE_BYTES, 'Evidence');
+      const evidence = await copyEvidenceBytes(source.bytes, path.basename(source.path), item.id, kind, input.redactionState, 'agent');
       const timestamp = nowIso();
       item.evidence[kind] = evidence;
       item.revision += 1;
@@ -290,61 +385,26 @@ export async function createProjectStore(options = {}) {
 
   async function importFeedbackExport(input = {}) {
     return withMutation(async () => {
-      const sourcePath = await resolveAllowedFile(input.path, allowedImportRoots);
-      const sourceBytes = await readFileBounded(sourcePath, MAX_IMPORT_BYTES, 'Import');
+      const source = await readAllowedFileBounded(input.path, allowedImportRoots, MAX_IMPORT_BYTES, 'Import');
+      const sourcePath = source.path;
+      const sourceBytes = source.bytes;
       const importSha256 = crypto.createHash('sha256').update(sourceBytes).digest('hex');
       const payload = JSON.parse(sourceBytes.toString('utf8'));
-      const rawHistories = Array.isArray(payload?.histories) ? payload.histories : null;
-      if (!rawHistories) {
-        throw new Error('Import must be a standalone History JSON export.');
-      }
-      if (rawHistories.length > MAX_IMPORT_HISTORIES) {
-        throw new Error(`Import exceeds ${MAX_IMPORT_HISTORIES} history groups.`);
-      }
-      const requestedStorageKey = sanitizeText(input.storageKey, 2000);
-      if (rawHistories.length > 1 && !requestedStorageKey) {
-        const keys = rawHistories.map((history) => sanitizeText(history?.storageKey, 2000) || '(missing)').join(', ');
-        throw new Error(`This export contains multiple site/file groups. Re-run with one explicit storageKey: ${keys}`);
-      }
-      const histories = requestedStorageKey
-        ? rawHistories.filter((history) => history?.storageKey === requestedStorageKey)
-        : rawHistories;
-      if (!histories.length) {
-        throw new Error(`storageKey was not found in the export: ${requestedStorageKey}.`);
-      }
-      const itemCount = histories.reduce((sum, history) => sum + (Array.isArray(history?.items) ? history.items.length : 0), 0);
-      if (itemCount > MAX_IMPORT_ITEMS) {
-        throw new Error(`Import exceeds ${MAX_IMPORT_ITEMS} feedback items.`);
-      }
+      const preflight = preflightImportPayload(payload, input);
       const imported = [];
       const updated = [];
       const skipped = [];
       const prepared = [];
-      let totalEvidenceBytes = 0;
-      for (const history of histories) {
-        const storageKey = sanitizeText(history?.storageKey, 2000);
-        const rawItems = Array.isArray(history?.items) ? history.items : [];
-        for (let itemIndex = 0; itemIndex < rawItems.length; itemIndex += 1) {
-          const rawItem = rawItems[itemIndex];
-          const normalized = shared.normalizeFeedbackItem(rawItem, rawItem?.pageUrl, rawItem?.pageTitle);
-          if (!normalized) {
-            throw new Error(`Invalid feedback item at history ${storageKey || '(missing)'}, index ${itemIndex}.`);
-          }
-          const canonicalId = buildImportedId(normalized, rawItem, storageKey, itemIndex);
-          const existing = await readItemIfPresent(canonicalId);
-          const sourceItemId = typeof rawItem?.id === 'string' ? rawItem.id : canonicalId;
-          const sourceItemSha256 = hashJson(rawItem);
-          if (existing?.provenance?.sourceItemSha256 === sourceItemSha256 && existing.provenance.sourceItemId === sourceItemId) {
-            skipped.push(canonicalId);
-            continue;
-          }
-          const preparedEvidence = prepareImportEvidence(rawItem, normalized);
-          totalEvidenceBytes += preparedEvidence.reduce((sum, evidence) => sum + evidence.bytes.length, 0);
-          if (totalEvidenceBytes > MAX_IMPORT_EVIDENCE_BYTES) {
-            throw new Error(`Import evidence exceeds ${MAX_IMPORT_EVIDENCE_BYTES} aggregate bytes.`);
-          }
-          prepared.push({ normalized, canonicalId, existing, sourceItemId, sourceItemSha256, preparedEvidence });
+      for (const entry of preflight.entries) {
+        const existing = await readItemIfPresent(entry.canonicalId);
+        if (
+          existing?.provenance?.sourceItemSha256 === entry.sourceItemSha256
+          && existing.provenance.sourceItemId === entry.sourceItemId
+        ) {
+          skipped.push(entry.canonicalId);
+          continue;
         }
+        prepared.push({ ...entry, existing });
       }
 
       for (const entry of prepared) {
@@ -370,7 +430,7 @@ export async function createProjectStore(options = {}) {
       return {
         schemaVersion: STORE_SCHEMA_VERSION,
         sourceFile: path.basename(sourcePath),
-        storageKey: requestedStorageKey || sanitizeText(histories[0]?.storageKey, 2000),
+        storageKey: preflight.requestedStorageKey || sanitizeText(preflight.histories[0]?.storageKey, 2000),
         importSha256,
         imported,
         updated,
@@ -527,10 +587,9 @@ export async function createProjectStore(options = {}) {
     ];
   }
 
-  async function copyEvidenceFile(sourcePath, feedbackId, kind, redactionState, source) {
-    const bytes = await readFileBounded(sourcePath, MAX_EVIDENCE_BYTES, 'Evidence');
+  async function copyEvidenceBytes(bytes, sourceName, feedbackId, kind, redactionState, source) {
     const mimeType = detectImageType(bytes);
-    if (!mimeType) throw new Error(`Unsupported or invalid evidence image: ${path.basename(sourcePath)}.`);
+    if (!mimeType) throw new Error(`Unsupported or invalid evidence image: ${sourceName}.`);
     return writeEvidenceBytes(bytes, mimeType, feedbackId, kind, redactionState, source);
   }
 
@@ -579,8 +638,12 @@ export async function createProjectStore(options = {}) {
   return Object.freeze({
     projectRoot,
     sidecarRoot,
+    approvedDownloadsRoot,
+    inboxRoots,
     allowedImportRoots,
     getProjectStatus,
+    listInboxCaptures,
+    importLatestInboxCapture,
     listFeedback,
     getFeedback,
     createFeedback,
@@ -948,15 +1011,154 @@ async function resolveExistingDirectory(value) {
   return resolved;
 }
 
-async function resolveAllowedFile(value, allowedRoots) {
+async function readAllowedFileBounded(value, allowedRoots, maximumBytes, label) {
   if (typeof value !== 'string' || !value) throw new Error('A file path is required.');
-  const real = await fs.realpath(path.resolve(value));
-  const stat = await fs.stat(real);
-  if (!stat.isFile()) throw new Error(`Not a file: ${real}.`);
-  if (!allowedRoots.some((root) => isPathInside(root, real))) {
-    throw new Error(`File is outside the configured project/inbox roots: ${real}.`);
+  const inputPath = path.resolve(value);
+  const requestedPath = path.join(await fs.realpath(path.dirname(inputPath)), path.basename(inputPath));
+  const containingRoot = allowedRoots
+    .filter((root) => isPathInside(root, requestedPath))
+    .sort((left, right) => right.length - left.length)[0];
+  if (!containingRoot) {
+    throw new Error(`File is outside the configured project/inbox roots: ${requestedPath}.`);
   }
-  return real;
+  await assertNoSymlinkPath(containingRoot, requestedPath);
+  const realPath = await fs.realpath(requestedPath);
+  if (!isPathInside(containingRoot, realPath)) {
+    throw new Error(`File is outside the configured project/inbox roots: ${realPath}.`);
+  }
+
+  const handle = await fs.open(requestedPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+  try {
+    const before = await handle.stat();
+    if (!before.isFile()) throw new Error(`Not a file: ${realPath}.`);
+    if (before.size > maximumBytes) throw new Error(`${label} exceeds ${maximumBytes} bytes.`);
+    const verifiedRealPath = await fs.realpath(requestedPath);
+    const pathStat = await fs.stat(verifiedRealPath);
+    if (
+      verifiedRealPath !== realPath
+      || pathStat.dev !== before.dev
+      || pathStat.ino !== before.ino
+    ) {
+      throw new Error(`${label} path changed while it was being opened.`);
+    }
+    const bytes = await handle.readFile();
+    const after = await handle.stat();
+    if (
+      after.dev !== before.dev
+      || after.ino !== before.ino
+      || after.size !== before.size
+      || bytes.length !== before.size
+    ) {
+      throw new Error(`${label} changed while it was being read.`);
+    }
+    return { path: realPath, bytes, stat: before };
+  } finally {
+    await handle.close();
+  }
+}
+
+async function assertNoSymlinkPath(root, candidate) {
+  const relative = path.relative(root, candidate);
+  if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`File is outside the configured project/inbox roots: ${candidate}.`);
+  }
+  let current = root;
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    const stat = await fs.lstat(current);
+    if (stat.isSymbolicLink()) throw new Error(`Refusing symlinked import path: ${current}.`);
+  }
+}
+
+async function discoverInboxCaptures(inboxRoots, validatePayload) {
+  const discovery = { candidates: [], seenPaths: new Set(), totalBytes: 0 };
+  for (const inboxRoot of inboxRoots) await collectInboxFiles(inboxRoot, discovery);
+
+  const captures = [];
+  for (const candidate of discovery.candidates) {
+    const capture = await inspectInboxCapture(candidate, validatePayload);
+    if (capture) captures.push(capture);
+  }
+  captures.sort((left, right) => {
+    if (right._modifiedAtMs !== left._modifiedAtMs) return right._modifiedAtMs - left._modifiedAtMs;
+    const leftKey = `${left._root}\0${left.fileName}`;
+    const rightKey = `${right._root}\0${right.fileName}`;
+    return compareStableText(leftKey, rightKey);
+  });
+  const publicCaptures = captures.map(({ _modifiedAtMs, _root, ...capture }) => capture);
+  return { captures: publicCaptures, total: publicCaptures.length };
+}
+
+async function collectInboxFiles(inboxRoot, discovery) {
+  async function visit(directory, depth) {
+    let entries;
+    try {
+      entries = await fs.readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if (error.code === 'ENOENT') return;
+      throw error;
+    }
+    entries.sort((left, right) => compareStableText(left.name, right.name));
+    for (const entry of entries) {
+      const entryPath = path.join(directory, entry.name);
+      const stat = await fs.lstat(entryPath).catch((error) => {
+        if (error.code === 'ENOENT') return null;
+        throw error;
+      });
+      if (!stat || stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) {
+        if (depth >= MAX_INBOX_DISCOVERY_DEPTH) continue;
+        const realDirectory = await fs.realpath(entryPath);
+        if (isPathInside(inboxRoot, realDirectory)) await visit(realDirectory, depth + 1);
+      } else if (stat.isFile() && path.extname(entry.name).toLowerCase() === '.json') {
+        const realPath = await fs.realpath(entryPath);
+        if (!isPathInside(inboxRoot, realPath) || discovery.seenPaths.has(realPath)) continue;
+        discovery.seenPaths.add(realPath);
+        if (discovery.candidates.length >= MAX_INBOX_CANDIDATE_FILES) {
+          throw new Error(`Inbox discovery exceeds the ${MAX_INBOX_CANDIDATE_FILES} candidate-file limit.`);
+        }
+        discovery.totalBytes += stat.size;
+        if (discovery.totalBytes > MAX_INBOX_DISCOVERY_BYTES) {
+          throw new Error(`Inbox discovery exceeds the ${MAX_INBOX_DISCOVERY_BYTES}-byte budget.`);
+        }
+        discovery.candidates.push({ path: entryPath, root: inboxRoot, bytes: stat.size });
+      }
+    }
+  }
+  await visit(inboxRoot, 0);
+}
+
+async function inspectInboxCapture(candidate, validatePayload) {
+  try {
+    const source = await readAllowedFileBounded(
+      candidate.path,
+      [candidate.root],
+      Math.min(MAX_IMPORT_BYTES, candidate.bytes),
+      'Inbox capture'
+    );
+    if (source.stat.size !== candidate.bytes) return null;
+    const payload = JSON.parse(source.bytes.toString('utf8'));
+    const summary = validatePayload(payload);
+    return {
+      fileName: path.relative(candidate.root, source.path).split(path.sep).join('/'),
+      path: source.path,
+      bytes: source.bytes.length,
+      modifiedAt: new Date(source.stat.mtimeMs).toISOString(),
+      historyCount: summary.histories.length,
+      itemCount: summary.itemCount,
+      storageKeys: summary.storageKeys,
+      requiresStorageKey: summary.requiresStorageKey,
+      _modifiedAtMs: source.stat.mtimeMs,
+      _root: candidate.root
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function compareStableText(left, right) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }
 
 function isPathInside(root, candidate) {
@@ -1089,6 +1291,10 @@ export const constants = Object.freeze({
   MAX_IMPORT_HISTORIES,
   MAX_IMPORT_ITEMS,
   MAX_IMPORT_EVIDENCE_BYTES,
+  MAX_INBOX_CAPTURES,
+  MAX_INBOX_DISCOVERY_DEPTH,
+  MAX_INBOX_CANDIDATE_FILES,
+  MAX_INBOX_DISCOVERY_BYTES,
   MAX_IMAGE_DIMENSION,
   MAX_IMAGE_PIXELS
 });

@@ -776,6 +776,10 @@
         markdown += `**Classes:** ${escapeMarkdownText(item.elementInfo.classes.join(', ') || 'none')}\n\n`;
         markdown += `**Text:** ${escapeMarkdownText(item.elementInfo.text || '(empty)')}\n\n`;
         markdown += `**Position:** x: ${item.position.x}, y: ${item.position.y}\n\n`;
+        if (item.elementInfo.geometry) {
+          const geometry = item.elementInfo.geometry;
+          markdown += `**Element Rect:** x: ${geometry.x}, y: ${geometry.y}, width: ${geometry.width}, height: ${geometry.height}\n\n`;
+        }
         markdown += '**Styles:**\n';
 
         Object.entries(item.elementInfo.styles).forEach(([key, value]) => {

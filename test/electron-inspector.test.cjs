@@ -6,6 +6,33 @@ const test = require('node:test');
 
 const { installElectronInspector } = require('../packages/electron-inspector/main.cjs');
 const { installElectronInspectorPreload } = require('../packages/electron-inspector/preload.cjs');
+const { describeFeature, implicitRole } = require('../packages/electron-inspector/renderer.cjs');
+
+test('feature identity honors Host App attributes and native input roles', () => {
+  const featureElement = {
+    tagName: 'DIV',
+    isContentEditable: false,
+    innerText: '',
+    getAttribute: (name) => name === 'data-feature' ? 'Build controls' : null,
+    closest() { return this; }
+  };
+  assert.deepEqual(describeFeature(featureElement), {
+    label: 'Build controls div',
+    kind: 'div',
+    context: 'Build controls'
+  });
+
+  const checkbox = {
+    tagName: 'INPUT',
+    getAttribute: (name) => name === 'type' ? 'checkbox' : null
+  };
+  const radio = {
+    tagName: 'INPUT',
+    getAttribute: (name) => name === 'type' ? 'radio' : null
+  };
+  assert.equal(implicitRole(checkbox), 'checkbox');
+  assert.equal(implicitRole(radio), 'radio');
+});
 
 test('main installer exposes one Host App action and starts inspection in the target window', async () => {
   const handlers = new Map();
@@ -148,6 +175,7 @@ test('main installer validates Element drafts, stores History, and prepares an e
   assert.match(exported.text, /Build button/);
   assert.match(exported.text, /Make the build state clearer/);
   assert.match(exported.text, /app:\/\/forge3d/);
+  assert.match(exported.text, /width: 120, height: 44/);
   assert.equal(exported.path, undefined);
 
   await inspector.dispose();

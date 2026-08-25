@@ -7,7 +7,7 @@
   "scripts": {
     "test": "npm run test:extension && npm run test:electron && npm run test:mcp",
     "test:extension": "node --test test/browser-core.test.cjs && node test/release.test.cjs",
-    "test:electron": "node --test test/electron-inspector.test.cjs",
+    "test:electron": "node packages/electron-inspector/scripts/build.cjs && node --test test/electron-inspector.test.cjs",
     "test:mcp": "node --test test/mcp.test.mjs",
     "check": "node scripts/release-check.cjs",
     "package": "node scripts/package-extension.cjs",

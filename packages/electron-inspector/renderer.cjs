@@ -310,7 +310,7 @@ function describeFeature(element) {
   const contextElement = element.closest?.(
     '[data-feature], [data-component], [data-view], [data-panel], [role="region"], [role="toolbar"], [role="dialog"], [aria-label]'
   );
-  const context = contextElement && contextElement !== element
+  const context = contextElement
     ? firstAttribute(contextElement, ['data-feature', 'data-component', 'data-view', 'data-panel', 'aria-label'])
     : '';
   let label = name || context || kind;
@@ -327,7 +327,9 @@ function describeFeature(element) {
 }
 
 function accessibleName(element) {
-  const direct = firstAttribute(element, ['aria-label', 'title', 'alt', 'placeholder']);
+  const direct = firstAttribute(element, [
+    'aria-label', 'data-feature', 'data-component', 'data-view', 'data-panel', 'title', 'alt', 'placeholder'
+  ]);
   if (direct) return direct;
   const labelledBy = cleanText(element.getAttribute('aria-labelledby'), 300);
   if (labelledBy) {
@@ -426,7 +428,18 @@ function implicitRole(element) {
   const tag = element.tagName.toLowerCase();
   if (tag === 'button') return 'button';
   if (tag === 'a' && element.hasAttribute('href')) return 'link';
-  if (tag === 'input') return 'textbox';
+  if (tag === 'textarea') return 'textbox';
+  if (tag === 'select') return element.hasAttribute?.('multiple') ? 'listbox' : 'combobox';
+  if (tag === 'input') {
+    const type = cleanText(element.getAttribute('type'), 30).toLowerCase() || 'text';
+    if (['button', 'image', 'reset', 'submit'].includes(type)) return 'button';
+    if (type === 'checkbox') return 'checkbox';
+    if (type === 'radio') return 'radio';
+    if (type === 'range') return 'slider';
+    if (type === 'number') return 'spinbutton';
+    if (type === 'hidden') return '';
+    return 'textbox';
+  }
   return '';
 }
 
@@ -494,5 +507,7 @@ function styles() {
 }
 
 module.exports = {
-  mountElectronInspector
+  mountElectronInspector,
+  describeFeature,
+  implicitRole
 };

@@ -6,16 +6,11 @@ The Host App keeps ownership of its windows and preload. The package owns its se
 
 ## Install
 
-The `0.2.0` package is a release candidate and is not yet available from the npm registry. To test it from this repository, build and install the local archive:
+Install the development dependency from npm:
 
 ```sh
-cd packages/electron-inspector
-npm pack
-cd /path/to/host-app
-npm install --save-dev /path/to/dev-feedback-electron-0.2.0.tgz
+npm install --save-dev @dev-feedback/electron
 ```
-
-After the registry release, the install command becomes `npm install --save-dev @dev-feedback/electron`.
 
 Add this one line to the Electron main-process entry before creating any windows:
 
@@ -41,3 +36,16 @@ The guard is deliberate. Packaged production builds do not register the inspecto
 - History stays under Electron `userData`.
 - `Copy History` puts a readable Markdown summary on the clipboard only after the user clicks it. Paste it into any Codex task, issue, or document.
 - Region capture, direct MCP transport, cloud sync, and Chrome extension loading are not part of V1.
+
+## Maintainer release
+
+From the repository root, install the locked toolchain and verify the package before publishing:
+
+```sh
+npm ci
+npm test
+npm run check
+cd packages/electron-inspector
+npm pack --dry-run
+npm publish --access public
+```

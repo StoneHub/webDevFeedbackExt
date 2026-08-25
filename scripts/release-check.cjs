@@ -7,6 +7,7 @@ const rootDir = path.join(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'product.json'), 'utf8'));
+const license = fs.readFileSync(path.join(rootDir, 'LICENSE'), 'utf8');
 const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
@@ -83,6 +84,8 @@ companionJavaScriptFiles.forEach((file) => {
 });
 
 assert.equal(packageJson.version, manifest.version);
+assert.equal(packageJson.license, 'MIT');
+assert.match(license, /^MIT License/);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.ok(manifest.name.length <= 45, 'Manifest name exceeds the Chrome Web Store limit');
 assert.equal(manifest.description, 'Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.');

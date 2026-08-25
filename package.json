@@ -2,7 +2,7 @@
   "name": "dev-feedback-capture",
   "private": true,
   "version": "1.8.0",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "Capture browser elements and regions for local implementation handoffs",
   "scripts": {
     "test": "npm run test:extension && npm run test:electron && npm run test:mcp",

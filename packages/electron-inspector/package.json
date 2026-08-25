@@ -1,8 +1,8 @@
 {
   "name": "@dev-feedback/electron",
   "version": "0.2.0",
-  "private": true,
   "description": "Local feedback inspector for Electron development builds",
+  "license": "MIT",
   "author": "Monroe Stone",
   "repository": {
     "type": "git",
@@ -33,7 +33,8 @@
     "renderer.cjs",
     "vendor/capture-record.cjs",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "prepack": "node scripts/build.cjs"

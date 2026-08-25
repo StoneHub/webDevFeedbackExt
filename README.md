@@ -114,7 +114,7 @@ The companion does not read Chromium's internal storage, open a network port, co
 
 ## Electron Inspector developer package
 
-Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the `@dev-feedback/electron` development package to their app. Version `0.2.0` is currently a locally packable release candidate; registry publication still requires an explicit package license and npm publisher authentication.
+Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the free, MIT-licensed `@dev-feedback/electron` development package to their app.
 
 The Host App integration is one guarded import in its main-process entry, before any window is created:
 
@@ -192,4 +192,4 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 
-This repository is source-visible for portfolio, review, and evaluation purposes only. All rights are reserved unless Monroe Stone grants written permission otherwise. See [LICENSE](LICENSE).
+Dev Feedback Capture and its Electron package are free software under the [MIT License](LICENSE).

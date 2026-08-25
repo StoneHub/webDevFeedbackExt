@@ -10,7 +10,7 @@ The product story is: a Chromium extension for collecting structured feedback fr
 
 - `product.json` exists for catalog ingestion.
 - `CHANGELOG.md` preserves historical release entries and submission notes.
-- `LICENSE` marks the project as source-visible with all rights reserved.
+- `LICENSE` releases the browser extension and Electron package under MIT.
 - `npm run package` creates the versioned release zip from the current source checkout.
 - `.github/workflows/release.yml` publishes a zip asset when a matching `v*` tag is pushed.
 - GitHub Release `v1.2.0` is published with `dev-feedback-capture-v1.2.0.zip`.

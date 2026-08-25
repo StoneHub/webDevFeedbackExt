@@ -15,9 +15,15 @@ const { describeFeature, implicitRole } = require('../packages/electron-inspecto
 test('published package contains the one-line register entry and its self-contained preload', async () => {
   const packageRoot = path.resolve(__dirname, '..', 'packages', 'electron-inspector');
   const manifest = JSON.parse(await fs.readFile(path.join(packageRoot, 'package.json'), 'utf8'));
+  assert.equal(manifest.private, undefined);
+  assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.exports['./register'], './register.cjs');
   assert.equal(manifest.files.includes('register.cjs'), true);
   assert.equal(manifest.files.includes('register-preload.cjs'), true);
+  assert.equal(manifest.files.includes('LICENSE'), true);
+
+  const license = await fs.readFile(path.join(packageRoot, 'LICENSE'), 'utf8');
+  assert.match(license, /^MIT License/);
 
   const bundledPreload = await fs.readFile(path.join(packageRoot, 'register-preload.cjs'), 'utf8');
   assert.match(bundledPreload, /dev-feedback-electron:start/);

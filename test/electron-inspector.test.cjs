@@ -166,9 +166,27 @@ test('main installer validates Element drafts, stores History, and prepares an e
   assert.equal(JSON.stringify(saved.record).includes('/Users/monroe'), false);
   assert.equal(JSON.stringify(saved.record).includes('private terminal output'), false);
 
+  const historyPath = path.join(userDataRoot, 'dev-feedback-electron', 'forge3d-history.json');
+  await fs.writeFile(historyPath, JSON.stringify({
+    schemaVersion: 1,
+    storageKey: 'dev-feedback-app-forge3d',
+    items: [{
+      ...saved.record,
+      elementInfo: {
+        ...saved.record.elementInfo,
+        tag: 'div',
+        role: '',
+        text: 'legacy editor source that must not be exported',
+        surroundingText: 'legacy terminal output that must not be exported'
+      }
+    }]
+  }));
+
   const history = await handlers.get('dev-feedback-electron:history-list')(event);
   assert.equal(history.items.length, 1);
   assert.equal(history.items[0].note, 'Make the build state clearer');
+  assert.equal(history.items[0].elementInfo.text, '');
+  assert.equal(history.items[0].elementInfo.surroundingText, '');
 
   const exported = await handlers.get('dev-feedback-electron:history-export-text')(event);
   assert.equal(exported.count, 1);

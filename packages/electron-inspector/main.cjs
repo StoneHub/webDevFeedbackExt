@@ -132,7 +132,7 @@ function assertTrustedSender(event, mainWindow) {
 async function readHistory(historyPath, storageKey) {
   try {
     const parsed = JSON.parse(await fs.readFile(historyPath, 'utf8'));
-    const items = captureRecords.sanitizeFeedbackItems(parsed?.items);
+    const items = captureRecords.sanitizeFeedbackItems(parsed?.items).map(scrubElectronHistoryItem);
     return { schemaVersion: 1, storageKey, items: items.slice(-MAX_HISTORY_ITEMS) };
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -140,6 +140,25 @@ async function readHistory(historyPath, storageKey) {
     }
     throw error;
   }
+}
+
+function scrubElectronHistoryItem(item) {
+  if (item?.type !== 'element' || !item.elementInfo) {
+    return item;
+  }
+  const safeTextTags = new Set(['a', 'button', 'label', 'legend', 'option', 'summary']);
+  const safeTextRoles = new Set(['button', 'link', 'menuitem', 'option', 'tab']);
+  const tag = String(item.elementInfo.tag || '').toLowerCase();
+  const role = String(item.elementInfo.role || '').toLowerCase();
+  const keepText = safeTextTags.has(tag) || safeTextRoles.has(role);
+  return {
+    ...item,
+    elementInfo: {
+      ...item.elementInfo,
+      text: keepText ? String(item.elementInfo.text || '').slice(0, 160) : '',
+      surroundingText: ''
+    }
+  };
 }
 
 async function writeJsonAtomic(destination, value) {

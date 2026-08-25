@@ -256,9 +256,38 @@
       text: typeof elementInfo?.text === 'string' ? elementInfo.text : '',
       styles: sanitizeStyles(elementInfo?.styles),
       role: sanitizeString(elementInfo?.role, 120),
+      ...(sanitizeFeatureInfo(elementInfo?.feature) ? { feature: sanitizeFeatureInfo(elementInfo.feature) } : {}),
+      ...(sanitizeGeometry(elementInfo?.geometry) ? { geometry: sanitizeGeometry(elementInfo.geometry) } : {}),
       surroundingText: sanitizeString(elementInfo?.surroundingText, 500),
       parentLayout: sanitizeParentLayout(elementInfo?.parentLayout)
     };
+  }
+
+  function sanitizeFeatureInfo(feature) {
+    if (!feature || typeof feature !== 'object') {
+      return null;
+    }
+    const label = sanitizeString(feature.label, 160);
+    const kind = sanitizeString(feature.kind, 80);
+    const context = sanitizeString(feature.context, 160);
+    if (!label && !kind && !context) {
+      return null;
+    }
+    return { label, kind, context };
+  }
+
+  function sanitizeGeometry(geometry) {
+    if (!geometry || typeof geometry !== 'object') {
+      return null;
+    }
+    const normalized = ['x', 'y', 'width', 'height'].reduce((result, key) => {
+      const value = Number(geometry[key]);
+      result[key] = Number.isFinite(value) ? value : 0;
+      return result;
+    }, {});
+    normalized.width = Math.max(0, normalized.width);
+    normalized.height = Math.max(0, normalized.height);
+    return normalized;
   }
 
   function sanitizeStyles(styles) {
@@ -705,7 +734,10 @@
     markdown += '---\n\n';
 
     normalizedItems.forEach((item, index) => {
-      markdown += `## ${index + 1}. ${item.type === CAPTURE_TYPE_REGION ? 'Region Capture' : escapeMarkdownText(item.elementInfo.tag)}\n\n`;
+      const captureLabel = item.type === CAPTURE_TYPE_REGION
+        ? 'Region Capture'
+        : item.elementInfo.feature?.label || item.elementInfo.tag;
+      markdown += `## ${index + 1}. ${escapeMarkdownText(captureLabel)}\n\n`;
       markdown += `**Type:** ${escapeMarkdownText(item.type)}\n\n`;
       markdown += `**Request Kind:** ${formatRequestKind(item.changeRequest.kind)}\n\n`;
 
@@ -744,6 +776,10 @@
         markdown += `**Classes:** ${escapeMarkdownText(item.elementInfo.classes.join(', ') || 'none')}\n\n`;
         markdown += `**Text:** ${escapeMarkdownText(item.elementInfo.text || '(empty)')}\n\n`;
         markdown += `**Position:** x: ${item.position.x}, y: ${item.position.y}\n\n`;
+        if (item.elementInfo.geometry) {
+          const geometry = item.elementInfo.geometry;
+          markdown += `**Element Rect:** x: ${geometry.x}, y: ${geometry.y}, width: ${geometry.width}, height: ${geometry.height}\n\n`;
+        }
         markdown += '**Styles:**\n';
 
         Object.entries(item.elementInfo.styles).forEach(([key, value]) => {

@@ -112,6 +112,18 @@ The Node MCP companion under `mcp/` imports an explicit History export from a co
 
 The companion does not read Chromium's internal storage, open a network port, control the browser, execute shell commands, or edit source code. The connected agent uses its normal browser and coding tools. Tool results and evidence are still delivered to that MCP client, so cloud-backed clients may transmit captured data under their provider policies. See [docs/mcp-local-agent.md](docs/mcp-local-agent.md) for setup and the trust boundary.
 
+## Electron Inspector developer package
+
+Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the `@dev-feedback/electron` development package to their app. Version `0.2.0` is currently a locally packable release candidate; registry publication still requires an explicit package license and npm publisher authentication.
+
+The Host App integration is one guarded import in its main-process entry, before any window is created:
+
+```js
+if (!app.isPackaged) await import('@dev-feedback/electron/register')
+```
+
+Press `Cmd/Ctrl+Shift+.` in any registered development window to start Element capture. The package owns its session preload, shortcut, package-owned overlay, local History under Electron `userData`, and `Copy History` action. It does not require React, replace the Host App preload, or expose Electron IPC to the Host App renderer. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for installation and the trust contract.
+
 ## Permissions
 
 The extension requests:
@@ -168,14 +180,15 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
 - Region mode captures the current viewport only, not full-page stitched screenshots.
 - Cross-origin iframe DOM capture remains limited by browser security rules.
-- Electron support is not part of the browser extension. An Electron application must explicitly load an extension package from its own code; Chrome's extension menu cannot attach this extension to an arbitrary already-running Electron app.
+- Chrome's extension menu cannot attach this browser extension to an arbitrary already-running Electron app. Electron developers must explicitly install the separate Electron Inspector package in their Host App.
 
 ## Roadmap
 
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add user-triggered import back into extension History
-- Evaluate a native-messaging handoff only after the Downloads-inbox workflow proves useful and its permission/install boundary is defined
+- Publish and dogfood the Element-only Electron Inspector across more development apps, then decide whether Region capture earns the additional screenshot permission and storage surface
+- Evaluate a private cross-app History Hub only after app-local History and explicit clipboard export prove useful
 
 ## License
 

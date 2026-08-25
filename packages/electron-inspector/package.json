@@ -1,0 +1,50 @@
+{
+  "name": "@dev-feedback/electron",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Local feedback inspector for Electron development builds",
+  "author": "Monroe Stone",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StoneHub/webDevFeedbackExt.git",
+    "directory": "packages/electron-inspector"
+  },
+  "homepage": "https://github.com/StoneHub/webDevFeedbackExt#electron-inspector-developer-package",
+  "bugs": {
+    "url": "https://github.com/StoneHub/webDevFeedbackExt/issues"
+  },
+  "keywords": [
+    "electron",
+    "developer-tools",
+    "ui-feedback",
+    "inspector"
+  ],
+  "main": "main.cjs",
+  "exports": {
+    "./register": "./register.cjs",
+    "./main": "./main.cjs",
+    "./preload": "./preload.cjs"
+  },
+  "files": [
+    "register.cjs",
+    "register-preload.cjs",
+    "main.cjs",
+    "preload.cjs",
+    "renderer.cjs",
+    "vendor/capture-record.cjs",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "prepack": "node scripts/build.cjs"
+  },
+  "peerDependencies": {
+    "electron": ">=30"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

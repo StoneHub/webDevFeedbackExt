@@ -76,12 +76,11 @@ test('preload hook registers the narrow inspector bridge without exposing Electr
   assert.equal(documentListeners.size, 0);
 });
 
-test('main installer validates Element drafts, stores History, and writes the existing handoff contract', async (t) => {
+test('main installer validates Element drafts, stores History, and prepares an explicit clipboard export', async (t) => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dev-feedback-electron-'));
   t.after(() => fs.rm(tempRoot, { recursive: true, force: true }));
   const userDataRoot = path.join(tempRoot, 'user-data');
   const downloadsRoot = path.join(tempRoot, 'Downloads');
-  const inboxRoot = path.join(downloadsRoot, 'Forge3D');
   await fs.mkdir(userDataRoot, { recursive: true });
   await fs.mkdir(downloadsRoot, { recursive: true });
 
@@ -100,7 +99,6 @@ test('main installer validates Element drafts, stores History, and writes the ex
     getMainWindow: () => ({ isDestroyed: () => false, webContents }),
     hostId: 'forge3d',
     hostName: 'Forge3D',
-    inboxRoot,
     clock: () => new Date('2026-08-24T12:00:00.000Z')
   });
 
@@ -114,6 +112,13 @@ test('main installer validates Element drafts, stores History, and writes the ex
       text: 'Build',
       classes: ['primary'],
       role: 'button',
+      feature: {
+        label: 'Build button',
+        kind: 'button',
+        context: 'Build controls'
+      },
+      geometry: { x: 20, y: 30, width: 120, height: 44 },
+      surroundingText: 'private terminal output that must not be captured',
       styles: { color: '#ffffff', backgroundColor: '#5b55c5' }
     },
     position: { x: 20, y: 30 },
@@ -124,19 +129,26 @@ test('main installer validates Element drafts, stores History, and writes the ex
   assert.equal(saved.record.type, 'element');
   assert.equal(saved.record.selector, 'button[data-action="build"]');
   assert.equal(saved.record.pageUrl, 'app://forge3d');
+  assert.deepEqual(saved.record.elementInfo.feature, {
+    label: 'Build button',
+    kind: 'button',
+    context: 'Build controls'
+  });
+  assert.deepEqual(saved.record.elementInfo.geometry, { x: 20, y: 30, width: 120, height: 44 });
+  assert.equal(saved.record.elementInfo.surroundingText, '');
   assert.equal(JSON.stringify(saved.record).includes('/Users/monroe'), false);
+  assert.equal(JSON.stringify(saved.record).includes('private terminal output'), false);
 
   const history = await handlers.get('dev-feedback-electron:history-list')(event);
   assert.equal(history.items.length, 1);
   assert.equal(history.items[0].note, 'Make the build state clearer');
 
-  const exported = await handlers.get('dev-feedback-electron:handoff-export')(event);
+  const exported = await handlers.get('dev-feedback-electron:history-export-text')(event);
   assert.equal(exported.count, 1);
-  assert.equal(path.dirname(exported.path), await fs.realpath(inboxRoot));
-  const payload = JSON.parse(await fs.readFile(exported.path, 'utf8'));
-  assert.equal(payload.schemaVersion, 1);
-  assert.equal(payload.histories[0].storageKey, 'dev-feedback-app-forge3d');
-  assert.equal(payload.histories[0].items[0].pageUrl, 'app://forge3d');
+  assert.match(exported.text, /Build button/);
+  assert.match(exported.text, /Make the build state clearer/);
+  assert.match(exported.text, /app:\/\/forge3d/);
+  assert.equal(exported.path, undefined);
 
   await inspector.dispose();
 });

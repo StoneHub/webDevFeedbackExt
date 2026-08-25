@@ -8,11 +8,11 @@ const captureRecords = loadCaptureRecordModule();
 const START_CHANNEL = 'dev-feedback-electron:start';
 const CAPTURE_ELEMENT_CHANNEL = 'dev-feedback-electron:capture-element';
 const HISTORY_LIST_CHANNEL = 'dev-feedback-electron:history-list';
-const HANDOFF_EXPORT_CHANNEL = 'dev-feedback-electron:handoff-export';
+const HISTORY_EXPORT_TEXT_CHANNEL = 'dev-feedback-electron:history-export-text';
 const REGISTERED_CHANNELS = Object.freeze([
   CAPTURE_ELEMENT_CHANNEL,
   HISTORY_LIST_CHANNEL,
-  HANDOFF_EXPORT_CHANNEL
+  HISTORY_EXPORT_TEXT_CHANNEL
 ]);
 const MAX_HISTORY_ITEMS = 200;
 
@@ -36,8 +36,6 @@ function installElectronInspector(options = {}) {
 
   let disposed = false;
   const userDataRoot = path.resolve(app.getPath('userData'));
-  const downloadsRoot = path.resolve(app.getPath('downloads'));
-  const inboxRoot = path.resolve(options.inboxRoot || downloadsRoot);
   const historyRoot = path.join(userDataRoot, 'dev-feedback-electron');
   const historyPath = path.join(historyRoot, `${safeSegment(hostId)}-history.json`);
   const storageKey = `dev-feedback-app-${hostId}`;
@@ -56,24 +54,18 @@ function installElectronInspector(options = {}) {
     return readHistory(historyPath, storageKey);
   });
 
-  ipcMain.handle(HANDOFF_EXPORT_CHANNEL, async (event) => {
+  ipcMain.handle(HISTORY_EXPORT_TEXT_CHANNEL, async (event) => {
     assertTrustedSender(event, getMainWindow());
     const history = await readHistory(historyPath, storageKey);
     if (!history.items.length) {
       throw new Error('Electron Inspector History is empty.');
     }
-    const approvedInbox = await resolveApprovedInbox(downloadsRoot, inboxRoot);
-    const exportedAt = clock().toISOString();
-    const exportPath = path.join(
-      approvedInbox,
-      `dev-feedback-${safeSegment(hostId)}-${exportedAt.replace(/[:.]/g, '-')}.json`
-    );
-    await writeJsonAtomic(exportPath, {
-      schemaVersion: 1,
-      exportedAt,
-      histories: [{ storageKey, items: history.items }]
-    });
-    return { path: exportPath, count: history.items.length, exportedAt };
+    return {
+      count: history.items.length,
+      text: captureRecords.buildMarkdownExport(`app://${hostId}`, history.items, {
+        exportedAt: clock().toISOString()
+      })
+    };
   });
 
   function inspect() {
@@ -110,12 +102,15 @@ function installElectronInspector(options = {}) {
 
 function buildElementRecord(draft, context) {
   const input = draft && typeof draft === 'object' ? draft : {};
+  const elementInfo = input.elementInfo && typeof input.elementInfo === 'object'
+    ? { ...input.elementInfo, surroundingText: '' }
+    : input.elementInfo;
   const syntheticUrl = `app://${context.hostId}`;
   return captureRecords.createElementRecord({
     selector: input.selector,
     pageUrl: syntheticUrl,
     pageTitle: context.hostName,
-    elementInfo: input.elementInfo,
+    elementInfo,
     position: input.position,
     pageContext: {
       url: syntheticUrl,
@@ -145,23 +140,6 @@ async function readHistory(historyPath, storageKey) {
     }
     throw error;
   }
-}
-
-async function resolveApprovedInbox(downloadsRoot, inboxRoot) {
-  const relative = path.relative(downloadsRoot, inboxRoot);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('Electron Inspector inbox must be the Downloads directory or one of its children.');
-  }
-  await fs.mkdir(inboxRoot, { recursive: true, mode: 0o700 });
-  const [approvedRoot, approvedInbox] = await Promise.all([
-    fs.realpath(downloadsRoot),
-    fs.realpath(inboxRoot)
-  ]);
-  const realRelative = path.relative(approvedRoot, approvedInbox);
-  if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
-    throw new Error('Electron Inspector inbox resolves outside Downloads.');
-  }
-  return approvedInbox;
 }
 
 async function writeJsonAtomic(destination, value) {

@@ -23,7 +23,7 @@ function installElectronInspectorPreload(options = {}) {
   const bridge = Object.freeze({
     saveElement: (draft) => ipcRenderer.invoke('dev-feedback-electron:capture-element', draft),
     listHistory: () => ipcRenderer.invoke('dev-feedback-electron:history-list'),
-    sendToCodex: () => ipcRenderer.invoke('dev-feedback-electron:handoff-export')
+    getHistoryText: () => ipcRenderer.invoke('dev-feedback-electron:history-export-text')
   });
 
   function mount() {

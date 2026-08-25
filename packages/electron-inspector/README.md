@@ -1,8 +1,8 @@
 # @dev-feedback/electron
 
-`@dev-feedback/electron` adds an explicit Element inspector, local History, and a `Send to Codex` handoff to an Electron development build.
+`@dev-feedback/electron` adds an explicit Element inspector, local History, and a plain-text `Copy History` action to an Electron development build.
 
-The Host App keeps ownership of its window and menu. The package owns DOM selection, Capture Record validation, app-local storage, and the Downloads handoff.
+The Host App keeps ownership of its window and menu. The package owns DOM selection, Capture Record validation, app-local storage, and the in-app History panel.
 
 ## Install from this checkout
 
@@ -34,7 +34,6 @@ const feedbackInspector = installElectronInspector({
   getMainWindow: () => mainWindow,
   hostId: 'forge3d',
   hostName: 'Forge3D',
-  inboxRoot: path.join(app.getPath('downloads'), 'Forge3D'),
 })
 
 const menuItem = feedbackInspector.menuItem()
@@ -64,8 +63,8 @@ Point `BrowserWindow.webPreferences.preload` at the bundle. The hook does not ex
 ## Trust contract
 
 - Capture starts only from the Host App menu or another visible call to `inspect()`.
-- V1 captures one DOM element and the user's note.
-- Source files, local paths, terminal text, build logs, clipboard contents, and network data are not collected automatically.
+- V1 captures one explicitly selected DOM element, its safe accessibility and feature signals, its rectangle, and the user's note.
+- It does not collect broad parent text, source files, local paths, terminal buffers, build logs, existing clipboard contents, or network data.
 - History stays under Electron `userData`.
-- `Send to Codex` writes the existing standalone History JSON envelope into the configured Downloads inbox. The local MCP companion imports it as a separate explicit step.
+- `Copy History` puts a readable Markdown summary on the clipboard only after the user clicks it. Paste it into any Codex task, issue, or document.
 - Region capture, direct MCP transport, cloud sync, and Chrome extension loading are not part of V1.

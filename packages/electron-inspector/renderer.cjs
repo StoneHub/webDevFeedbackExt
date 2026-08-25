@@ -100,7 +100,7 @@ function mountElectronInspector(options = {}) {
     const target = documentRef.createElement('div');
     target.className = 'target';
     const targetName = documentRef.createElement('strong');
-    targetName.textContent = `<${draft.elementInfo.tag}> ${draft.elementInfo.text || 'Untitled element'}`;
+    targetName.textContent = draft.elementInfo.feature?.label || `<${draft.elementInfo.tag}>`;
     const selector = documentRef.createElement('code');
     selector.textContent = draft.selector;
     target.append(targetName, selector);
@@ -168,31 +168,37 @@ function mountElectronInspector(options = {}) {
     list.className = 'history';
     items.slice().reverse().forEach((item) => {
       const entry = documentRef.createElement('li');
+      const feature = documentRef.createElement('strong');
+      feature.textContent = historyFeatureLabel(item);
       const note = documentRef.createElement('span');
       note.textContent = cleanText(item.note, 240) || 'Untitled capture';
       const selector = documentRef.createElement('code');
       selector.textContent = cleanText(item.selector, 300);
-      entry.append(note, selector);
+      entry.append(feature, note, selector);
       list.appendChild(entry);
     });
 
     const actions = documentRef.createElement('div');
     actions.className = 'actions';
-    const send = createButton('Send to Codex', 'primary');
+    const copy = createButton('Copy History', 'primary');
     const another = createButton('Inspect another');
-    actions.append(send, another);
+    actions.append(copy, another);
     body.append(list, actions);
     another.addEventListener('click', beginSelection);
-    send.addEventListener('click', async () => {
-      send.disabled = true;
-      status.textContent = 'Writing the local handoff...';
+    copy.addEventListener('click', async () => {
+      copy.disabled = true;
+      status.textContent = 'Preparing History text...';
       try {
-        const result = await bridge.sendToCodex();
-        status.textContent = `Handoff ready with ${result.count} capture${result.count === 1 ? '' : 's'}.`;
-        send.textContent = 'Sent to Codex inbox';
+        const result = await bridge.getHistoryText();
+        if (!windowRef.navigator?.clipboard?.writeText) {
+          throw new Error('Clipboard access is unavailable in this app.');
+        }
+        await windowRef.navigator.clipboard.writeText(result.text);
+        status.textContent = `Copied ${result.count} capture${result.count === 1 ? '' : 's'}. Paste into any Codex task, issue, or document.`;
+        copy.textContent = 'Copied';
       } catch (error) {
-        send.disabled = false;
-        showError(error?.message || 'The handoff could not be written.');
+        copy.disabled = false;
+        showError(error?.message || 'History could not be copied.');
       }
     });
   }
@@ -266,15 +272,22 @@ function buildElementDraft(element, windowRef) {
   const rect = element.getBoundingClientRect();
   const computed = windowRef.getComputedStyle(element);
   const styles = Object.fromEntries(STYLE_KEYS.map((key) => [key, computed.getPropertyValue(key)]));
+  const feature = describeFeature(element);
   return {
     selector: buildSelector(element, windowRef),
     elementInfo: {
       tag: element.tagName.toLowerCase(),
-      text: cleanText(element.innerText || element.textContent, 500),
+      text: visibleControlText(element),
       classes: Array.from(element.classList || []).slice(0, 20),
       styles,
       role: cleanText(element.getAttribute('role') || implicitRole(element), 120),
-      surroundingText: cleanText(element.parentElement?.innerText || element.parentElement?.textContent, 500),
+      feature,
+      geometry: {
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.max(0, Math.round(rect.width)),
+        height: Math.max(0, Math.round(rect.height))
+      },
       parentLayout: {
         display: computed.getPropertyValue('display'),
         gap: computed.getPropertyValue('gap')
@@ -289,6 +302,85 @@ function buildElementDraft(element, windowRef) {
       devicePixelRatio: windowRef.devicePixelRatio
     }
   };
+}
+
+function describeFeature(element) {
+  const kind = humanElementKind(element);
+  const name = accessibleName(element);
+  const contextElement = element.closest?.(
+    '[data-feature], [data-component], [data-view], [data-panel], [role="region"], [role="toolbar"], [role="dialog"], [aria-label]'
+  );
+  const context = contextElement && contextElement !== element
+    ? firstAttribute(contextElement, ['data-feature', 'data-component', 'data-view', 'data-panel', 'aria-label'])
+    : '';
+  let label = name || context || kind;
+  if (name && kind && !name.toLowerCase().includes(kind.toLowerCase())) {
+    label = `${name} ${kind}`;
+  } else if (!name && context && kind && !context.toLowerCase().includes(kind.toLowerCase())) {
+    label = `${context} ${kind}`;
+  }
+  return {
+    label: cleanText(label, 160),
+    kind: cleanText(kind, 80),
+    context: cleanText(context, 160)
+  };
+}
+
+function accessibleName(element) {
+  const direct = firstAttribute(element, ['aria-label', 'title', 'alt', 'placeholder']);
+  if (direct) return direct;
+  const labelledBy = cleanText(element.getAttribute('aria-labelledby'), 300);
+  if (labelledBy) {
+    const label = labelledBy
+      .split(/\s+/)
+      .map((id) => element.ownerDocument.getElementById(id))
+      .filter(Boolean)
+      .map((node) => cleanText(node.innerText, 80))
+      .filter(Boolean)
+      .join(' ');
+    if (label) return label;
+  }
+  return visibleControlText(element);
+}
+
+function firstAttribute(element, names) {
+  for (const name of names) {
+    const value = cleanText(element.getAttribute?.(name), 160);
+    if (value) return value;
+  }
+  return '';
+}
+
+function visibleControlText(element) {
+  const tag = element.tagName.toLowerCase();
+  const role = element.getAttribute('role') || implicitRole(element);
+  const textBearingControl = ['button', 'a', 'label', 'summary', 'legend', 'option'].includes(tag)
+    || ['button', 'link', 'tab', 'menuitem', 'option'].includes(role);
+  if (!textBearingControl || element.isContentEditable || ['pre', 'code', 'textarea'].includes(tag)) {
+    return '';
+  }
+  return cleanText(element.innerText, 160);
+}
+
+function humanElementKind(element) {
+  const role = cleanText(element.getAttribute('role') || implicitRole(element), 80);
+  if (role) return role.replace(/[-_]+/g, ' ');
+  const labels = { canvas: 'canvas', img: 'image', video: 'video', input: 'input', select: 'select', textarea: 'text area' };
+  return labels[element.tagName.toLowerCase()] || element.tagName.toLowerCase();
+}
+
+function historyFeatureLabel(item) {
+  const explicit = cleanText(item?.elementInfo?.feature?.label, 160);
+  if (explicit) return explicit;
+  const kind = cleanText(item?.elementInfo?.role || humanTag(item?.elementInfo?.tag), 80);
+  const text = cleanText(item?.elementInfo?.text, 80);
+  if (text && kind && !text.toLowerCase().includes(kind.toLowerCase())) return `${text} ${kind}`;
+  return text || kind || 'Interface element';
+}
+
+function humanTag(tag) {
+  const normalized = cleanText(tag, 40).toLowerCase();
+  return ({ img: 'image', textarea: 'text area' })[normalized] || normalized;
 }
 
 function buildSelector(element, windowRef) {
@@ -363,7 +455,7 @@ function markup() {
         <button type="button" data-history>History</button>
       </nav>
       <section data-body></section>
-      <footer>Local capture. Explicit handoff.</footer>
+      <footer>App-local History. Copy only when you choose.</footer>
     </aside>`;
 }
 
@@ -396,7 +488,7 @@ function styles() {
     .actions { margin-top: 10px; }
     .history { display: grid; gap: 8px; max-height: 320px; overflow: auto; margin: 0; padding-left: 24px; }
     .history li { padding: 8px; background: #222537; border-radius: 8px; }
-    .history span { display: block; margin-bottom: 3px; }
+    .history strong, .history span { display: block; margin-bottom: 3px; }
     .highlight { pointer-events: none; position: fixed; left: 0; top: 0; border: 2px solid #8e88ff; border-radius: 3px; background: rgba(142,136,255,.1); box-shadow: 0 0 0 9999px rgba(5,6,10,.08); }
   </style>`;
 }

@@ -116,7 +116,7 @@ The companion does not read Chromium's internal storage, open a network port, co
 
 Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead install the experimental `@dev-feedback/electron` package under `packages/electron-inspector/` in their own development build.
 
-The first slice provides a Host App-owned `Inspect this app` menu action, Element capture in a package-owned overlay, local History under Electron `userData`, and the same explicit Downloads handoff used by the MCP companion. The Host App adds one main-process installer and one preload hook. The package does not require React and does not expose Electron IPC to the Host App renderer.
+The first slice provides a Host App-owned `Inspect this app` menu action, Element capture in a package-owned overlay, local History under Electron `userData`, and a `Copy History` action that produces readable Markdown. The Host App adds one main-process installer and one preload hook. The package does not require React and does not expose Electron IPC to the Host App renderer.
 
 This package is ready for local Forge3D dogfood but is not published to a package registry. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for the install and trust contract.
 
@@ -183,8 +183,8 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add user-triggered import back into extension History
-- Dogfood the Element-only Electron Inspector in Forge3D, then add Region capture through Electron's `webContents.capturePage`
-- Evaluate a native-messaging handoff only after the Downloads-inbox workflow proves useful and its permission/install boundary is defined
+- Dogfood the Element-only Electron Inspector in Forge3D, then decide whether Region capture earns the additional screenshot permission and storage surface
+- Evaluate a private cross-app History Hub only after app-local History and explicit clipboard export prove useful
 
 ## License
 

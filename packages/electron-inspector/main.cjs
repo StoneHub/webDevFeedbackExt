@@ -20,6 +20,9 @@ function installElectronInspector(options = {}) {
   const app = options.app;
   const ipcMain = options.ipcMain;
   const getMainWindow = options.getMainWindow;
+  const isTrustedSender = typeof options.isTrustedSender === 'function'
+    ? options.isTrustedSender
+    : null;
   const hostId = normalizeRequiredText(options.hostId, 'hostId');
   const hostName = normalizeRequiredText(options.hostName, 'hostName');
   const clock = typeof options.clock === 'function' ? options.clock : () => new Date();
@@ -35,27 +38,32 @@ function installElectronInspector(options = {}) {
   }
 
   let disposed = false;
+  let historyMutation = Promise.resolve();
   const userDataRoot = path.resolve(app.getPath('userData'));
   const historyRoot = path.join(userDataRoot, 'dev-feedback-electron');
   const historyPath = path.join(historyRoot, `${safeSegment(hostId)}-history.json`);
   const storageKey = `dev-feedback-app-${hostId}`;
 
   ipcMain.handle(CAPTURE_ELEMENT_CHANNEL, async (event, draft) => {
-    assertTrustedSender(event, getMainWindow());
+    assertTrustedSender(event, getMainWindow(), isTrustedSender);
     const record = buildElementRecord(draft, { hostId, hostName, clock });
-    const history = await readHistory(historyPath, storageKey);
-    const items = [...history.items, record].slice(-MAX_HISTORY_ITEMS);
-    await writeJsonAtomic(historyPath, { schemaVersion: 1, storageKey, items });
-    return { record, count: items.length };
+    return enqueueHistoryMutation(async () => {
+      const history = await readHistory(historyPath, storageKey);
+      const items = [...history.items, record].slice(-MAX_HISTORY_ITEMS);
+      await writeJsonAtomic(historyPath, { schemaVersion: 1, storageKey, items });
+      return { record, count: items.length };
+    });
   });
 
   ipcMain.handle(HISTORY_LIST_CHANNEL, async (event) => {
-    assertTrustedSender(event, getMainWindow());
+    assertTrustedSender(event, getMainWindow(), isTrustedSender);
+    await historyMutation;
     return readHistory(historyPath, storageKey);
   });
 
   ipcMain.handle(HISTORY_EXPORT_TEXT_CHANNEL, async (event) => {
-    assertTrustedSender(event, getMainWindow());
+    assertTrustedSender(event, getMainWindow(), isTrustedSender);
+    await historyMutation;
     const history = await readHistory(historyPath, storageKey);
     if (!history.items.length) {
       throw new Error('Electron Inspector History is empty.');
@@ -68,11 +76,11 @@ function installElectronInspector(options = {}) {
     };
   });
 
-  function inspect() {
+  function inspect(targetWindow = getMainWindow()) {
     if (disposed) {
       throw new Error('Electron Inspector is disposed.');
     }
-    const mainWindow = getMainWindow();
+    const mainWindow = targetWindow;
     if (
       !mainWindow ||
       mainWindow.isDestroyed?.() ||
@@ -82,6 +90,12 @@ function installElectronInspector(options = {}) {
       throw new Error('Electron Inspector has no available Host App window.');
     }
     mainWindow.webContents.send(START_CHANNEL, { hostId, hostName });
+  }
+
+  function enqueueHistoryMutation(operation) {
+    const result = historyMutation.then(operation, operation);
+    historyMutation = result.then(() => undefined, () => undefined);
+    return result;
   }
 
   return Object.freeze({
@@ -123,8 +137,15 @@ function buildElementRecord(draft, context) {
   });
 }
 
-function assertTrustedSender(event, mainWindow) {
-  if (!mainWindow || mainWindow.isDestroyed?.() || event?.sender !== mainWindow.webContents) {
+function assertTrustedSender(event, mainWindow, isTrustedSender) {
+  if (!event?.senderFrame || event.senderFrame !== event.sender?.mainFrame) {
+    throw new Error('Electron Inspector accepts main-frame IPC only.');
+  }
+  const explicitlyTrusted = isTrustedSender?.(event?.sender) === true;
+  const currentWindowTrusted = mainWindow
+    && !mainWindow.isDestroyed?.()
+    && event?.sender === mainWindow.webContents;
+  if (!explicitlyTrusted && !currentWindowTrusted) {
     throw new Error('Electron Inspector rejected an untrusted IPC sender.');
   }
 }

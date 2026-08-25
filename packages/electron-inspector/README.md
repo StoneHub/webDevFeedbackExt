@@ -2,67 +2,40 @@
 
 `@dev-feedback/electron` adds an explicit Element inspector, local History, and a plain-text `Copy History` action to an Electron development build.
 
-The Host App keeps ownership of its window and menu. The package owns DOM selection, Capture Record validation, app-local storage, and the in-app History panel.
+The Host App keeps ownership of its windows and preload. The package owns its session preload, shortcut, DOM selection, Capture Record validation, app-local storage, and in-app History panel.
 
-## Install from this checkout
+## Install
 
-Build a local package:
+The `0.2.0` package is a release candidate and is not yet available from the npm registry. To test it from this repository, build and install the local archive:
 
 ```sh
 cd packages/electron-inspector
 npm pack
+cd /path/to/host-app
+npm install --save-dev /path/to/dev-feedback-electron-0.2.0.tgz
 ```
 
-Install the resulting archive in the Electron app:
+After the registry release, the install command becomes `npm install --save-dev @dev-feedback/electron`.
 
-```sh
-npm install --save-dev /absolute/path/to/dev-feedback-electron-<version>.tgz
-```
-
-Registry publication is not part of the first dogfood slice.
-
-## Main process
-
-Install after Electron is ready and keep the returned module available to the Host App menu builder:
+Add this one line to the Electron main-process entry before creating any windows:
 
 ```js
-import { installElectronInspector } from '@dev-feedback/electron/main'
-
-const feedbackInspector = installElectronInspector({
-  app,
-  ipcMain,
-  getMainWindow: () => mainWindow,
-  hostId: 'forge3d',
-  hostName: 'Forge3D',
-})
-
-const menuItem = feedbackInspector.menuItem()
+if (!app.isPackaged) await import('@dev-feedback/electron/register')
 ```
 
-Add `menuItem` to a Host App-owned menu. The item is labeled `Inspect this app` and uses `CmdOrCtrl+Shift+.`. The shortcut avoids the find-command collision common in Electron editors.
-
-## Preload
-
-Call the preload hook from the Host App's existing preload source:
+That is the complete Host App integration. In a CommonJS entry, use:
 
 ```js
-const { installElectronInspectorPreload } = require('@dev-feedback/electron/preload')
-
-installElectronInspectorPreload({ ipcRenderer })
+if (!app.isPackaged) require('@dev-feedback/electron/register')
 ```
 
-Electron's sandboxed preload cannot load arbitrary npm modules at runtime. Bundle the Host App preload source and this hook into one CommonJS preload file, keeping `electron` external. For example:
+Run the app and press `Cmd/Ctrl+Shift+.` in the window you want to inspect. The package appends its own preload without replacing existing session preloads and works across windows created after registration. It does not expose `ipcRenderer` or a new global to the Host App renderer. Keep `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`.
 
-```sh
-esbuild electron/preload.cjs --bundle --platform=node --format=cjs \
-  --external:electron --outfile=electron/preload.bundle.cjs
-```
-
-Point `BrowserWindow.webPreferences.preload` at the bundle. The hook does not expose `ipcRenderer` or a new global to the Host App renderer. Keep `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`.
+The guard is deliberate. Packaged production builds do not register the inspector, and a production package can omit this development dependency.
 
 ## Trust contract
 
-- Capture starts only from the Host App menu or another visible call to `inspect()`.
+- Capture starts only when the developer presses `Cmd/Ctrl+Shift+.` in a registered Host App window.
 - V1 captures one explicitly selected DOM element, its safe accessibility and feature signals, its rectangle, and the user's note.
 - It does not collect broad parent text, source files, local paths, terminal buffers, build logs, existing clipboard contents, or network data.
 - History stays under Electron `userData`.

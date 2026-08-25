@@ -114,11 +114,15 @@ The companion does not read Chromium's internal storage, open a network port, co
 
 ## Electron Inspector developer package
 
-Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead install the experimental `@dev-feedback/electron` package under `packages/electron-inspector/` in their own development build.
+Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the `@dev-feedback/electron` development package to their app. Version `0.2.0` is currently a locally packable release candidate; registry publication still requires an explicit package license and npm publisher authentication.
 
-The first slice provides a Host App-owned `Inspect this app` menu action, Element capture in a package-owned overlay, local History under Electron `userData`, and a `Copy History` action that produces readable Markdown. The Host App adds one main-process installer and one preload hook. The package does not require React and does not expose Electron IPC to the Host App renderer.
+The Host App integration is one guarded import in its main-process entry, before any window is created:
 
-This package is ready for local Forge3D dogfood but is not published to a package registry. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for the install and trust contract.
+```js
+if (!app.isPackaged) await import('@dev-feedback/electron/register')
+```
+
+Press `Cmd/Ctrl+Shift+.` in any registered development window to start Element capture. The package owns its session preload, shortcut, package-owned overlay, local History under Electron `userData`, and `Copy History` action. It does not require React, replace the Host App preload, or expose Electron IPC to the Host App renderer. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for installation and the trust contract.
 
 ## Permissions
 
@@ -183,7 +187,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add user-triggered import back into extension History
-- Dogfood the Element-only Electron Inspector in Forge3D, then decide whether Region capture earns the additional screenshot permission and storage surface
+- Publish and dogfood the Element-only Electron Inspector across more development apps, then decide whether Region capture earns the additional screenshot permission and storage surface
 - Evaluate a private cross-app History Hub only after app-local History and explicit clipboard export prove useful
 
 ## License

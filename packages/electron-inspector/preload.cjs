@@ -19,6 +19,7 @@ function installElectronInspectorPreload(options = {}) {
   const pendingStarts = [];
   let controller = null;
   let disposed = false;
+  let documentReady = documentRef.readyState !== 'loading';
 
   const bridge = Object.freeze({
     saveElement: (draft) => ipcRenderer.invoke('dev-feedback-electron:capture-element', draft),
@@ -27,7 +28,7 @@ function installElectronInspectorPreload(options = {}) {
   });
 
   function mount() {
-    if (disposed || controller) return;
+    if (disposed || controller || !documentReady || !pendingStarts.length) return;
     controller = mountElectronInspector({
       document: documentRef,
       window: windowRef,
@@ -38,22 +39,26 @@ function installElectronInspectorPreload(options = {}) {
 
   function handleStart(_event, payload) {
     if (controller) controller.start(payload);
-    else pendingStarts.push(payload);
+    else {
+      pendingStarts.push(payload);
+      mount();
+    }
+  }
+
+  function handleDocumentReady() {
+    documentReady = true;
+    mount();
   }
 
   ipcRenderer.on(START_CHANNEL, handleStart);
-  if (documentRef.readyState === 'loading') {
-    documentRef.addEventListener('DOMContentLoaded', mount, { once: true });
-  } else {
-    mount();
-  }
+  if (!documentReady) documentRef.addEventListener('DOMContentLoaded', handleDocumentReady, { once: true });
   ipcRenderer.send?.(READY_CHANNEL);
 
   return Object.freeze({
     dispose() {
       disposed = true;
       ipcRenderer.removeListener?.(START_CHANNEL, handleStart);
-      documentRef.removeEventListener?.('DOMContentLoaded', mount);
+      documentRef.removeEventListener?.('DOMContentLoaded', handleDocumentReady);
       controller?.dispose?.();
       controller = null;
       pendingStarts.length = 0;

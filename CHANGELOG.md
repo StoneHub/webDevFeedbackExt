@@ -7,6 +7,7 @@
 - Added canonical Capture Record constructors shared by Element and Region saves.
 - Renamed the History JSON handoff to `Send to Codex` and gave each Downloads export a unique filename.
 - Added bounded MCP inbox discovery and newest-valid import under the user's Downloads directory.
+- Added an Electron development inspector package with one guarded registration import, package-owned preload and shortcut wiring, local History, and explicit clipboard export.
 - Removed stale implementation plans and added current issue-tracker, triage-label, and domain-document instructions.
 - Kept Feedback Sessions on the checkpointed experiment branch rather than shipping them in this release.
 

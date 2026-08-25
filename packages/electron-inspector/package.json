@@ -1,0 +1,24 @@
+{
+  "name": "@dev-feedback/electron",
+  "version": "0.1.1",
+  "private": true,
+  "description": "Local feedback inspector for Electron development builds",
+  "main": "main.cjs",
+  "exports": {
+    "./main": "./main.cjs",
+    "./preload": "./preload.cjs"
+  },
+  "files": [
+    "main.cjs",
+    "preload.cjs",
+    "renderer.cjs",
+    "vendor/capture-record.cjs",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node scripts/build.cjs"
+  },
+  "peerDependencies": {
+    "electron": ">=30"
+  }
+}

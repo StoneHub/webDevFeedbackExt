@@ -112,6 +112,14 @@ The Node MCP companion under `mcp/` imports an explicit History export from a co
 
 The companion does not read Chromium's internal storage, open a network port, control the browser, execute shell commands, or edit source code. The connected agent uses its normal browser and coding tools. Tool results and evidence are still delivered to that MCP client, so cloud-backed clients may transmit captured data under their provider policies. See [docs/mcp-local-agent.md](docs/mcp-local-agent.md) for setup and the trust boundary.
 
+## Electron Inspector developer package
+
+Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead install the experimental `@dev-feedback/electron` package under `packages/electron-inspector/` in their own development build.
+
+The first slice provides a Host App-owned `Inspect this app` menu action, Element capture in a package-owned overlay, local History under Electron `userData`, and the same explicit Downloads handoff used by the MCP companion. The Host App adds one main-process installer and one preload hook. The package does not require React and does not expose Electron IPC to the Host App renderer.
+
+This package is ready for local Forge3D dogfood but is not published to a package registry. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for the install and trust contract.
+
 ## Permissions
 
 The extension requests:
@@ -168,13 +176,14 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
 - Region mode captures the current viewport only, not full-page stitched screenshots.
 - Cross-origin iframe DOM capture remains limited by browser security rules.
-- Electron support is not part of the browser extension. An Electron application must explicitly load an extension package from its own code; Chrome's extension menu cannot attach this extension to an arbitrary already-running Electron app.
+- Chrome's extension menu cannot attach this browser extension to an arbitrary already-running Electron app. Electron developers must explicitly install the separate Electron Inspector package in their Host App.
 
 ## Roadmap
 
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add user-triggered import back into extension History
+- Dogfood the Element-only Electron Inspector in Forge3D, then add Region capture through Electron's `webContents.capturePage`
 - Evaluate a native-messaging handoff only after the Downloads-inbox workflow proves useful and its permission/install boundary is defined
 
 ## License

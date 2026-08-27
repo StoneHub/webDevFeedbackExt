@@ -1,9 +1,9 @@
 {
-  "name": "@dev-feedback/electron",
+  "name": "@flyingchangescode/dev-feedback-electron",
   "version": "0.2.0",
   "description": "Local feedback inspector for Electron development builds",
   "license": "MIT",
-  "author": "Monroe Stone",
+  "author": "Flying Changes Code",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/StoneHub/webDevFeedbackExt.git",

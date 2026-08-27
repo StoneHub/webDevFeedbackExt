@@ -1,6 +1,6 @@
-# @dev-feedback/electron
+# @flyingchangescode/dev-feedback-electron
 
-`@dev-feedback/electron` adds an explicit Element inspector, local History, and a plain-text `Copy History` action to an Electron development build.
+`@flyingchangescode/dev-feedback-electron` adds an explicit Element inspector, local History, and a plain-text `Copy History` action to an Electron development build.
 
 The Host App keeps ownership of its windows and preload. The package owns its session preload, shortcut, DOM selection, Capture Record validation, app-local storage, and in-app History panel.
 
@@ -9,19 +9,19 @@ The Host App keeps ownership of its windows and preload. The package owns its se
 Install the development dependency from npm:
 
 ```sh
-npm install --save-dev @dev-feedback/electron
+npm install --save-dev @flyingchangescode/dev-feedback-electron
 ```
 
 Add this one line to the Electron main-process entry before creating any windows:
 
 ```js
-if (!app.isPackaged) await import('@dev-feedback/electron/register')
+if (!app.isPackaged) await import('@flyingchangescode/dev-feedback-electron/register')
 ```
 
 That is the complete Host App integration. In a CommonJS entry, use:
 
 ```js
-if (!app.isPackaged) require('@dev-feedback/electron/register')
+if (!app.isPackaged) require('@flyingchangescode/dev-feedback-electron/register')
 ```
 
 Run the app and press `Cmd/Ctrl+Shift+.` in the window you want to inspect. The package appends its own preload without replacing existing session preloads and works across windows created after registration. It does not expose `ipcRenderer` or a new global to the Host App renderer. Keep `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`.

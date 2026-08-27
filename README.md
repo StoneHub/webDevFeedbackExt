@@ -114,12 +114,12 @@ The companion does not read Chromium's internal storage, open a network port, co
 
 ## Electron Inspector developer package
 
-Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the free, MIT-licensed `@dev-feedback/electron` development package to their app.
+Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the free, MIT-licensed `@flyingchangescode/dev-feedback-electron` development package to their app.
 
 The Host App integration is one guarded import in its main-process entry, before any window is created:
 
 ```js
-if (!app.isPackaged) await import('@dev-feedback/electron/register')
+if (!app.isPackaged) await import('@flyingchangescode/dev-feedback-electron/register')
 ```
 
 Press `Cmd/Ctrl+Shift+.` in any registered development window to start Element capture. The package owns its session preload, shortcut, package-owned overlay, local History under Electron `userData`, and `Copy History` action. It does not require React, replace the Host App preload, or expose Electron IPC to the Host App renderer. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for installation and the trust contract.

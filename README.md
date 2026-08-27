@@ -193,3 +193,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 ## License
 
 Dev Feedback Capture and its Electron package are free software under the [MIT License](LICENSE).
+
+## Support
+
+Dev Feedback Capture stays free, local-first, and available without an account. If it saves you time, you can [support its development](https://buy.stripe.com/eVqaEZghLdhKaka0NJawo01) with an optional one-time thank-you payment. Payment does not unlock features or services.

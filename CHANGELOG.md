@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.0 hardening candidate (unreleased)
+
+- Keep Element and ordinary-page Region capture in private overlays; use a capture window for protected browser surfaces.
+- Restrict History storage and broker actions to trusted extension contexts, with session-bound editors.
+- Export only selected, previewed captures; delete only exact selected or shown IDs.
+- Strip redacted DOM context and URL secrets from shared records. Keep drafts on save failures and enforce storage budgets.
+- Reject source-tab changes during screenshot capture. Mark page evidence as untrusted in agent prompts.
+- Update vulnerable transitive dependencies and check advisories in CI. Create draft releases for review.
+- Fix the separate Electron Inspector menu callback; package candidate 0.2.1.
+
+
 ## 1.8.0 (Unreleased)
 
 - Refocused the active product on Element capture, Region/PDF capture, History, and one explicit Agent Handoff.

@@ -267,7 +267,7 @@ test('main installer exposes one Host App action and starts inspection in the ta
   assert.equal(menuItem.label, 'Inspect this app');
   assert.equal(menuItem.accelerator, 'CmdOrCtrl+Shift+.');
 
-  menuItem.click();
+  menuItem.click(menuItem, mainWindow, { type: 'click' });
   assert.deepEqual(sent, [['dev-feedback-electron:start', { hostId: 'forge3d', hostName: 'Forge3D' }]]);
 
   await inspector.dispose();

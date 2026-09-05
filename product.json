@@ -7,9 +7,9 @@
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc",
   "releaseUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases",
-  "downloadUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases/download/v1.2.0/dev-feedback-capture-v1.2.0.zip",
-  "supportUrl": "mailto:monroe@flyingchangesfarm.net",
-  "license": "source-visible-all-rights-reserved",
+  "downloadUrl": "https://github.com/StoneHub/webDevFeedbackExt/releases/latest",
+  "supportUrl": "https://github.com/StoneHub/webDevFeedbackExt/issues",
+  "license": "MIT",
   "platforms": [
     "Chrome",
     "Edge",

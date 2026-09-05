@@ -6,13 +6,14 @@
   "description": "Capture browser elements and regions for local implementation handoffs",
   "scripts": {
     "test": "npm run test:extension && npm run test:electron && npm run test:mcp",
-    "test:extension": "node --test test/browser-core.test.cjs && node test/release.test.cjs",
+    "test:extension": "node --test test/browser-core.test.cjs test/privacy.test.cjs && node test/release.test.cjs",
     "test:electron": "node packages/electron-inspector/scripts/build.cjs && node --test test/electron-inspector.test.cjs",
     "test:mcp": "node --test test/mcp.test.mjs",
     "check": "node scripts/release-check.cjs",
     "package": "node scripts/package-extension.cjs",
     "verify:package": "node scripts/verify-package.cjs",
-    "mcp": "node mcp/cli.mjs"
+    "mcp": "node mcp/cli.mjs",
+    "audit:dependencies": "npm audit --omit=dev --audit-level=moderate"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

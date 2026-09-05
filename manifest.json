@@ -32,5 +32,16 @@
       },
       "description": "Toggle Feedback Mode"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "element.html",
+        "capture.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }

@@ -73,3 +73,22 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 48px); letter-spacing: -0.035em; }
   .evidence-preview { max-width: 320px; }
   .item > button { grid-column: 1; }
 }
+
+/* Private capture and export review pages. */
+textarea { display:block; width:100%; box-sizing:border-box; margin:8px 0 20px; padding:12px; font:inherit; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; max-width:100%; }
+dialog { max-width:min(850px,90vw); max-height:85vh; border:1px solid #64748b; border-radius:12px; padding:24px; }
+dialog::backdrop { background:#0008; }
+dialog pre { max-height:45vh; overflow:auto; background:#f1f5f9; color:#172139; padding:12px; }
+.item { position:relative; }
+.item > label { grid-column:1/-1; }
+
+.element-editor .shell { width:auto; margin:0; padding:20px; }
+.element-editor h1 { font-size:22px; }
+.element-editor #source { overflow-wrap:anywhere; font-size:12px; }
+.element-editor textarea { box-sizing:border-box; width:100%; }
+.element-editor label { display:block; margin-top:12px; }
+
+#export-preview-images .evidence-preview { display:block; max-width:none; }
+#export-preview-images img { width:100%; height:auto; max-height:none; object-fit:contain; }
+#export-preview-images .placeholder { display:none; }

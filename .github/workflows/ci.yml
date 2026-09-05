@@ -32,6 +32,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Check production dependency advisories
+        run: npm run audit:dependencies
+
       - name: Run release checks
         run: npm run check
 

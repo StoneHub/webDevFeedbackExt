@@ -14,6 +14,7 @@ fs.mkdirSync(vendorRoot, { recursive: true });
 fs.copyFileSync(source, destination);
 
 buildSync({
+  absWorkingDir: packageRoot,
   entryPoints: [path.join(packageRoot, 'register-preload-entry.cjs')],
   outfile: path.join(packageRoot, 'register-preload.cjs'),
   bundle: true,

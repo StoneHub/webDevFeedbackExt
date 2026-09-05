@@ -1,6 +1,6 @@
 {
   "name": "@flyingchangescode/dev-feedback-electron",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Local feedback inspector for Electron development builds",
   "license": "MIT",
   "author": "Flying Changes Code",

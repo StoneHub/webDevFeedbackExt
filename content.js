@@ -70,17 +70,18 @@
     if (sender.id !== chrome.runtime.id) return;
     if (request.action === 'show-capture-overlay') {
       if (editor) { sendResponse({ok:false,reason:'Save or cancel the open draft first.'}); return; }
-      if (!['element.html','capture.html'].includes(request.page) || !/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return;
+      if (!['element.html','history.html'].includes(request.page) || !/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return;
       setActive(false);
       editor?.remove();
       previousFocus = document.activeElement;
       editorSession = request.sessionId;
       editor = document.createElement('iframe');
-      editor.title = request.page === 'element.html' ? 'Capture element feedback' : 'Capture region feedback';
+      editor.allow = 'clipboard-write';
+      editor.title = request.page === 'history.html' ? 'Feedback History' : 'Write element feedback';
       editor.src = chrome.runtime.getURL(request.page + '?session=' + encodeURIComponent(editorSession));
-      editor.style.cssText = request.page === 'element.html'
-        ? 'display:block;width:min(460px,calc(100vw - 24px));height:min(720px,calc(100vh - 24px));border:2px solid #4f46e5;border-radius:12px;background:white;box-shadow:0 8px 40px #0005;'
-        : 'display:block;width:calc(100vw - 24px);height:calc(100vh - 24px);border:2px solid #4f46e5;border-radius:12px;background:white;';
+      editor.style.cssText = request.page === 'history.html'
+        ? 'display:block;width:min(440px,calc(100vw - 24px));height:calc(100vh - 24px);border:1px solid #a5a0dd;border-radius:14px;background:white;box-shadow:0 8px 40px #0003;'
+        : 'display:block;width:min(380px,calc(100vw - 24px));height:min(510px,calc(100vh - 24px));border:1px solid #a5a0dd;border-radius:14px;background:white;box-shadow:0 8px 40px #0003;';
       shadow.querySelector('section').hidden = true;
       shadow.appendChild(editor);
       host.hidden = false;
@@ -91,13 +92,10 @@
       shadow.querySelector('section').hidden = false;
       host.hidden = true;
       if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true});
+      if (request.pickNext) { setActive(true); status.textContent = 'Saved. Pick the next element, or press Esc to stop.'; }
     } else if (request.action === 'toggle-feedback-mode') setActive(!active);
     else if (request.action === 'set-feedback-mode') setActive(request.enabled);
-    else if (request.action === 'start-region-capture') {
-      setActive(false);
-      chrome.runtime.sendMessage({ action:'start-region-capture' }).then(sendResponse);
-      return true;
-    } else if (request.action !== 'get-state') return;
+    else if (request.action !== 'get-state') return;
     sendResponse({ ok:true, editorOpen:Boolean(editor), feedbackMode:active, interactionMode:active ? 'element' : 'off' });
   });
 })();

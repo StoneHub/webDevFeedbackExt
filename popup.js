@@ -1,286 +1,42 @@
-/**
- * Dev Feedback Capture - Popup Script
- */
-
 (function() {
   'use strict';
-
-  const {
-    SHORTCUT_LABEL,
-    MAC_SHORTCUT_LABEL,
-    canInjectIntoUrl,
-    getEffectivePageUrl,
-    makeStorageKey
-  } = globalThis.DevFeedbackShared;
-
-  const STORAGE_KEYS = {
-    captureMode: 'dev-feedback-popup-mode'
-  };
-
-  let currentTab = null;
-  let currentTabId = null;
-  let selectedMode = window.localStorage.getItem(STORAGE_KEYS.captureMode) || 'element';
-  if (!['element', 'region'].includes(selectedMode)) {
-    selectedMode = 'element';
-  }
-  let currentFeedbackMode = false;
-
-  function getShortcutLabel() {
-    return navigator.platform.toLowerCase().includes('mac') ? MAC_SHORTCUT_LABEL : SHORTCUT_LABEL;
-  }
-
-  function setWarning(message) {
-    const warning = document.getElementById('warning');
-    warning.textContent = message;
-    warning.style.display = message ? 'block' : 'none';
-  }
-
-  function setInfo(message) {
-    const info = document.getElementById('info');
-    info.textContent = message;
-    info.style.display = message ? 'block' : 'none';
-  }
-
+  const { canInjectIntoUrl, detectSourceKind, makeStorageKey, SHORTCUT_LABEL, MAC_SHORTCUT_LABEL } = DevFeedbackShared;
+  let tab;
+  let state = {};
+  const pick = document.getElementById('primary-action-btn');
+  const warning = document.getElementById('warning');
+  function showError(message) { warning.textContent = message; warning.hidden = !message; }
   async function init() {
-    document.getElementById('shortcut-label').textContent = getShortcutLabel();
-    bindCaptureModeInputs();
-    document.getElementById('primary-action-btn').addEventListener('click', handlePrimaryAction);
-    document.getElementById('history-btn').addEventListener('click', openHistory);
-
-    if (!globalThis.chrome?.tabs || !globalThis.chrome?.storage || !globalThis.chrome?.runtime) {
-      document.getElementById('page-label').textContent = 'Extension preview';
-      updateUI(false, 0);
-      document.getElementById('primary-action-btn').disabled = true;
-      setInfo('Open this popup from the installed extension to capture the active tab.');
+    document.getElementById('shortcut-label').textContent = navigator.platform.toLowerCase().includes('mac') ? MAC_SHORTCUT_LABEL : SHORTCUT_LABEL;
+    [tab] = await chrome.tabs.query({active:true, currentWindow:true});
+    document.getElementById('page-label').textContent = tab?.title || 'Current webpage';
+    if (!tab?.id || !canInjectIntoUrl(tab.url) || detectSourceKind(tab.url) === 'pdf') {
+      showError('Open a webpage to pick an element. PDF and browser-internal pages are not supported.');
       return;
     }
-
-    await loadCurrentTab();
-    syncModeUi();
+    state = await chrome.tabs.sendMessage(tab.id, {action:'get-state'}, {frameId:0}).catch(()=>({}));
+    const key = makeStorageKey(tab.url);
+    const stored = await chrome.storage.local.get(key);
+    document.getElementById('item-count').textContent = (stored[key] || []).length;
+    pick.textContent = state.editorOpen ? 'Return to open panel' : state.feedbackMode ? 'Stop picking' : 'Pick an element';
+    pick.disabled = false;
   }
-
-  function bindCaptureModeInputs() {
-    document.querySelectorAll('input[name="capture-mode"]').forEach((input) => {
-      input.checked = input.value === selectedMode;
-      input.addEventListener('change', () => {
-        selectedMode = input.value;
-        window.localStorage.setItem(STORAGE_KEYS.captureMode, selectedMode);
-        syncModeUi();
-      });
-    });
-  }
-
-  async function loadCurrentTab() {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    currentTab = tabs && tabs[0] ? tabs[0] : null;
-    currentTabId = currentTab && typeof currentTab.id === 'number' ? currentTab.id : null;
-
-    const pageLabel = document.getElementById('page-label');
-    if (!currentTab) {
-      pageLabel.textContent = 'No active tab';
-      updateUI(false, 0);
-      return;
-    }
-
-    pageLabel.textContent = getEffectivePageUrl(currentTab.url || currentTab.pendingUrl || currentTab.title || 'Current tab');
-    await refreshState();
-  }
-
-  async function openHistory() {
-    await chrome.tabs.create({ url: chrome.runtime.getURL('history.html') });
-    window.close();
-  }
-
-  async function refreshState() {
-    const primaryButton = document.getElementById('primary-action-btn');
-    const itemCount = await getItemCount();
-    const feedbackState = await getFeedbackState();
-
-    updateUI(feedbackState.feedbackMode, itemCount);
-    primaryButton.disabled = !currentTabId;
-    syncModeUi();
-  }
-
-  async function getItemCount() {
-    if (!currentTab?.url) {
-      return 0;
-    }
-
-    const storageKey = makeStorageKey(currentTab.url);
-    const result = await chrome.storage.local.get([storageKey]);
-    return Array.isArray(result[storageKey]) ? result[storageKey].length : 0;
-  }
-
-  async function getFeedbackState() {
-    if (!currentTabId) {
-      return { feedbackMode: false };
-    }
-
+  pick.addEventListener('click', async () => {
+    showError('');
+    if (state.editorOpen) { window.close(); return; }
+    pick.disabled = true;
     try {
-      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'get-state' });
-      return response || { feedbackMode: false };
-    } catch (error) {
-      return { feedbackMode: false };
-    }
-  }
-
-  function syncModeUi() {
-    const primaryButton = document.getElementById('primary-action-btn');
-    const canInject = canInjectIntoUrl(currentTab?.url || '');
-    const canCaptureRegion = canAttemptRegionCapture(currentTab);
-    setWarning('');
-    setInfo('');
-
-    if (!currentTabId) {
-      primaryButton.disabled = true;
-      primaryButton.textContent = 'No Active Tab';
-      return;
-    }
-
-    if (selectedMode === 'region') {
-      primaryButton.disabled = !canCaptureRegion;
-      primaryButton.classList.remove('stop');
-      primaryButton.textContent = 'Capture Region';
-
-      if (!canCaptureRegion) {
-        setWarning('Region capture needs a visible browser tab. Chrome may block browser-internal pages.');
-        return;
-      }
-
-      if ((currentTab?.url || '').startsWith('file://')) {
-        setInfo('If region capture fails on a local PDF, enable "Allow access to file URLs" on the extension first.');
-      } else {
-        setInfo('Region capture opens the editor for cropping, DOM-linked annotations, and acceptance checks.');
-      }
-      return;
-    }
-
-    primaryButton.textContent = currentFeedbackMode
-      ? 'Stop Element Mode'
-      : 'Start Element Mode';
-    primaryButton.classList.toggle('stop', currentFeedbackMode);
-    primaryButton.disabled = !canInject;
-
-    if (!canInject) {
-      setWarning('Element mode needs an injectable page such as http, https, or file. Use Region mode for PDFs and browser viewer surfaces.');
-      return;
-    }
-
-    setInfo('Element mode injects the feedback UI into the current tab only after you start it.');
-  }
-
-  function canAttemptRegionCapture(tab) {
-    if (!tab || typeof tab.id !== 'number' || typeof tab.windowId !== 'number') {
-      return false;
-    }
-
-    const rawUrl = tab.url || tab.pendingUrl || '';
-    if (!rawUrl) {
-      return true;
-    }
-
-    try {
-      const url = new URL(rawUrl);
-      return !['chrome:', 'edge:', 'about:'].includes(url.protocol);
-    } catch (error) {
-      return true;
-    }
-  }
-
-  async function handlePrimaryAction() {
-    if (!currentTabId) {
-      return;
-    }
-
-    if (selectedMode === 'region') {
-      await startRegionCapture();
-      return;
-    }
-
-    await toggleElementMode();
-  }
-
-  async function toggleElementMode() {
-    setWarning('');
-
-    const ensured = await chrome.runtime.sendMessage({
-      action: 'ensure-content-script',
-      tabId: currentTabId,
-      url: currentTab?.url || ''
-    });
-
-    if (!ensured || !ensured.ok) {
-      setWarning(ensured?.reason || 'Unable to load the in-page feedback UI on this tab.');
-      return;
-    }
-
-    try {
-      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'toggle-feedback-mode' });
-      updateUI(Boolean(response?.feedbackMode), await getItemCount());
-      syncModeUi();
-    } catch (error) {
-      setWarning('Refresh the current page and try again. The feedback UI did not attach cleanly.');
-    }
-  }
-
-  async function startRegionCapture() {
-    setWarning('');
-
-    try {
-      const contentResponse = await chrome.tabs.sendMessage(currentTabId, { action: 'start-region-capture' });
-      if (contentResponse?.ok) {
-        window.close();
-        return;
-      }
-      if (contentResponse?.reason) {
-        setWarning(contentResponse.reason);
-        return;
-      }
-    } catch (error) {
-      // The page has no injected UI, so capture directly from the service worker.
-    }
-
-    let viewportMetrics = null;
-    try {
-      viewportMetrics = await chrome.tabs.sendMessage(currentTabId, { action: 'get-viewport-metrics' });
-    } catch (error) {
-      viewportMetrics = null;
-    }
-
-    const response = await chrome.runtime.sendMessage({
-      action: 'start-region-capture',
-      tab: {
-        id: currentTab.id,
-        windowId: currentTab.windowId,
-        url: currentTab.url,
-        title: currentTab.title,
-        width: currentTab.width,
-        height: currentTab.height
-      },
-      viewportMetrics
-    });
-
-    if (!response || !response.ok) {
-      setWarning(response?.reason || 'Unable to start region capture on this tab.');
-      return;
-    }
-
-    window.close();
-  }
-
-  function updateUI(feedbackMode, itemCount) {
-    const statusText = document.getElementById('feedback-mode-status');
-    const itemCountEl = document.getElementById('item-count');
-
-    currentFeedbackMode = Boolean(feedbackMode);
-    statusText.textContent = feedbackMode ? 'ON' : 'OFF';
-    statusText.classList.toggle('active', feedbackMode);
-    itemCountEl.textContent = String(itemCount);
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    init().catch((error) => {
-      setWarning(error.message || 'Unable to initialize the popup.');
-    });
+      const result = await chrome.runtime.sendMessage({action:'ensure-content-script',tabId:tab.id});
+      if (!result?.ok) throw new Error(result?.reason || 'Could not start picking on this page.');
+      await chrome.tabs.sendMessage(tab.id, {action:'toggle-feedback-mode'}, {frameId:0});
+      window.close();
+    } catch (error) { showError(error.message); pick.disabled = false; }
   });
+  document.getElementById('history-btn').addEventListener('click', async () => {
+    const result = await chrome.runtime.sendMessage({action:'open-history',tabId:tab?.id});
+    if (!result?.ok) { showError(result?.reason || 'Could not open History.'); return; }
+    if (result.usePopup) window.location.replace(chrome.runtime.getURL('history.html?surface=popup'));
+    else window.close();
+  });
+  init().catch(error=>showError(error.message));
 })();

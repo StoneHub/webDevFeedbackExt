@@ -1,6 +1,6 @@
 # Local MCP Agent Companion
 
-The Agent Handoff is a project-scoped MCP server so a local coding agent can read Element and Region/PDF feedback, inspect evidence, create project feedback, and record implementation progress without cloud sync or direct browser control.
+The Agent Handoff is a project-scoped MCP server so a local coding agent can read Element feedback and previously saved Region/PDF records, inspect evidence, create project feedback, and record implementation progress without cloud sync or direct browser control.
 
 ## Trust boundary
 
@@ -9,7 +9,7 @@ The MCP companion is a separate Node process. It does not read Chromium profile 
 The handoff is explicit, local, and inbox-based:
 
 1. Capture feedback in the extension.
-2. Open History and choose **Send to Codex** to download the current History handoff.
+2. Open History and choose **Send to Codex** to download the selected History handoff.
 3. Set the browser download location to a folder inside Downloads and use that folder without a per-download save prompt.
 4. Configure the MCP server with the target project and the same Downloads path. The user does not move files manually.
 5. Ask the local agent to call `dev_feedback_import_latest`.

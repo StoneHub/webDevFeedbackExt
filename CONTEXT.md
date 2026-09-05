@@ -1,13 +1,25 @@
 # Dev Feedback Capture Context
 
-## Glossary
+Feedback about identifiable webpage elements, collected for implementation and explicit verification.
 
-- **Page Capture.** Feedback captured from a browser-visible web page or PDF.
-- **Element Capture.** A Page Capture focused on one identifiable page element and its surrounding evidence.
-- **Region Capture.** A Page Capture focused on a selected visible region, annotations, and supporting context.
-- **Capture Record.** One saved, portable feedback item with its request, evidence, and source context.
-- **History.** The user-facing collection of saved Capture Records.
-- **Feature Label.** A human-readable identity for a selected interface element, derived from explicit accessibility names, roles, and allowlisted Host App feature attributes.
-- **Agent Handoff.** An explicit local transfer of Capture Records to a coding agent for implementation and separate verification.
-- **Host App.** An Electron application whose developer explicitly installs and activates the Electron Inspector.
-- **Electron Inspector.** The developer-only adapter that captures Host App interface feedback as Capture Records. It does not load or simulate the browser extension.
+## Language
+
+**Element Capture**: Feedback about one selected webpage element, with its identity and observed page context.
+
+**Change Request**: The user's description of what should change about an element.
+
+**Acceptance Check**: A user-written condition for deciding whether a requested change is complete.
+
+**Capture Record**: One saved feedback item with its change request, acceptance checks, and source context.
+
+**History**: The user-facing collection of saved Capture Records.
+
+**Legacy Region Capture**: A saved screenshot-based record from an earlier version, including any annotations and source context.
+
+**Agent Handoff**: An explicit transfer of selected Capture Records to a coding agent for implementation and separate verification.
+
+**Feature Label**: A human-readable identity for an interface element, derived from accessibility names, roles, or declared application attributes.
+
+**Host App**: An Electron application whose developer explicitly installs and activates the Electron Inspector.
+
+**Electron Inspector**: The developer-only adapter that captures Host App element feedback as Capture Records.

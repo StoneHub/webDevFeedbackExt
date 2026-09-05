@@ -1,0 +1,3 @@
+
+# PDF cross-reference entries require fixed-width bytes.
+test/fixtures/*.pdf binary

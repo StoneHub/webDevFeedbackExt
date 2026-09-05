@@ -2,7 +2,7 @@
 
 ## Role
 
-This repo is a focused browser extension for collecting structured feedback from web pages, PDFs, and browser-visible surfaces. Treat it as a practical workflow tool and a portfolio anchor, not a throwaway extension.
+This repo is a focused browser extension for collecting structured Element feedback from webpages. New Region/PDF capture is out of scope; keep previously saved Region/PDF records readable and exportable. Treat it as a practical workflow tool and a portfolio anchor, not a throwaway extension.
 
 ## Public Direction
 
@@ -22,7 +22,7 @@ This project should support Monroe's public story as a software engineer who bui
 ## Implementation Notes
 
 - Manifest V3 extension.
-- Core files are `manifest.json`, `popup.*`, `content.js`, `capture.*`, `background.js`, `shared.js`, and `styles.css`.
+- Core files are `manifest.json`, `popup.*`, `content.js`, `collector.js`, `element.*`, `background.js`, `shared.js`, and `styles.css`.
 - Keep permissions minimal and user-triggered.
 - Preserve local-history compatibility when changing saved item shapes.
 
@@ -46,5 +46,5 @@ See `docs/agents/domain.md`.
 ## Verification
 
 - Run `npm test` and `npm run check` before claiming behavior is ready.
-- For UI behavior changes, manually load the unpacked extension in Chromium/Edge and test both Element and Region modes.
+- For UI behavior changes, manually load the unpacked extension in Chromium/Edge and test Element picking, private note entry, Save & pick next, History editing, and selected exports. Verify legacy Region/PDF History remains readable; do not restore Region capture to satisfy old checklists.
 - Run `git diff --check` before committing.

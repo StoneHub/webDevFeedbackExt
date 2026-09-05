@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.0 Element-focused candidate (unreleased)
+
+- Remove new Region/PDF capture and its screenshot/editor code. Preserve old records and exports.
+- Replace the mode selector with one compact Pick an element action.
+- Use a smaller private note editor with optional acceptance checks.
+- Add Save & pick next and Cmd/Ctrl+Enter shortcuts.
+- Open History in a private on-page panel, with an extension-menu fallback on restricted pages.
+- Edit saved requests and acceptance checks while preserving captured context.
+- Keep selected export previews, private History access, and draft-preserving save failures.
+
+The earlier hardening entry below describes the broader intermediate candidate; its Region creation UI is superseded.
+
+
 ## 1.8.0 hardening candidate (unreleased)
 
 - Keep Element and ordinary-page Region capture in private overlays; use a capture window for protected browser surfaces.

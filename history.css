@@ -92,3 +92,33 @@ dialog pre { max-height:45vh; overflow:auto; background:#f1f5f9; color:#172139; 
 #export-preview-images .evidence-preview { display:block; max-width:none; }
 #export-preview-images img { width:100%; height:auto; max-height:none; object-fit:contain; }
 #export-preview-images .placeholder { display:none; }
+
+.item-actions { display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+@media (max-width:500px) { .item-actions { flex-direction:row; } }
+
+.close-panel { float:right; position:relative; z-index:1; padding:2px 8px; font-size:24px; }
+.share-menu { width:100%; }
+.share-menu summary { cursor:pointer; color:var(--accent); font-weight:700; padding:8px 0; }
+.popup-history, .popup-history body { width:360px; }
+.overlay-history .shell, .popup-history .shell { width:100%; padding:16px; margin:0; }
+.overlay-history .hero, .popup-history .hero { gap:12px; align-items:start; }
+.overlay-history h1, .popup-history h1 { font-size:25px; }
+.overlay-history .lede, .popup-history .lede { font-size:12px; }
+.overlay-history .metrics, .popup-history .metrics { display:flex; gap:18px; }
+.overlay-history .toolbar, .popup-history .toolbar { margin:14px 0; padding:12px; }
+.overlay-history .group-header, .popup-history .group-header { padding:12px; }
+.overlay-history .item, .popup-history .item { padding:12px; }
+
+/* Keep notes within the first screen of the on-page panel. */
+.overlay-history .hero, .popup-history .hero { padding-bottom:12px; gap:6px; }
+.overlay-history .lede, .popup-history .lede { margin:8px 0; }
+.overlay-history .metrics div, .popup-history .metrics div { min-width:0; padding:0; border:0; background:none; text-align:left; }
+.overlay-history .metrics strong, .overlay-history .metrics span,
+.popup-history .metrics strong, .popup-history .metrics span { display:inline; font-size:12px; }
+.overlay-history .metrics span, .popup-history .metrics span { margin-left:4px; }
+.overlay-history .toolbar, .popup-history .toolbar { gap:8px; padding:0; margin:12px 0; }
+.overlay-history .toolbar p, .popup-history .toolbar p { margin:2px 0; font-size:12px; }
+.overlay-history #storage-usage, .popup-history #storage-usage { color:var(--muted); font-size:11px; }
+.status:empty { display:none; }
+.overlay-history .groups, .popup-history .groups { margin-top:12px; }
+.overlay-history .thumbnail.placeholder, .popup-history .thumbnail.placeholder { display:none; }

@@ -12,7 +12,6 @@ const ciWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workfl
 const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'release.yml'), 'utf8');
 const historyMarkup = fs.readFileSync(path.join(__dirname, '..', 'history.html'), 'utf8');
 const historySource = fs.readFileSync(path.join(__dirname, '..', 'history.js'), 'utf8');
-const captureSource = fs.readFileSync(path.join(__dirname, '..', 'capture.js'), 'utf8');
 const contentSource = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
 const stylesSource = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
@@ -555,8 +554,8 @@ assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'empty-webp', ite
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.equal(manifest.name.length, 44);
-assert.equal(manifest.description, 'Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.');
-assert.equal(productJson.summary, 'Capture browser elements or regions and send local, structured feedback to a coding agent.');
+assert.equal(manifest.description, 'Pick webpage elements, write clear change requests, and export selected feedback for developers and coding agents.');
+assert.equal(productJson.summary, 'Pick webpage elements and turn clear change requests into a local developer handoff.');
 assert.equal(
   manifest.commands['toggle-feedback-mode'].suggested_key.default,
   shared.SHORTCUT_LABEL
@@ -566,7 +565,7 @@ assert.equal(
   shared.MAC_SHORTCUT_LABEL
 );
 assert.equal(packageJson.version, manifest.version);
-assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','capture.html'], matches:['<all_urls>'] }]);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','history.html'], matches:['<all_urls>'] }]);
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
 assert.equal(packageJson.scripts['verify:package'], 'node scripts/verify-package.cjs');
 assert.match(ciWorkflow, /pull_request:/);
@@ -577,12 +576,11 @@ assert.match(historySource, /schemaVersion: 1/);
 assert.match(historyMarkup, /id="download-json">Send to Codex</);
 assert.match(historySource, /dev-feedback-codex-inbox-/);
 assert.match(historySource, /newest valid capture/);
-assert.match(captureSource, /fillStyle = '#191919'/);
-assert.doesNotMatch(captureSource, /function pixelateRect/);
 assert.match(historySource, /function redactEvidenceRect/);
 assert.match(historySource, /annotatedImages\.get\(item\.id\)/);
 assert.match(backgroundSource, /files:/);
-assert.match(popupSource, /capture-mode/);
+assert.doesNotMatch(popupSource, /capture-mode|Capture Region/);
+assert.doesNotMatch(backgroundSource, /captureVisibleTab|windows\.create/);
 assert.match(popupScriptSource, /History|history/i);
 assert.doesNotMatch(stylesSource, /dev-feedback-visual-|dev-feedback-content-preview|visual-active|content-active/);
 

@@ -5,20 +5,22 @@
   const note = document.getElementById('note');
   const status = document.getElementById('status');
   const save = document.getElementById('save');
+  const saveNext = document.getElementById('save-next');
   const cancel = document.getElementById('cancel');
-  save.disabled = true;
+  save.disabled = saveNext.disabled = true;
   chrome.runtime.sendMessage({ action:'get-capture-session' }).then(result => {
     if (!result?.ok || !result.session) throw new Error(result?.reason || 'Capture session expired.');
     session = result.session;
-    document.getElementById('source').textContent = session.pageUrl;
+    document.getElementById('source').textContent = session.snapshot.selector;
     document.getElementById('target').textContent = JSON.stringify(session.snapshot, null, 2);
-    save.disabled = false;
+    save.disabled = saveNext.disabled = false;
     note.focus();
   }).catch(error => { status.textContent = error.message; });
   document.getElementById('capture-form').addEventListener('submit', async event => {
     event.preventDefault();
     if (!session || saving || !note.value.trim()) return;
-    saving = true; save.disabled = true; cancel.disabled = true;
+    const pickNext = event.submitter === saveNext;
+    saving = true; save.disabled = saveNext.disabled = true; cancel.disabled = true;
     status.textContent = 'Saving locally...';
     try {
       const result = await chrome.runtime.sendMessage({ action:'add-feedback-item', item:{
@@ -26,14 +28,17 @@
       }});
       if (!result?.ok) throw new Error(result?.reason || 'Could not save.');
       status.textContent = 'Saved to History.';
-      await chrome.runtime.sendMessage({ action:'clear-capture-session' }).catch(()=>{});
+      await chrome.runtime.sendMessage({ action:'clear-capture-session', pickNext }).catch(()=>{});
       if (!session?.embedded) window.close();
     } catch (error) {
       status.textContent = error.message + ' Your note is still here; retry when ready.';
-      saving = false; save.disabled = false; cancel.disabled = false;
+      saving = false; save.disabled = saveNext.disabled = false; cancel.disabled = false;
     }
   });
   window.addEventListener('keydown', event => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !saving) {
+      event.preventDefault(); document.getElementById('capture-form').requestSubmit(event.shiftKey ? saveNext : save);
+    }
     if (event.key === 'Escape' && !document.querySelector('dialog[open]')) { event.preventDefault(); cancel.click(); }
   });
   cancel.addEventListener('click', async()=> {

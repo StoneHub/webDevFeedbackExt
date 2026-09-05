@@ -1,6 +1,6 @@
 # Manual Release Checklist
 
-Automated checks are necessary but do not replace the exact-package unpacked-extension gate. Headless QA may use an isolated synthetic-page profile while the owner uses their Mac; record any test-only permission differences. See `docs/hardening-validation.md` for this candidate’s evidence and remaining limits.
+Automated checks are necessary but do not replace the exact-package unpacked-extension gate. Headless QA may use an isolated synthetic-page profile while the owner uses their Mac; record any test-only permission differences. See `docs/store-release-1.8.0.md` for the current candidate’s evidence and remaining limits.
 
 Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store, v1.7.1 was cancelled, and v1.7.2 is pending review for automatic publication. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call these releases runtime-verified until the relevant evidence is recorded.
 
@@ -28,42 +28,28 @@ For that historical package:
 - In the durable owner account, update the Store overview, screenshots, and optional video, then upload the exact verified v1.7.1 ZIP. Re-read the upload status before submitting for review.
 - After publication, confirm the Store listing and a clean Google result both show the Browser Code icon, revised title, short description, public version, and current screenshots. If the retired purple-flag asset remains despite the verified ZIP icon, record the listing asset URL and escalate through Chrome Web Store support rather than claiming the refresh worked.
 
-## Active browser capture core check
+## Active Element release check
 
-Before tagging or publishing the active browser capture core:
+The product was narrowed after hands-on review. New Region/PDF capture is removed; do not use the earlier broad workflow as an acceptance checklist for this release.
 
-- Reload the unpacked extension from this exact repository checkout.
-- Start Element and Region modes and confirm the capture UI opens with the current product controls.
-- In Element mode, select one element and save a Capture Record.
-- In Region mode, capture one normal-page region and one rendered PDF region, then save both to History.
-- Resize the browser window and confirm the private capture overlay remains usable. Verify that saving and cancelling preserve the source tab and that opening another capture cannot discard an existing draft.
-- Confirm History renders both records after the source tab is closed.
-- Set the browser download location to the configured MCP inbox and disable the per-download save prompt for this check.
-- Confirm **Send to Codex** places one explicit handoff file in that inbox without requiring manual file movement.
-- Confirm the Browser Code icon is legible in the browser toolbar and extension-management list at the packaged sizes.
+- Verify the exact release ZIP and minimal manifest permissions.
+- When replacing an unpacked build in an existing test profile, enable Developer mode and use Chrome’s extension Reload control. Restarting Chrome alone can leave the old service-worker behavior active; a new manifest or files on disk is insufficient proof.
+- Open History through the real toolbar and verify a session-bound frame on the source page with no additional tab.
+- Open the production popup at its native size and start Element picking through the toolbar.
+- Pick by mouse and keyboard; verify Escape stops picking.
+- Save a note with acceptance checks; cancel another draft; verify Save & pick next resumes targeting.
+- Confirm a new capture cannot replace an open draft and save errors preserve entered text.
+- Edit a saved note and checks without changing its target, source URL, original timestamp, or evidence.
+- Close the source tab and verify History persists.
+- Filter and select records; confirm all five export formats use only the reviewed selection.
+- Verify exact selected/shown deletion preserves hidden records.
+- Confirm previously saved Region/PDF and Visual/Add records remain readable and exportable, including redacted images.
+- Confirm PDF/browser-internal pages cannot start new capture.
+- Send a selected JSON handoff to the configured Downloads inbox and import it through the MCP client.
+- Read the imported record and any legacy evidence; record implementation and separately verified status.
+- Update the Store listing and screenshots for Element-only capture.
+- Record the exact uploaded package digest and Store API review/publication readback.
 
-## Active PDF/export check
+## Historical broad workflow
 
-Before tagging or publishing the active browser capture core, load the exact repository path as an unpacked extension in Edge or Chromium and verify:
-
-- Region capture from one hosted PDF and, when file access is enabled, one local PDF.
-- History renders the saved PDF capture after the source tab is closed.
-- JSON and self-contained HTML exports download and open.
-- AI Bundle ZIP contains `prompt.md`, `feedback.json`, `page-context.json`, `report.html`, and matching before/annotated evidence.
-- Opaque redaction remains applied in every exported “before” image; original pixels must not be recoverable.
-
-This gate remains required before the active release is described as runtime-verified.
-
-## Active Agent Handoff check
-
-Before tagging or publishing the active browser capture core:
-
-- Send a real Element and Region/PDF Capture Record through `Send to Codex`.
-- Launch the MCP companion from an actual local MCP client with explicit project and inbox roots.
-- List the inbox and import the newest valid handoff, then exercise project status, list, get, implementation brief, and evidence resource reads.
-- Confirm evidence bytes are available only through resource reads and base64 data URLs are absent from stored item JSON.
-- Create one agent-authored project item, verify an identical `clientRequestId` is idempotent, and exercise a revision conflict.
-- Implement one small project change with the agent's normal coding tools; record `in-progress`, `implemented`, and separately `verified` status with a passing check.
-- Confirm the extension still requests only `storage`, `activeTab`, and `scripting`, and that the extension ZIP contains no MCP server or Node dependency files.
-
-Do not claim a direct browser bridge. The current Agent Handoff is an explicit local inbox import; a native-messaging bridge remains a separately permissioned future gate.
+Earlier test evidence is preserved in `hardening-validation.md`. It does not authorize bringing back removed creation modes or publishing outdated Store copy.

@@ -12,10 +12,9 @@ const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
   'element.html',
+  'element.css',
   'ai-bundle.js',
   'background.js',
-  'capture.html',
-  'capture.js',
   'content.js',
   'collector.js',
   'element.js',
@@ -45,7 +44,6 @@ const requiredFiles = [
 const shippedJavaScriptFiles = [
   'ai-bundle.js',
   'background.js',
-  'capture.js',
   'content.js',
   'collector.js',
   'element.js',
@@ -95,13 +93,13 @@ assert.equal(packageJson.license, 'MIT');
 assert.match(license, /^MIT License/);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.ok(manifest.name.length <= 45, 'Manifest name exceeds the Chrome Web Store limit');
-assert.equal(manifest.description, 'Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.');
+assert.equal(manifest.description, 'Pick webpage elements, write clear change requests, and export selected feedback for developers and coding agents.');
 assert.ok(manifest.description.length <= 132, 'Manifest description exceeds the Chrome Web Store limit');
-assert.equal(productJson.summary, 'Capture browser elements or regions and send local, structured feedback to a coding agent.');
+assert.equal(productJson.summary, 'Pick webpage elements and turn clear change requests into a local developer handoff.');
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);
-assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','capture.html'], matches:['<all_urls>'] }]);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','history.html'], matches:['<all_urls>'] }]);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared.MAC_SHORTCUT_LABEL);
 assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');

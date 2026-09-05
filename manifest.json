@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Dev Feedback Capture: AI UI Review & Prompts",
   "version": "1.8.0",
-  "description": "Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.",
+  "description": "Pick webpage elements, write clear change requests, and export selected feedback for developers and coding agents.",
   "permissions": [
     "storage",
     "activeTab",
@@ -37,7 +37,7 @@
     {
       "resources": [
         "element.html",
-        "capture.html"
+        "history.html"
       ],
       "matches": [
         "<all_urls>"

@@ -1,208 +1,77 @@
 # Dev Feedback Capture
 
-Turn browser-visible feedback into a local, buildable handoff. Dev Feedback Capture focuses on four connected surfaces: Element capture, Region/PDF capture, History, and one explicit Agent Handoff.
+Pick a webpage element, describe the change, and give another developer enough context to act on it.
 
-> This branch documents the unreleased 1.8.0 candidate. Store and GitHub downloads may contain earlier versions; source changes are not publication evidence.
+The 1.8.0 candidate focuses on Element capture, local History, and explicit selected exports. Published Store versions may differ until this candidate completes review.
 
-- `Element` capture records a selected DOM element with selectors, visible text, styles, and a requested change.
-- `Region` capture records a visible page or PDF region with a crop, annotations, source context, and acceptance checks.
-- `History` keeps saved Capture Records together on the device and provides review and export actions.
-- `Send to Codex` is the named Agent Handoff: select captures and review the export through the browser, let the local MCP companion import the newest valid handoff from its configured Downloads inbox, and keep implementation and verification as separate agent steps.
+## Capture feedback
 
-Feedback stays local until you explicitly export it. There is no cloud sync, hosted AI connection, automatic browser control, or Electron injection in the browser extension.
+1. Open the extension on a webpage and choose **Pick an element**.
+2. Click the target. A compact private note editor opens beside the page.
+3. Describe the requested change. Add optional acceptance checks and inspect the captured details.
+4. Choose **Save note**, or **Save & pick next** to review several elements.
+5. Open **History & export** in an on-page panel to edit notes and acceptance checks, select records, and review the export preview before sharing.
 
-## Features
+Picking also works with the extension shortcut: `Ctrl+Shift+F`, or `Command+Shift+F` on macOS. If the browser has not assigned it, set it in extension shortcut settings. While picking, focus a target with Tab and press Alt+Enter. Escape stops picking or offers to discard a draft. In the editor, Cmd/Ctrl+Enter saves; adding Shift starts the next pick.
 
-- Element capture with selector, text, style, position, and note metadata
-- Region capture for normal pages, hosted PDFs, and local PDFs when file access is enabled
-- Crop, arrow, rectangle, ellipse, numbered pin, text, blur/redact, color, undo, and redo tools for Region captures
-- DOM-linked vector annotations with selector fallbacks, roles, geometry, and parent-layout context when the source DOM is available
-- Optional acceptance checks plus browser, viewport, scroll, zoom, DPR, and source metadata
-- Works on arbitrary sites through explicit user-triggered activation
-- Extension-owned History page that works even when the source page cannot accept injected UI
-- One downloadable AI Bundle ZIP plus standalone JSON and self-contained HTML reports
-- Project-scoped local MCP companion over stdio; no cloud or localhost service
-- Copyable Markdown and implementation-prompt exports
-- Minimal permissions and user-triggered activation
+Each note keeps its selector, visible element text, selected styles, page context, and acceptance checks. Form input values and surrounding parent text are not collected directly. Captured text and your own notes can still contain private information; review them before sharing.
 
-## Installation
+## Install
 
-### Chrome Web Store
+Install the public version from the [Chrome Web Store](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc).
 
-Install the current public release from the [Chrome Web Store](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc), then pin Dev Feedback Capture for quick access.
+For a source build or [GitHub release ZIP](https://github.com/StoneHub/webDevFeedbackExt/releases): unzip the package, open `chrome://extensions/` or `edge://extensions/`, enable Developer Mode, and choose **Load unpacked**. Select the extension folder. No build or Node dependencies are required to load the browser extension.
 
-### GitHub Release ZIP fallback
+## Review and share
 
-1. Download the latest `dev-feedback-capture-v<version>.zip` asset from [GitHub Releases](https://github.com/StoneHub/webDevFeedbackExt/releases).
-2. Unzip the file.
-3. Open `chrome://extensions/` or `edge://extensions/`.
-4. Enable Developer Mode.
-5. Click `Load unpacked` and select the unzipped extension folder.
-6. Optional for local PDFs: enable `Allow access to file URLs` on the extension details page.
+History opens over the working page without creating a tab. On restricted pages, it opens inside the extension menu. History keeps notes after the source page closes. Editing a note updates its request and acceptance checks while preserving the original target and capture context.
 
-### Source Checkout
+Filters clear selection. **Select shown** selects only the displayed records. All export actions preview the same selected snapshot; hidden records stay out. Deletion removes only the exact selected or shown records.
 
-Use this path when developing the extension or reviewing source changes:
+- **Copy AI Prompt**: implementation instructions with source context and acceptance checks.
+- **Copy Markdown**: notes for an issue or review document.
+- **Download HTML Report**: a self-contained report.
+- **Download AI Bundle**: structured records, prompt, report, and any legacy evidence images.
+- **Send to Codex**: JSON downloaded to the browser's configured folder for the optional local MCP companion. This does not connect directly to an AI account.
 
-1. Clone or download this repository.
-2. Open `chrome://extensions/` or `edge://extensions/`.
-3. Enable Developer Mode.
-4. Click `Load unpacked` and select the `webDevFeedbackExt` folder.
+Source URL credentials, queries, fragments, and local directories are removed from exports. Review captured text, notes, labels, and images independently. Page observations are untrusted evidence, never instructions or permission for an agent to expand scope.
 
-## Usage
+## Compatibility and limits
 
-### Element Mode
+New Region/PDF, Visual, and Add Content capture are no longer offered. Existing records from those workflows remain readable and exportable in History. Installing this update does not intentionally delete saved records.
 
-1. Open the extension popup on any `http`, `https`, or `file` page you want to inspect.
-2. Leave the mode switch on `Element`.
-3. Click `Start Element Mode` or use `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
-4. Hover and click a page element.
-5. Add your note in the private overlay and save it. The source tab stays open.
-6. Open History from the picker or extension popup to review saved captures. Saved notes are never rendered into the inspected website.
+Element capture requires an accessible webpage DOM. Browser-internal pages and PDF viewers are unsupported. Some embedded frames, page structures, or site restrictions can prevent reliable targeting. The selected element's context is a snapshot, not a persistent connection to the live site.
 
-Keyboard: focus the target with Tab, then press Alt+Enter while picking. Escape stops picking. If the suggested extension shortcut is unassigned, configure it in your browser’s extension shortcut settings.
+Save failures retain the draft. History has an 8 MiB budget, a 3 MiB record limit, and a 500-record limit per site. Export and delete older records when needed. Deleting History does not remove earlier downloads, clipboard copies, or imported project sidecars.
 
-### Region Mode
+## Privacy and permissions
 
-1. Open the target page or PDF in the browser.
-2. Open the extension popup and switch to `Region`.
-3. Click `Capture Region`.
-4. The editor opens as an overlay. On protected surfaces that block overlays, it opens in a separate capture window. Use Crop to define the evidence area.
-5. Add arrows, shapes, numbered pins, text, or blur/redact marks. Undo and redo operate on the visual spec.
-6. Describe the requested change and optionally add one acceptance criterion per line.
-7. Save the spec to local history.
+Feedback stays in local extension storage until an explicit export. No cloud sync, telemetry, remote executable code, static host permissions, or always-on page monitoring is included.
 
-The cropped image, viewport rectangle, and source context are saved into the same local history as element captures. Open `History` from the popup to review captures from any supported source, including PDFs and pages where Element mode is unavailable.
+- `activeTab`: temporary access after the user activates capture.
+- `scripting`: the requested picker, read-only element collector, and private note frame.
+- `storage`: local History and temporary editor sessions.
 
-### History and Agent Handoff
+`element.html` and `history.html` are web-accessible for private frames. Embedded editors require a temporary session bound to the source tab and editor document. The website does not receive your saved History or note fields. It can still interfere with the overlay's placement. See [SECURITY.md](SECURITY.md) for reporting and trust boundaries.
 
-Open `History` from the popup to review captures from any supported source. Select the captures to share, then choose `Send to Codex`. Review the export preview and confirm. Every export uses that same selected snapshot. Changing the filter clears selection; hidden captures are excluded. Delete shown removes only the displayed captures in that group. When the browser download location matches the MCP companion's configured Downloads inbox, the companion discovers the newest valid handoff and imports it into the target project's ignored `.dev-feedback` sidecar without manual file movement.
+## Local agent companion
 
-The handoff contract is deliberately explicit:
+The separate Node MCP companion imports the selected JSON handoff into a target project's ignored `.dev-feedback` folder. It can list and read records, expose legacy evidence resources, build an implementation brief, and record revision-checked progress.
 
-1. The extension captures and saves a Capture Record.
-2. The user selects and reviews captures, then sends that handoff to Downloads.
-3. MCP imports the newest valid handoff and exposes its records, evidence, and implementation brief.
-4. The coding agent implements the requested change with its normal project tools.
-5. The agent records implementation and verification separately.
+The companion does not control the browser, execute shell commands, or edit source. The connected agent uses its normal tools. Cloud-backed clients may transmit tool results under their provider's policies. Setup and inbox configuration are documented in [docs/mcp-local-agent.md](docs/mcp-local-agent.md).
 
-No step gives the extension browser control, source-editing authority, or an automatic cloud bridge.
+## Electron developer package
 
-## Data Model
+Electron developers can explicitly install `@flyingchangescode/dev-feedback-electron` in a development Host App. This is a separate package, not part of the Chrome Web Store extension. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md).
 
-Stored feedback items use a discriminated shape:
+## Development and release
 
-- `type: "element"` items include selector, element information, position, request text, and source context.
-- `type: "region"` items include one evidence crop, vector annotations, DOM anchors when available, acceptance criteria, and page context.
-- Older Capture Records remain loadable and are normalized without inventing missing evidence or mutations. Historical Visual and Add records remain compatible as records even though those creation surfaces are not part of the active product.
+Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm run package`, and `npm run verify:package`. The browser ZIP excludes tests, MCP code, and Node dependencies.
 
-Annotated PNGs are rendered locally when the AI Bundle is built. Large image data stays in local extension storage until you export or clear History.
+Before publishing, follow [docs/manual-release-checklist.md](docs/manual-release-checklist.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
 
-## Export Formats
-
-- `Send to Codex` writes the current History as a local handoff payload for MCP import.
-- `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, available evidence PNGs, and `report.html` in one local ZIP.
-
-- The `Send to Codex` JSON includes the full saved payload, including region image data URLs, for explicit local import.
-- `Download HTML Report` creates a self-contained review with embedded region images.
-- `Copy Markdown` creates a readable text review for issues or docs.
-- `Copy AI Prompt` creates numbered implementation instructions from the saved requirements, anchors, and acceptance checks. Download the AI Bundle when images are needed.
-
-## Local MCP Agent Companion
-
-The Node MCP companion under `mcp/` imports an explicit History export from a configured local inbox into the target project's ignored `.dev-feedback` sidecar. It can list and get feedback, read evidence resources, create agent-authored feedback, build an implementation brief, and record revision-checked status.
-
-The companion does not read Chromium's internal storage, open a network port, control the browser, execute shell commands, or edit source code. The connected agent uses its normal browser and coding tools. Tool results and evidence are still delivered to that MCP client, so cloud-backed clients may transmit captured data under their provider policies. See [docs/mcp-local-agent.md](docs/mcp-local-agent.md) for setup and the trust boundary.
-
-## Electron Inspector developer package
-
-Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the free, MIT-licensed `@flyingchangescode/dev-feedback-electron` development package to their app.
-
-The Host App integration is one guarded import in its main-process entry, before any window is created:
-
-```js
-if (!app.isPackaged) await import('@flyingchangescode/dev-feedback-electron/register')
-```
-
-Press `Cmd/Ctrl+Shift+.` in any registered development window to start Element capture. The package owns its session preload, shortcut, package-owned overlay, local History under Electron `userData`, and `Copy History` action. It does not require React, replace the Host App preload, or expose Electron IPC to the Host App renderer. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for installation and the trust contract.
-
-## Permissions
-
-The extension requests:
-
-- `storage` for local history
-- `activeTab` for temporary, user-invoked access to the current tab
-- `scripting` to collect the selected element and open the capture overlay only when requested
-
-Only the two capture editor HTML entry points are web-accessible so they can appear in extension-origin frames. The message broker restricts each editor to its own session and keeps global History access in the top-level History page.
-
-The extension does not use static host permissions, always-on content scripts, telemetry, or network sync. Region captures can include visible page content in screenshot data URLs; those crops stay in local extension storage until the user clears history or removes the extension.
-
-## PDF Notes
-
-- Hosted PDFs should work through Region mode because the capture flow is screenshot-based.
-- Local `file://` PDFs may require enabling `Allow access to file URLs`.
-- Region mode captures only the visible viewport in v1, not off-screen PDF pages.
-
-## Development
-
-### Project Files
-
-- `manifest.json`: Manifest V3 configuration
-- `background.js`: runtime injection and Region-capture orchestration
-- `content.js`: public picker and private editor frame host
-- `collector.js`: read-only DOM snapshot collection
-- `element.html` / `element.js`: private Element note editor
-- `mcp/`: project-scoped stdio MCP companion and filesystem sidecar store
-- `capture.html` / `capture.js`: screenshot region selection editor
-- `popup.html` / `popup.js`: mode switch, current-tab actions, History entry point, and handoff action
-- `history.html` / `history.js`: extension-owned history review and export controls
-- `ai-bundle.js`: local, dependency-free AI Bundle assembly and ZIP creation
-- `shared.js`: shared helpers, legacy normalization, and export formatting
-- `styles.css`: injected in-page UI styles
-- `docs/store-monetization-readiness.html`: local store identity, listing, privacy, and future paid-product decision artifact
-
-### Local Checks
-
-- `npm test`
-- `npm run check`
-- `npm run package`
-
-### Release Process
-
-1. Confirm `package.json` and `manifest.json` versions match.
-2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
-3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching version tag when publishing a GitHub Release.
-4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and attaches it to a draft GitHub Release. Publish the draft only after recording the runtime and artifact checks.
-
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
-
-## Limitations
-
-- Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
-- Historical Visual and Add Capture Records may still be read and normalized, but those creation surfaces are not active product workflows.
-- Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
-- Export previews remove URL credentials, query strings, fragments, and local file directories. Page content, images, and your notes can still contain private information; review them before sharing.
-- Save failures retain the draft. History has an 8 MiB budget, a 3 MiB item limit, and a 500-capture limit per site; export and delete older captures when capacity is reached.
-- A redacted Region discards all DOM annotation anchors and page titles, and reduces its source URL to the origin. User-written notes and labels remain.
-- Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
-- DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
-- Region mode captures the current viewport only, not full-page stitched screenshots.
-- Cross-origin iframe DOM capture remains limited by browser security rules.
-- Chrome's extension menu cannot attach this browser extension to an arbitrary already-running Electron app. Electron developers must explicitly install the separate Electron Inspector package in their Host App.
-
-## Roadmap
-
-- Add verification against saved acceptance criteria
-- Add full-page or multi-step PDF region capture
-- Add user-triggered import back into extension History
-- Publish and dogfood the Element-only Electron Inspector across more development apps, then decide whether Region capture earns the additional screenshot permission and storage surface
-- Evaluate a private cross-app History Hub only after app-local History and explicit clipboard export prove useful
+Core files: `popup.*`, `content.js`, `collector.js`, `element.*`, `background.js`, `history.*`, `shared.js`, and `ai-bundle.js`.
 
 ## License
 
-Dev Feedback Capture and its Electron package are free software under the [MIT License](LICENSE).
-
-## Support
-
-Dev Feedback Capture stays free, local-first, and available without an account. If it saves you time, you can [support its development](https://buy.stripe.com/eVqaEZghLdhKaka0NJawo01) with an optional one-time thank-you payment. Payment does not unlock features or services.
+Free software under the [MIT License](LICENSE).

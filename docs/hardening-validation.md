@@ -1,4 +1,6 @@
-# Hardening candidate validation
+# Historical broad candidate validation
+
+The Region/PDF creation workflow described below was removed after hands-on product review. See `store-release-1.8.0.md` for the narrower candidate. This file preserves the earlier test evidence.
 
 Validated September 5, 2026 against the 1.8.0 browser-capture candidate based on `b933ce0b8d412972faf60ebcb8218ef006d45bec` (PR #12). This is source and test evidence for an unreleased candidate, not Store publication evidence.
 

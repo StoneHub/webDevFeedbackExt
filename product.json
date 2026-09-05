@@ -2,7 +2,7 @@
   "slug": "dev-feedback-capture",
   "name": "Dev Feedback Capture",
   "kind": "browser-extension",
-  "summary": "Capture browser elements or regions and send local, structured feedback to a coding agent.",
+  "summary": "Pick webpage elements and turn clear change requests into a local developer handoff.",
   "status": "public",
   "repo": "https://github.com/StoneHub/webDevFeedbackExt",
   "liveUrl": "https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc",
@@ -26,19 +26,18 @@
     "summary": "Feedback stays in local extension storage or an explicitly selected project sidecar. Capture, export, and MCP import actions are user-triggered, and no cloud sync or hosted AI integration is included."
   },
   "distribution": {
-    "current": "The active product scope is Element capture, Region/PDF capture, History, and one explicit Agent Handoff. Store and GitHub release records preserve earlier submissions separately.",
-    "planned": "Package and manually verify the browser capture core, then publish only after the Element, Region/PDF, History, and Agent Handoff gates pass.",
+    "current": "Element capture, local History, and explicit selected exports. Previously saved Region/PDF records remain readable.",
+    "planned": "Verify the focused Element workflow and publish the 1.8.0 update after Store review.",
     "latestReleaseApi": "https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest",
     "assetNamePattern": "dev-feedback-capture-v{version}.zip",
     "downloadUrlPolicy": "Resolve the latest release asset at publish time instead of hardcoding a stale versioned URL."
   },
   "highlights": [
-    "Element capture with selectors and notes",
-    "Annotated Region/PDF captures with DOM anchors and acceptance checks",
-    "Extension-owned History with local exports",
-    "Send to Codex handoff through a configured local inbox",
-    "Local AI Bundle export with structured context and evidence images",
-    "Project-scoped stdio MCP companion for local coding agents"
+    "Element notes with selectors and page context",
+    "Optional acceptance checks",
+    "Private note editor and local History",
+    "Review and export only selected notes",
+    "Project-scoped MCP companion for coding agents"
   ],
   "screenshots": []
 }

@@ -9,13 +9,14 @@
     buildFeedbackId,
     canInjectIntoUrl,
     sanitizeFeedbackItems,
-    getEffectivePageUrl
+    detectSourceKind
   } = globalThis.DevFeedbackShared;
   const REGION_SESSION_MAX_AGE_MS = 30 * 60 * 1000;
   const mutationQueues = new Map();
 
   const ELEMENT_SESSION_PREFIX = 'dev-feedback-element-session-';
-  const SESSION_PREFIXES = [REGION_CAPTURE_SESSION_PREFIX, ELEMENT_SESSION_PREFIX];
+  const HISTORY_SESSION_PREFIX = 'dev-feedback-history-session-';
+  const SESSION_PREFIXES = [REGION_CAPTURE_SESSION_PREFIX, ELEMENT_SESSION_PREFIX, HISTORY_SESSION_PREFIX];
   const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
   const MAX_ITEM_BYTES = 3 * 1024 * 1024;
   const MAX_ITEMS_PER_SITE = 500;
@@ -32,16 +33,15 @@
     try {
       const url = new URL(sender.url);
       const page = url.pathname.slice(1);
-      if (sender.frameId && !['element.html', 'capture.html'].includes(page)) return '';
-      return url.protocol === new URL(chrome.runtime.getURL('')).protocol && url.host === new URL(chrome.runtime.getURL('')).host && ['popup.html', 'history.html', 'capture.html', 'element.html'].includes(page) ? page : '';
+      if (sender.frameId && !['element.html','history.html'].includes(page)) return '';
+      return url.protocol === new URL(chrome.runtime.getURL('')).protocol && url.host === new URL(chrome.runtime.getURL('')).host && ['popup.html', 'history.html', 'element.html'].includes(page) ? page : '';
     } catch { return ''; }
   }
 
   async function ownedSession(sender, page) {
     const id = new URL(sender.url).searchParams.get('session');
     if (!id || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid capture session.');
-    const prefix = page === 'element.html' ? ELEMENT_SESSION_PREFIX : REGION_CAPTURE_SESSION_PREFIX;
-    const key = prefix + id;
+    const key = (page === 'history.html' ? HISTORY_SESSION_PREFIX : ELEMENT_SESSION_PREFIX) + id;
     const session = (await chrome.storage.session.get(key))[key];
     if (!session || !Number.isFinite(Date.parse(session.createdAt)) || session.editorTabId !== sender.tab?.id || Date.now() - Date.parse(session.createdAt) > REGION_SESSION_MAX_AGE_MS) {
       throw new Error('This capture session expired or belongs to another editor.');
@@ -66,8 +66,14 @@
     const contentSender = !page && sender.frameId === 0 && Number.isInteger(sender.tab?.id) && canInjectIntoUrl(sender.url) && sender.url === sender.tab.url;
     if (!page && !contentSender) throw new Error('Untrusted request sender.');
     if (request.action === 'open-history' && (page || contentSender)) {
-      await chrome.tabs.create({ url: chrome.runtime.getURL('history.html') });
-      return { ok:true };
+      const tabId = contentSender || sender.frameId ? sender.tab?.id : request.tabId;
+      const tab = Number.isInteger(tabId) ? await chrome.tabs.get(tabId) : (await chrome.tabs.query({active:true,currentWindow:true}))[0];
+      if (!tab?.id || !canInjectIntoUrl(tab.url) || detectSourceKind(tab.url) === 'pdf') return {ok:true,usePopup:true};
+      await assertCaptureTab(tab);
+      const injected = await ensureContentScript(tab.id, tab.url);
+      if (!injected.ok) return {ok:true,usePopup:true};
+      const session = {sessionId:buildFeedbackId(),tabId:tab.id,pageUrl:tab.url,createdAt:new Date().toISOString()};
+      return openCaptureEditor(HISTORY_SESSION_PREFIX,session,'history.html');
     }
     if (request.action === 'start-element-capture' && contentSender) return startElementCapture(sender, request.snapshot);
     if (request.action === 'ensure-content-script' && page === 'popup.html') {
@@ -75,38 +81,48 @@
       await assertCaptureTab(tab);
       return ensureContentScript(tab.id, tab.url);
     }
-    if (request.action === 'start-region-capture' && (page === 'popup.html' || contentSender)) {
-      const tab = await chrome.tabs.get(contentSender ? sender.tab.id : request.tab?.id);
-      return startRegionCapture(tab);
-    }
     if (page === 'history.html') {
+      if (sender.frameId) {
+        const {key,session} = await ownedSession(sender,page);
+        if (request.action === 'close-history') {
+          await chrome.storage.session.remove(key);
+          await chrome.tabs.sendMessage(session.tabId,{action:'close-capture-overlay',sessionId:session.sessionId},{frameId:0}).catch(()=>{});
+          return {ok:true};
+        }
+      }
+
+      if (request.action === 'edit-feedback-note') {
+        if (typeof request.itemId !== 'string' || typeof request.note !== 'string' || !request.note.trim() || request.note.length > 2000) throw new Error('Write a note of up to 2000 characters.');
+        return mutateFeedbackItems(request.storageKey, items => {
+          if (!items.some(item => item.id === request.itemId)) throw new Error('This note was deleted. Refresh History.');
+          return items.map(item => item.id === request.itemId ? {
+            ...item, note:request.note.trim(), acceptance:request.acceptance,
+            changeRequest:{ ...item.changeRequest, summary:request.note.trim() }
+          } : item);
+        });
+      }
       if (request.action === 'list-feedback-history') return listFeedbackHistory();
       if (request.action === 'delete-feedback-items') {
         if (!Array.isArray(request.itemIds) || request.itemIds.length > MAX_ITEMS_PER_SITE || request.itemIds.some(id => typeof id !== 'string')) throw new Error('Invalid selection.');
         return mutateFeedbackItems(request.storageKey, items => items.filter(item => !request.itemIds.includes(item.id)));
       }
     }
-    if (page === 'capture.html' || page === 'element.html') {
+    if (page === 'element.html') {
       const { key, session } = await ownedSession(sender, page);
       if (request.action === 'get-capture-session') return { ok:true, session };
-      if (request.action === 'clear-region-session' || request.action === 'clear-capture-session') {
+      if (request.action === 'clear-capture-session') {
         await chrome.storage.session.remove(key);
-        if (session.embedded) await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId }, { frameId:0 }).catch(()=>{});
+        if (session.embedded) await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, pickNext:request.pickNext === true }, { frameId:0 }).catch(()=>{});
         return { ok:true };
-      }
-      if (request.action === 'resolve-annotation-target' && page === 'capture.html') {
-        return resolveAnnotationTarget(session.tabId, request.point, { ...request.pageContext, url:session.pageUrl });
       }
       if (request.action === 'add-feedback-item') {
         if (!request.item || typeof request.item !== 'object') throw new Error('Missing capture.');
-        const source = { ...request.item, id:session.sessionId, pageUrl:session.pageUrl, pageTitle:session.pageTitle };
-        if (page === 'element.html') {
-          Object.assign(source, { type:'element', captureType:'element', selector:session.snapshot.selector, elementInfo:session.snapshot, position:session.snapshot.position, pageContext:session.pageContext });
-        } else {
-          source.type = source.captureType = 'region';
-          if (!source.screenshot?.dataUrl) throw new Error('Missing region evidence.');
-        }
-        const item = globalThis.DevFeedbackShared.createCaptureRecord(source);
+        const item = globalThis.DevFeedbackShared.createElementRecord({
+          id:session.sessionId, pageUrl:session.pageUrl, pageTitle:session.pageTitle,
+          selector:session.snapshot.selector, elementInfo:session.snapshot,
+          position:session.snapshot.position, pageContext:session.pageContext,
+          note:request.item.note, acceptance:request.item.acceptance, timestamp:new Date().toISOString()
+        });
         await addFeedbackItem(globalThis.DevFeedbackShared.makeStorageKey(session.pageUrl), item);
         return { ok:true };
       }
@@ -146,29 +162,15 @@
 
   async function openCaptureEditor(prefix, session, page) {
     const key = prefix + session.sessionId;
-    // Capture is presented over ordinary pages. Restricted browser surfaces use a popup window.
-    const injected = canInjectIntoUrl(session.rawTabUrl || session.pageUrl)
-      ? await ensureContentScript(session.tabId, session.rawTabUrl || session.pageUrl) : { ok:false };
-    if (injected.ok) {
-      await chrome.storage.session.set({ [key]:{ ...session, editorTabId:session.tabId, embedded:true } });
-      try {
-        const shown = await chrome.tabs.sendMessage(session.tabId, { action:'show-capture-overlay', sessionId:session.sessionId, page }, { frameId:0 });
-        if (!shown?.ok) throw new Error(shown?.reason || 'Could not open the capture overlay.');
-        return { ok:true, sessionId:session.sessionId };
-      } catch (error) {
-        await chrome.storage.session.remove(key);
-        throw error;
-      }
-    }
-    const window = await chrome.windows.create({ url:'about:blank', type:'popup', width:1100, height:850, focused:true });
-    const tab = window.tabs[0];
+    const injected = await ensureContentScript(session.tabId, session.pageUrl);
+    if (!injected.ok) throw new Error(injected.reason);
+    await chrome.storage.session.set({ [key]:{ ...session, editorTabId:session.tabId, embedded:true } });
     try {
-      await chrome.storage.session.set({ [key]:{ ...session, editorTabId:tab.id } });
-      await chrome.tabs.update(tab.id, { url:chrome.runtime.getURL(`${page}?session=${encodeURIComponent(session.sessionId)}`) });
+      const shown = await chrome.tabs.sendMessage(session.tabId, { action:'show-capture-overlay', sessionId:session.sessionId, page }, { frameId:0 });
+      if (!shown?.ok) throw new Error(shown?.reason || 'Could not open the note editor.');
       return { ok:true, sessionId:session.sessionId };
     } catch (error) {
-      await chrome.storage.session.remove(key).catch(() => {});
-      await chrome.tabs.remove(tab.id).catch(() => {});
+      await chrome.storage.session.remove(key);
       throw error;
     }
   }
@@ -208,11 +210,13 @@
   });
 
   async function ensureContentScript(tabId, rawUrl) {
-    if (!tabId || !canInjectIntoUrl(rawUrl)) {
-      return { ok: false, reason: 'This page does not support in-page element capture. Use Region mode instead.' };
+    if (!tabId || (!canInjectIntoUrl(rawUrl) || detectSourceKind(rawUrl) === 'pdf')) {
+      return { ok: false, reason: 'Open a webpage to pick an element. PDF and browser-internal pages are not supported.' };
     }
 
     try {
+      const result = await chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType});
+      if (result[0]?.result === 'application/pdf') return {ok:false,reason:'PDF capture is no longer offered. Open a webpage to pick an element.'};
       await chrome.scripting.insertCSS({
         target: { tabId },
         files: ['styles.css']
@@ -231,67 +235,6 @@
       return { ok: true };
     } catch (error) {
       return { ok: false, reason: error.message || 'Unable to inject the feedback UI on this page.' };
-    }
-  }
-
-  async function startRegionCapture(tab, viewportMetrics) {
-    if (!tab || !tab.id) {
-      return { ok: false, reason: 'No active tab is available for capture.' };
-    }
-
-    let storageKey = '';
-    try {
-      await sweepExpiredRegionSessions();
-      await assertCaptureTab(tab);
-      const state = await chrome.tabs.sendMessage(tab.id, { action:'get-state' }, { frameId:0 }).catch(()=>null);
-      if (state?.editorOpen) throw new Error('Save or cancel the open draft before starting another capture.');
-      if (state?.feedbackMode) await chrome.tabs.sendMessage(tab.id, { action:'set-feedback-mode', enabled:false }, { frameId:0 });
-      const zoom = await chrome.tabs.getZoom(tab.id);
-      const resolvedViewportMetrics = canInjectIntoUrl(tab.url || '')
-        ? await runCollector(tab.id, 'getViewportMetrics').catch(() => null) : null;
-      await assertCaptureTab(tab);
-      const screenshotDataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format:'png' });
-      await assertCaptureTab(tab);
-      if (zoom !== await chrome.tabs.getZoom(tab.id)) throw new Error('Page zoom changed during capture. Try again.');
-      if (resolvedViewportMetrics) {
-        const after = await runCollector(tab.id, 'getViewportMetrics');
-        if (['width','height','scrollX','scrollY','devicePixelRatio'].some(key => after[key] !== resolvedViewportMetrics[key])) throw new Error('The page moved during capture. Try again.');
-      }
-      const sessionId = buildFeedbackId();
-      storageKey = `${REGION_CAPTURE_SESSION_PREFIX}${sessionId}`;
-      const pageUrl = getEffectivePageUrl(tab.url || '');
-      const session = {
-        sessionId,
-        tabId: tab.id,
-        windowId: tab.windowId,
-        pageUrl,
-        rawTabUrl: tab.url || '',
-        pageTitle: tab.title || '',
-        viewportMetrics: sanitizeViewportMetrics(resolvedViewportMetrics || { width:tab.width, height:tab.height }),
-        screenshotDataUrl,
-        createdAt: new Date().toISOString()
-      };
-
-      session.viewportMetrics.zoom = zoom;
-      return await openCaptureEditor(REGION_CAPTURE_SESSION_PREFIX, session, 'capture.html');
-    } catch (error) {
-      if (typeof storageKey === 'string') {
-        await chrome.storage.session.remove(storageKey).catch(() => {});
-      }
-      return { ok: false, reason: error.message || 'Unable to capture the current tab.' };
-    }
-  }
-
-  async function resolveAnnotationTarget(tabId, point, pageContext) {
-    if (!tabId) {
-      return { ok: true, target: null, reason: 'The source tab is no longer available.' };
-    }
-
-    try {
-      const response = await runCollector(tabId, 'resolveDomTarget', [point, pageContext]);
-      return response?.ok ? response : { ok: true, target: null, reason: response?.reason || 'No DOM target found.' };
-    } catch (error) {
-      return { ok: true, target: null, reason: 'DOM anchoring is unavailable for this page.' };
     }
   }
 
@@ -367,8 +310,8 @@
       const encodedBytes = new TextEncoder().encode(JSON.stringify(nextItems)).length;
       const largest = Math.max(0, ...nextItems.map(item => new TextEncoder().encode(JSON.stringify(item)).length));
       const [used, previous] = await Promise.all([chrome.storage.local.getBytesInUse(null), chrome.storage.local.getBytesInUse(storageKey)]);
-      if (nextItems.length > currentItems.length && (largest > MAX_ITEM_BYTES || used - previous + encodedBytes + storageKey.length > MAX_HISTORY_BYTES)) {
-        throw new Error('History is nearly full or this capture is too large. Export and delete older items, or use a smaller crop. Your draft is still open.');
+      if ((nextItems.length > currentItems.length || encodedBytes > new TextEncoder().encode(JSON.stringify(currentItems)).length) && (largest > MAX_ITEM_BYTES || used - previous + encodedBytes + storageKey.length > MAX_HISTORY_BYTES)) {
+        throw new Error('History is nearly full or this capture is too large. Export and delete older items, or shorten this note. Your draft is still open.');
       }
       await chrome.storage.local.set({ [storageKey]: nextItems });
       return { ok: true, items: nextItems };
@@ -414,18 +357,4 @@
     return chrome.tabs.sendMessage(tabId, message);
   }
 
-  function sanitizeViewportMetrics(viewportMetrics) {
-    return {
-      width: Number.isFinite(viewportMetrics?.width) ? viewportMetrics.width : 0,
-      height: Number.isFinite(viewportMetrics?.height) ? viewportMetrics.height : 0,
-      scrollX: Number.isFinite(viewportMetrics?.scrollX) ? viewportMetrics.scrollX : 0,
-      scrollY: Number.isFinite(viewportMetrics?.scrollY) ? viewportMetrics.scrollY : 0,
-      devicePixelRatio: Number.isFinite(viewportMetrics?.devicePixelRatio) && viewportMetrics.devicePixelRatio > 0
-        ? viewportMetrics.devicePixelRatio
-        : null,
-      zoom: Number.isFinite(viewportMetrics?.zoom) && viewportMetrics.zoom > 0 ? viewportMetrics.zoom : 1,
-      userAgent: typeof viewportMetrics?.userAgent === 'string' ? viewportMetrics.userAgent.slice(0, 500) : navigator.userAgent,
-      language: typeof viewportMetrics?.language === 'string' ? viewportMetrics.language.slice(0, 80) : navigator.language
-    };
-  }
 })();

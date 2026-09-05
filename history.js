@@ -1,5 +1,20 @@
 (function() {
   'use strict';
+  if (window.top !== window) document.documentElement.classList.add('overlay-history');
+  if (new URLSearchParams(window.location.search).get('surface') === 'popup') document.documentElement.classList.add('popup-history');
+  document.getElementById('close-history').addEventListener('click', async () => {
+    if (window.top === window) { window.close(); return; }
+    const result = await chrome.runtime.sendMessage({action:'close-history'});
+    if (!result?.ok) setError(result?.reason || 'Could not close History.');
+  });
+
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !document.querySelector('dialog[open]')) {
+      event.preventDefault();
+      document.getElementById('close-history').click();
+    }
+  });
 
   const {
     CAPTURE_TYPE_REGION,
@@ -165,7 +180,13 @@
     deleteButton.textContent = 'Delete';
     deleteButton.setAttribute('aria-label', `Delete feedback: ${item.note.slice(0, 80)}`);
     deleteButton.addEventListener('click', () => deleteItem(history, item));
-    article.append(body, deleteButton);
+    const editButton = document.createElement('button');
+    editButton.className = 'secondary'; editButton.textContent = 'Edit';
+    editButton.setAttribute('aria-label', `Edit feedback: ${item.note.slice(0, 80)}`);
+    editButton.addEventListener('click', () => editItem(history, item));
+    const actions = document.createElement('div'); actions.className = 'item-actions';
+    actions.append(editButton, deleteButton);
+    article.append(body, actions);
     return article;
   }
 
@@ -238,6 +259,33 @@
       ].some((value) => String(value || '').toLowerCase().includes(searchQuery)));
       return items.length ? [{ ...history, items }] : [];
     });
+  }
+
+  function editItem(history, item) {
+    const dialog = document.getElementById('edit-feedback');
+    const form = document.getElementById('edit-feedback-form');
+    const note = document.getElementById('edit-note');
+    const acceptance = document.getElementById('edit-acceptance');
+    const save = document.getElementById('edit-save');
+    const cancel = document.getElementById('edit-cancel');
+    const error = document.getElementById('edit-error');
+    let saving = false;
+    note.value = item.note; acceptance.value = (item.acceptance || []).join('\n'); error.textContent = '';
+    save.disabled = cancel.disabled = false;
+    cancel.onclick = () => dialog.close();
+    dialog.oncancel = event => { if (saving) event.preventDefault(); };
+    form.onsubmit = async event => {
+      event.preventDefault();
+      if (saving || !note.value.trim()) return;
+      saving = true; save.disabled = cancel.disabled = true; error.textContent = '';
+      try {
+        const result = await chrome.runtime.sendMessage({action:'edit-feedback-note', storageKey:history.storageKey, itemId:item.id, note:note.value.trim(), acceptance:acceptance.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)});
+        if (!result?.ok) throw new Error(result?.reason || 'Could not save this note.');
+        dialog.close(); await loadHistory(); setStatus('Note updated.');
+      } catch (failure) { error.textContent = failure.message + ' Your changes are still here.'; }
+      finally { saving = false; save.disabled = cancel.disabled = false; }
+    };
+    dialog.showModal(); note.focus();
   }
 
   async function deleteItem(history, item) {

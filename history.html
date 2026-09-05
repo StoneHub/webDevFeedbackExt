@@ -7,12 +7,12 @@
   <link rel="stylesheet" href="history.css">
 </head>
 <body>
-  <main class="shell">
+  <main class="shell"><button id="close-history" class="secondary close-panel" aria-label="Close History">×</button>
     <header class="hero">
       <div>
         <p class="eyebrow">Dev Feedback Capture</p>
         <h1>History &amp; Export</h1>
-        <p class="lede">Review local Capture Records and export an implementation-ready handoff with evidence, DOM anchors, and acceptance checks.</p>
+        <p class="lede">Review your notes, refine the requested changes, and export only the feedback you select.</p>
       </div>
       <div class="metrics" aria-label="History totals">
         <div><strong id="item-total">0</strong><span>items</span></div>
@@ -26,13 +26,14 @@
         <input id="history-search" type="search" placeholder="Search notes, titles, URLs, or selectors">
       </label>
       <p id="selection-summary" role="status">0 selected for sharing or deletion</p><p id="storage-usage"></p><div class="actions"><button id="select-shown" class="secondary">Select shown</button><button id="select-none" class="secondary">Select none</button>
+      </div><details class="share-menu"><summary>Share selected notes</summary><div class="actions">
         <button id="download-ai-bundle">Download AI Bundle</button>
         <button id="download-json">Send to Codex</button>
         <button id="download-html">Download HTML Report</button>
         <button id="copy-markdown" class="secondary">Copy Markdown</button>
         <button id="copy-ai" class="secondary">Copy AI Prompt</button>
         <button id="clear-all" class="danger">Delete selected</button>
-      </div>
+      </div></details>
     </section>
 
     <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -40,6 +41,7 @@
     <section id="history-groups" class="groups" aria-label="Saved feedback histories"></section>
   </main>
 
+  <dialog id="edit-feedback"><form id="edit-feedback-form"><h2>Edit feedback</h2><label for="edit-note">Requested change</label><textarea id="edit-note" maxlength="2000" required rows="4"></textarea><label for="edit-acceptance">Acceptance checks, one per line</label><textarea id="edit-acceptance" maxlength="2000" rows="3"></textarea><p id="edit-error" role="alert"></p><button type="submit" id="edit-save">Save changes</button> <button type="button" id="edit-cancel" class="secondary">Cancel</button></form></dialog>
   <dialog id="export-preview"><h2>Review before sharing</h2><p id="export-preview-count"></p><p>Only these selected records will be shared. Source URL query strings, fragments, credentials, and local directory paths are removed. Redacted regions omit captured text context. Your notes, annotation labels, and image contents still need your review.</p><div id="export-preview-images"></div><details><summary>Review captured fields</summary><pre id="export-preview-content"></pre></details><form method="dialog"><button value="cancel" class="secondary">Cancel</button> <button value="export">Share these records</button></form></dialog>
   <script src="shared.js"></script>
   <script src="ai-bundle.js"></script>

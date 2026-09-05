@@ -59,7 +59,7 @@ function background(options={}) {
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
   const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
-  return {local,sessions,content,page,windowTypes,get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('history.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
+  return {local,sessions,content,page,windowTypes,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('history.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
 }
 
 test('broker denies content-script History reads/writes, forged extension URLs, subframes, and wrong editor ownership', async () => {
@@ -104,15 +104,10 @@ test('storage capacity rejection preserves the editor session and existing histo
   assert.equal(save.ok,false);assert.match(save.reason,/nearly full/);assert.equal(Object.keys(app.sessions).length,1);
 });
 
-test('Region capture rejects a tab switch instead of saving mismatched evidence',async()=>{
-  const app=background({switchDuringCapture:true});
-  const result=await app.send({action:'start-region-capture',tab:{id:1}},app.page('popup.html'));
-  assert.equal(result.ok,false);assert.match(result.reason,/source tab changed/);assert.equal(Object.keys(app.sessions).length,0);
-});
 
 test('History filter and selection exclude hidden items from export and deletion',async()=>{
   const controls=new Map();const control=id=>{if(!controls.has(id))controls.set(id,{addEventListener(){},setAttribute(){},style:{}});return controls.get(id);};
-  const context={DevFeedbackShared:shared,document:{getElementById:control},chrome:{storage:{onChanged:{addListener(){}}}},Set,JSON};
+  const context={window:{top:null,location:{search:''}},URLSearchParams,DevFeedbackShared:shared,document:{addEventListener(){},documentElement:{classList:{add(){}}},getElementById:control},chrome:{storage:{onChanged:{addListener(){}}}},Set,JSON};
   let script=source('history.js').replace('\n  loadHistory();','\n  // Suppress initial rendering in this contract test.');
   script=script.replace(/\}\)\(\);\s*$/,`globalThis.audit={seed(h,q){histories=h;searchQuery=q;h.forEach(group=>group.items.forEach(item=>selected.add(identity(group,item))));},getSelectedHistories,getFilteredHistories,clearHistoryGroup};})();`);
   vm.runInNewContext(script,context);
@@ -143,32 +138,50 @@ test('legacy histories above the item budget can still be cleaned up',async()=>{
   assert.equal(app.local[key].length,501);
 });
 
-test('the first crop gesture works before any selection exists',async()=>{
-  const controls=new Map();
-  const control=id=>{
-    if(!controls.has(id)) controls.set(id,{value:'',style:{},classList:{add(){},remove(){},toggle(){}},addEventListener(){},replaceChildren(){},setAttribute(){},getBoundingClientRect(){return {left:0,top:0,width:800,height:600};}});
-    return controls.get(id);
-  };
-  const context={DevFeedbackShared:shared,document:{getElementById:control,querySelectorAll(){return [];}},window:{addEventListener(){}},Set,Map,JSON,Math};
-  let script=source('capture.js').replace(/  init\(\)\.catch\(\(error\) => \{[\s\S]*?\n  \}\);/,'');
-  script=script.replace(/\}\)\(\);\s*$/,`globalThis.cropTest={seed(){session={viewportMetrics:{width:800,height:600}};},startGesture,updateGesture,finishGesture,getSelection(){return selection;}};})();`);
-  vm.runInNewContext(script,context);
-  context.cropTest.seed();
-  const event=(x,y)=>({button:0,pointerId:1,clientX:x,clientY:y,preventDefault(){}});
-  await context.cropTest.startGesture(event(100,100));
-  context.cropTest.updateGesture(event(400,350));
-  context.cropTest.finishGesture(event(400,350));
-  assert.equal(context.cropTest.getSelection().width,300);
-  assert.equal(context.cropTest.getSelection().height,250);
+
+
+
+test('Region creation and retired editor routes are unavailable',async()=>{
+  const app=background();
+  assert.equal((await app.send({action:'start-region-capture',tab:{id:1}},app.page('popup.html'))).ok,false);
+  assert.equal((await app.send({action:'start-region-capture'},app.content)).ok,false);
+  assert.equal((await app.send({action:'get-capture-session'},app.page('capture.html','old'))).ok,false);
+  assert.equal(Object.keys(app.sessions).length,0);
+});
+
+test('Element saving cannot smuggle a screenshot into a new Region record',async()=>{
+  const app=background();
+  const start=await app.send({action:'start-element-capture',snapshot:{selector:'#button'}},app.content);
+  const result=await app.send({action:'add-feedback-item',item:{note:'Change label',screenshot:{dataUrl:PNG},type:'region'}},app.page('element.html',start.sessionId));
+  assert.equal(result.ok,true);
+  const item=Object.values(app.local).flat()[0];
+  assert.equal(item.type,'element');assert.equal(item.screenshot,undefined);
+});
+
+test('History edits change the note and checks while preserving original evidence and identity',async()=>{
+  const key='dev-feedback-https://site.test'; const original={...element('a'),acceptance:['Old check']};
+  const app=background({local:{[key]:[original,element('b')]}});
+  const request={action:'edit-feedback-note',storageKey:key,itemId:'a',note:'Updated request',acceptance:['New check'],selector:'#forged',pageUrl:'https://forged.test'};
+  assert.equal((await app.send(request,app.content)).ok,false);
+  assert.equal((await app.send(request)).ok,true);
+  assert.equal(app.local[key][0].note,'Updated request');
+  assert.equal(app.local[key][0].changeRequest.summary,'Updated request');
+  assert.equal(app.local[key][0].selector,original.selector);
+  assert.equal(app.local[key][0].timestamp,original.timestamp);
+  assert.equal(app.local[key][1].note,'Change spacing');
+  assert.equal((await app.send({...request,itemId:'deleted'})).ok,false);
 });
 
 
-test('restricted surfaces use a capture popup window with session ownership',async()=>{
-  const app=background({denyInjection:true});
-  const started=await app.send({action:'start-region-capture',tab:{id:1}},app.page('popup.html'));
+test('History overlays need an owned session and cannot be opened by an arbitrary embedded frame',async()=>{
+  const app=background({local:{'dev-feedback-https://site.test':[element('a')]}});
+  const started=await app.send({action:'open-history',tabId:1},app.page('popup.html'));
   assert.equal(started.ok,true);
-  assert.deepEqual(app.windowTypes,['popup']);
-  const sender={...app.page('capture.html',started.sessionId),frameId:0,tab:{id:10}};
-  assert.equal((await app.send({action:'get-capture-session'},sender)).ok,true);
-  assert.equal((await app.send({action:'get-capture-session'},{...sender,tab:{id:1}})).ok,false);
+  assert.equal(app.tabCount,1,'History must keep the existing tab');
+  assert.equal(app.windowTypes.length,0);
+  const owner=app.page('history.html',started.sessionId);
+  assert.equal((await app.send({action:'list-feedback-history'},owner)).histories.length,1);
+  assert.equal((await app.send({action:'list-feedback-history'},{...owner,documentId:'foreign-document'})).ok,false);
+  assert.equal((await app.send({action:'list-feedback-history'},app.page('history.html','unknown'))).ok,false);
+  assert.equal((await app.send({action:'close-history'},owner)).ok,true);
 });

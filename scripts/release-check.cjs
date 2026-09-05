@@ -7,14 +7,19 @@ const rootDir = path.join(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'product.json'), 'utf8'));
+const license = fs.readFileSync(path.join(rootDir, 'LICENSE'), 'utf8');
 const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
+  'element.html',
   'ai-bundle.js',
   'background.js',
   'capture.html',
   'capture.js',
   'content.js',
+  'collector.js',
+  'element.js',
+  'editor-dialog.js',
   'history.css',
   'history.html',
   'history.js',
@@ -23,12 +28,15 @@ const requiredFiles = [
   'popup.js',
   'shared.js',
   'styles.css',
-  'visual-edit.js',
   'mcp/cli.mjs',
   'mcp/server.mjs',
   'mcp/store.mjs',
   'docs/mcp-local-agent.md',
-  'docs/v1.6-local-mcp-plan.html',
+  'docs/manual-release-checklist.md',
+  'CONTEXT.md',
+  'docs/agents/issue-tracker.md',
+  'docs/agents/triage-labels.md',
+  'docs/agents/domain.md',
   'icon16.png',
   'icon48.png',
   'icon128.png'
@@ -39,10 +47,12 @@ const shippedJavaScriptFiles = [
   'background.js',
   'capture.js',
   'content.js',
+  'collector.js',
+  'element.js',
+  'editor-dialog.js',
   'history.js',
   'popup.js',
-  'shared.js',
-  'visual-edit.js'
+  'shared.js'
 ];
 
 const companionJavaScriptFiles = [
@@ -81,15 +91,17 @@ companionJavaScriptFiles.forEach((file) => {
 });
 
 assert.equal(packageJson.version, manifest.version);
+assert.equal(packageJson.license, 'MIT');
+assert.match(license, /^MIT License/);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.ok(manifest.name.length <= 45, 'Manifest name exceeds the Chrome Web Store limit');
-assert.equal(manifest.description, 'Pick elements, propose new page content, and annotate regions. Export AI-ready prompts and visual change specs for developers.');
+assert.equal(manifest.description, 'Pick elements and annotate regions. Export AI-ready prompts and region evidence for developers.');
 assert.ok(manifest.description.length <= 132, 'Manifest description exceeds the Chrome Web Store limit');
-assert.equal(productJson.summary, manifest.description);
+assert.equal(productJson.summary, 'Capture browser elements or regions and send local, structured feedback to a coding agent.');
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);
-assert.equal(Array.isArray(manifest.web_accessible_resources), false);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','capture.html'], matches:['<all_urls>'] }]);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared.MAC_SHORTCUT_LABEL);
 assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');

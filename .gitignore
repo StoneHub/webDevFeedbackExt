@@ -15,3 +15,7 @@ node_modules/
 
 # Release package output
 dist/
+
+# Local browser validation
+output/
+.playwright-cli/

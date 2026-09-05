@@ -2,7 +2,7 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-Chrome Web Store v1.7 is public. This source checkout prepares a behavior-neutral v1.7.1 discovery refresh; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
+This guide describes the unreleased 1.8.0 candidate: Element, Region/PDF, History, and one explicit Agent Handoff. Store and GitHub release notes in this repository preserve earlier submission evidence.
 
 ## 1. Install the extension
 
@@ -29,56 +29,46 @@ Optional for local PDFs:
 3. Leave the mode on `Element`.
 4. Click `Start Element Mode` or press `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 5. Click a page element, add your note, and save it.
-6. The in-page capture list starts expanded. Use **⌄** to collapse it; the compact list stays on the nearest viewport edge as you drag it, and **⌃** expands it again.
+6. Save or cancel in the private overlay. Your source tab stays in place; use History to review saved captures.
 
-## 3. Preview a visual edit
-
-1. Open an injectable webpage and choose `Visual` in the extension popup.
-2. Click `Start Visual Edit`, then select one page element.
-3. Drag the selected outline to move the element, or drag its corner handle to resize it.
-4. Use Undo, Redo, or Reset as needed.
-5. Add the implementation note and optional acceptance checks, then save the spec.
-6. The live page is restored; the original/proposed evidence and requested mutations remain in local History.
-
-## 4. Propose new page content
-
-1. Open an injectable webpage and choose `Add` in the extension popup.
-2. Click the existing element that should anchor the new block.
-3. Choose Text, Image placeholder, List, or HTML/embed frame and select its placement.
-4. Add filler content or explain what the new block should communicate or support.
-5. Add optional acceptance checks, then save the insert spec.
-6. The temporary block is removed from the live page while its anchor, intent, structured insert mutation, and before/proposed evidence remain in History.
-
-The HTML/embed frame is a safe placeholder; it does not execute supplied HTML or load remote content.
-
-## 5. Compile an annotated region spec
+## 3. Compile an annotated region spec
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
 3. Click `Capture Region`.
-4. Use `Crop` to define the evidence area.
+4. Use `Crop` in the overlay to define the evidence area. Protected browser surfaces use a separate capture window.
 5. Add arrows, rectangles, ellipses, numbered pins, text, or blur/redact marks. Use Undo and Redo as needed.
 6. Describe the requested change and optionally add one acceptance check per line.
 7. Save the visual change spec.
 
-## 6. Export saved feedback
+## 4. Export saved feedback
 
-Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
+Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. Select the captures to share, choose an export, and review the preview before confirming. Filters clear selection and hidden captures stay out of exports. From History, you can:
 
 - Download one `AI Bundle` ZIP with `prompt.md`, structured feedback and page context, before/annotated PNGs, and `report.html`
-- Download `JSON for MCP` for full payloads including crop image data
+- Choose `Send to Codex` to place the selected handoff payload in the configured local Downloads inbox for MCP import
 - Download a self-contained `HTML Report` with embedded region images
 - Copy `Markdown` for issue trackers or docs
 - Copy `AI Prompt` for ready-to-paste implementation instructions based on saved text and source context
 
 AI Prompt is text-only. Use AI Bundle when the implementation handoff needs its numbered evidence images.
 
-## 7. Give a local agent project-scoped feedback
+## 5. Give a local agent project-scoped feedback
 
-1. In History, choose `Download JSON for MCP`.
-2. Configure the MCP companion with the absolute target project path and the folder containing that export.
-3. Ask the agent to call `dev_feedback_import` with the exact JSON path. If the export contains multiple site/file groups, also provide the exact `storageKey` shown by the first rejected import.
+1. In History, choose `Send to Codex` to review and download the selected captures.
+2. Configure the MCP companion with the absolute target project path and the browser Downloads folder.
+3. Ask the agent to call `dev_feedback_import_latest`. If the handoff contains multiple site/file groups, provide the exact `storageKey` shown by the first rejected import.
 4. The agent can call `dev_feedback_list`, `dev_feedback_get`, and `dev_feedback_build_brief`, implement changes with its normal project tools, then record progress with `dev_feedback_status_update`.
+
+Codex setup is one command per target project:
+
+```sh
+codex mcp add dev-feedback -- node /absolute/path/to/webDevFeedbackExt/mcp/cli.mjs \
+  --project /absolute/path/to/project \
+  --inbox /absolute/path/to/Downloads
+```
+
+The extension places the file in the inbox; users do not need to move it manually. Implementation and verification remain separate steps.
 
 Setup and security boundaries are in `docs/mcp-local-agent.md`.
 
@@ -86,5 +76,5 @@ Setup and security boundaries are in `docs/mcp-local-agent.md`.
 
 - Full docs: see `README.md`
 - PDF capture issues on local files: check `Allow access to file URLs`
-- Element mode unavailable: use `Region` mode on non-injectable browser surfaces
+- Element capture unavailable: use `Region` mode on non-injectable browser surfaces
 - Region capture saves viewport-only crops in v1, not full-page screenshots

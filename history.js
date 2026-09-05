@@ -12,20 +12,25 @@
   let histories = [];
   let searchQuery = '';
   let refreshTimer = 0;
+  const selected = new Set();
+  let exportSnapshot = [];
+  let exportBusy = false;
+  const identity = (history, item) => JSON.stringify([history.storageKey, item.id]);
 
   const groupsElement = document.getElementById('history-groups');
   const statusElement = document.getElementById('status');
   const errorElement = document.getElementById('error');
   const searchElement = document.getElementById('history-search');
 
-  document.getElementById('download-json').addEventListener('click', downloadJson);
-  document.getElementById('download-ai-bundle').addEventListener('click', downloadAiBundle);
-  document.getElementById('download-html').addEventListener('click', downloadHtmlReport);
-  document.getElementById('copy-markdown').addEventListener('click', copyMarkdown);
-  document.getElementById('copy-ai').addEventListener('click', copyAiPrompt);
+  document.getElementById('download-json').addEventListener('click', () => startExport(downloadCodexHandoff));
+  document.getElementById('download-ai-bundle').addEventListener('click', () => startExport(downloadAiBundle));
+  document.getElementById('download-html').addEventListener('click', () => startExport(downloadHtmlReport));
+  document.getElementById('copy-markdown').addEventListener('click', () => startExport(copyMarkdown));
+  document.getElementById('copy-ai').addEventListener('click', () => startExport(copyAiPrompt));
   document.getElementById('clear-all').addEventListener('click', clearAllHistory);
   searchElement.addEventListener('input', () => {
     searchQuery = searchElement.value.trim().toLowerCase();
+    selected.clear();
     render();
   });
 
@@ -37,6 +42,10 @@
     refreshTimer = window.setTimeout(loadHistory, 120);
   });
 
+  document.getElementById('select-shown').addEventListener('click', () => {
+    getFilteredHistories().forEach(history => history.items.forEach(item => selected.add(identity(history, item)))); render();
+  });
+  document.getElementById('select-none').addEventListener('click', () => { selected.clear(); render(); });
   loadHistory();
 
   async function loadHistory() {
@@ -50,6 +59,7 @@
         .map((history) => ({ ...history, items: sanitizeFeedbackItems(history.items) }))
         .filter((history) => history.items.length > 0)
         .sort((left, right) => getNewestTimestamp(right) - getNewestTimestamp(left));
+      document.getElementById('storage-usage').textContent = `${(response.bytesUsed / 1048576).toFixed(1)} MiB used · ${(response.byteLimit / 1048576).toFixed(0)} MiB capture budget`;
       render();
     } catch (error) {
       setError(error.message || 'Unable to load feedback history.');
@@ -61,7 +71,9 @@
     const totalItems = histories.reduce((sum, history) => sum + history.items.length, 0);
     document.getElementById('item-total').textContent = String(totalItems);
     document.getElementById('group-total').textContent = String(histories.length);
-    setActionAvailability(totalItems > 0);
+    const count = getSelectedHistories().reduce((sum, history) => sum + history.items.length, 0);
+    document.getElementById('selection-summary').textContent = `${count} selected for sharing or deletion`;
+    setActionAvailability(count > 0 && !exportBusy);
     groupsElement.replaceChildren();
 
     if (!filtered.length) {
@@ -93,8 +105,8 @@
     titleWrap.append(title, count);
     const clearButton = document.createElement('button');
     clearButton.className = 'danger';
-    clearButton.textContent = 'Clear Site/File';
-    clearButton.setAttribute('aria-label', `Clear all feedback for ${label}`);
+    clearButton.textContent = `Delete shown (${history.items.length})`;
+    clearButton.setAttribute('aria-label', `Delete these ${history.items.length} visible items for ${label}`);
     clearButton.addEventListener('click', () => clearHistoryGroup(history));
     header.append(titleWrap, clearButton);
 
@@ -108,6 +120,17 @@
   function createItem(history, item, groupLabel) {
     const article = document.createElement('article');
     article.className = 'item';
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox'; checkbox.checked = selected.has(identity(history, item));
+    checkbox.setAttribute('aria-label', `Select ${item.note}`);
+    checkbox.addEventListener('change', () => {
+      checkbox.checked ? selected.add(identity(history, item)) : selected.delete(identity(history, item));
+      const count = getSelectedHistories().reduce((sum, group) => sum + group.items.length, 0);
+      document.getElementById('selection-summary').textContent = `${count} selected for sharing or deletion`;
+      setActionAvailability(count > 0 && !exportBusy);
+    });
+    label.append(checkbox, document.createTextNode(' Select')); article.appendChild(label);
     article.appendChild(createEvidencePreview(item, groupLabel));
 
     const body = document.createElement('div');
@@ -221,47 +244,76 @@
     if (!window.confirm('Delete this feedback item?')) {
       return;
     }
-    await mutate({ action: 'delete-feedback-item', storageKey: history.storageKey, itemId: item.id }, 'Feedback item deleted.');
+    await mutate({ action: 'delete-feedback-items', storageKey: history.storageKey, itemIds: [item.id] }, 'Feedback item deleted.');
   }
 
   async function clearHistoryGroup(history) {
-    if (!window.confirm(`Delete all ${history.items.length} items for ${getGroupLabel(history)}?`)) {
+    if (!window.confirm(`Delete these ${history.items.length} shown items for ${getGroupLabel(history)}? Hidden items will remain.`)) {
       return;
     }
-    await mutate({ action: 'clear-feedback-items', storageKey: history.storageKey }, 'Site/file history cleared.');
+    await mutate({ action: 'delete-feedback-items', storageKey: history.storageKey, itemIds: history.items.map(item => item.id) }, 'Shown items deleted.');
   }
 
   async function clearAllHistory() {
-    const totalItems = histories.reduce((sum, history) => sum + history.items.length, 0);
-    if (!totalItems || !window.confirm(`Delete all ${totalItems} saved feedback items?`)) {
-      return;
-    }
-    setStatus('Clearing all feedback...');
-    for (const history of histories) {
-      const response = await chrome.runtime.sendMessage({ action: 'clear-feedback-items', storageKey: history.storageKey });
-      if (!response?.ok) {
-        setError(response?.reason || 'Unable to clear all feedback.');
-        return;
+    const groups = getSelectedHistories();
+    const count = groups.reduce((sum, group) => sum + group.items.length, 0);
+    if (!count || !window.confirm(`Delete exactly ${count} selected items? Other items will remain.`)) return;
+    try {
+      for (const history of groups) {
+        const response = await chrome.runtime.sendMessage({ action:'delete-feedback-items', storageKey:history.storageKey, itemIds:history.items.map(item=>item.id) });
+        if (!response?.ok) throw new Error(response?.reason || 'Could not delete the selection.');
       }
-    }
-    setStatus('All feedback cleared.');
+      selected.clear();
+      setStatus('Selected items deleted.');
+    } catch (error) { setError(error.message); }
     await loadHistory();
+  }
+
+  function getSelectedHistories() {
+    return getFilteredHistories().flatMap(history => {
+      const items = history.items.filter(item => selected.has(identity(history, item)));
+      return items.length ? [{ ...history, items }] : [];
+    });
+  }
+
+  async function startExport(action) {
+    if (exportBusy) return;
+    const groups = getSelectedHistories();
+    if (!groups.length) { setError('Select the items you want to share first.'); return; }
+    exportBusy = true; setActionAvailability(false);
+    try {
+      exportSnapshot = await globalThis.DevFeedbackShared.prepareExportHistories(groups);
+      const dialog = document.getElementById('export-preview');
+      document.getElementById('export-preview-content').textContent = JSON.stringify(exportSnapshot, (key, value) => typeof value === 'string' && value.startsWith('data:image/') ? '[Image attached: inspect its preview in History]' : value, 2);
+      document.getElementById('export-preview-count').textContent = `${exportSnapshot.reduce((sum, group) => sum + group.items.length, 0)} items from ${groups.length} sites/files`;
+      const previews = document.getElementById('export-preview-images');
+      previews.replaceChildren();
+      exportSnapshot.forEach(group => group.items.forEach(item => {
+        const label = document.createElement('p'); label.textContent = item.note;
+        previews.append(label, createEvidencePreview(item, getGroupLabel(group)));
+      }));
+      dialog.returnValue = 'cancel';
+      const confirmation = new Promise(resolve => dialog.addEventListener('close', () => resolve(dialog.returnValue === 'export'), { once:true }));
+      dialog.showModal();
+      if (await confirmation) await action();
+    } catch (error) { setError(error.message || 'Export failed.'); }
+    finally { exportSnapshot = []; exportBusy = false; render(); }
   }
 
   async function mutate(message, successMessage) {
     setError('');
-    const response = await chrome.runtime.sendMessage(message);
-    if (!response?.ok) {
-      setError(response?.reason || 'Unable to update feedback history.');
-      return;
-    }
-    setStatus(successMessage);
-    await loadHistory();
+    try {
+      const response = await chrome.runtime.sendMessage(message);
+      if (!response?.ok) throw new Error(response?.reason || 'Unable to update feedback history.');
+      setStatus(successMessage);
+      await loadHistory();
+    } catch (error) { setError(error.message || 'Unable to update feedback history.'); }
   }
 
-  function downloadJson() {
-    downloadFile('dev-feedback-history.json', JSON.stringify(buildExportPayload(), null, 2), 'application/json');
-    setStatus('JSON export downloaded. A local MCP companion can import this explicit handoff.');
+  function downloadCodexHandoff() {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    downloadFile(`dev-feedback-codex-inbox-${timestamp}.json`, JSON.stringify(buildExportPayload(), null, 2), 'application/json');
+    setStatus('Codex handoff downloaded through your browser. The local MCP companion can import the newest valid capture when the browser download location matches the configured inbox.');
   }
 
   async function downloadAiBundle() {
@@ -272,7 +324,7 @@
     try {
       await validateHistoryImages();
       const annotatedImages = await collectAnnotatedImages();
-      const bundle = globalThis.DevFeedbackBundle.buildAiBundle(histories, {
+      const bundle = globalThis.DevFeedbackBundle.buildAiBundle(exportSnapshot, {
         exportedAt: new Date().toISOString(),
         annotatedImages
       });
@@ -286,7 +338,7 @@
   }
 
   async function validateHistoryImages() {
-    for (const history of histories) {
+    for (const history of exportSnapshot) {
       for (const item of history.items) {
         if (item.type === CAPTURE_TYPE_REGION) {
           if (item.screenshot?.dataUrl) {
@@ -309,7 +361,7 @@
 
   async function collectAnnotatedImages() {
     const annotatedImages = new Map();
-    for (const history of histories) {
+    for (const history of exportSnapshot) {
       for (const item of history.items) {
         if (item.type === CAPTURE_TYPE_REGION && item.screenshot?.dataUrl && !item.screenshot.annotatedDataUrl) {
           annotatedImages.set(item.id, await renderAnnotatedEvidence(item));
@@ -450,13 +502,13 @@
   }
 
   async function copyMarkdown() {
-    const markdown = histories.map((history) => buildMarkdownExport(getGroupSource(history), history.items)).join('\n');
+    const markdown = exportSnapshot.map((history) => buildMarkdownExport(getGroupSource(history), history.items)).join('\n');
     await copyText(markdown, 'Markdown copied.');
   }
 
   async function copyAiPrompt() {
-    const allItems = histories.flatMap((history) => history.items);
-    const prompt = buildAiPromptExport(getGroupSource(histories[0]), allItems);
+    const allItems = exportSnapshot.flatMap((history) => history.items);
+    const prompt = buildAiPromptExport(getGroupSource(exportSnapshot[0]), allItems);
     await copyText(prompt, 'AI prompt copied. Download the AI Bundle to include evidence images.');
   }
 
@@ -474,12 +526,12 @@
     return {
       schemaVersion: 1,
       exportedAt: new Date().toISOString(),
-      histories: histories.map((history) => ({ storageKey: history.storageKey, items: history.items }))
+      histories: exportSnapshot.map((history) => ({ storageKey: history.storageKey, items: history.items }))
     };
   }
 
   function buildHtmlReport(annotatedImages = new Map()) {
-    const sections = histories.map((history) => {
+    const sections = exportSnapshot.map((history) => {
       const items = history.items.map((item, index) => {
         const evidence = buildStandaloneEvidenceHtml(item, index + 1, annotatedImages);
         const locator = item.type === CAPTURE_TYPE_REGION ? item.pageUrl : item.selector;

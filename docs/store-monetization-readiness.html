@@ -60,8 +60,8 @@
   <main>
     <header class="decision">
       <div class="eyebrow">Recommended release path</div>
-      <h1>Ship v1.6 free and local-first</h1>
-      <p>Keep payments, accounts, licensing, network sync, and new browser permissions out of v1.6. The first Store submission was sent for review on July 19, 2026; design a paid product as a later web-service lane.</p>
+      <h1>Keep the browser capture core free and local-first</h1>
+      <p>The active product is Element capture, Region/PDF capture, History, and one explicit Agent Handoff. Keep payments, accounts, licensing, network sync, and new browser permissions out of the browser extension; design a paid product as a later web-service lane.</p>
     </header>
 
     <section>
@@ -73,7 +73,7 @@
         <tr><th>Publisher quota</th><td>A registered developer receives a publisher and may create one additional publisher. Publisher creation has a one-activation-per-account-lifetime quota, so do not create or delete one casually.</td></tr>
         <tr><th>Roles</th><td>Viewer, Item Manager, Editor, and Admin.</td></tr>
       </table>
-      <p class="gate">Current status: durable owner confirmed, publisher created, contact verified, non-trader selected, and the first item submitted. Inviting the backup Admin remains optional.</p>
+      <p class="gate">Recorded status: durable owner confirmed, publisher created, contact verified, non-trader selected, and the first item submitted. Inviting the backup Admin remains optional. This is Store-account evidence, not proof of current runtime behavior.</p>
     </section>
 
     <section>
@@ -82,7 +82,7 @@
         <li>Accept the Chrome Web Store Developer Agreement and pay the one-time registration fee shown in the dashboard. Official documentation does not publish a fixed amount, so this artifact does not hardcode one.</li>
         <li>Declare trader or non-trader status. Trader verification may expose verified business and contact details publicly.</li>
         <li>Provide an accurate description, extension icons, listing screenshots, category/language details, support and contact information, privacy-policy URL, and complete data-use disclosures.</li>
-        <li>Disclose screenshots, page content, and browsing activity as user data even though v1.6 processes and stores them only on the device.</li>
+        <li>Disclose screenshots, page content, and browsing activity as user data even though the browser capture core processes and stores them only on the device.</li>
         <li>Keep the manifest at the current minimal permissions: <code>storage</code>, <code>activeTab</code>, and <code>scripting</code>; no host permissions.</li>
       </ul>
       <p class="gate">External action gate: do not replace the active submission, change publication timing, publish a paid feature, or change account ownership without Monroe's approval.</p>
@@ -95,14 +95,14 @@
           <strong>Creative assets</strong>
           <ul>
             <li>Final 128 px store icon and packaged 16/48/128 px icons</li>
-            <li>One valid 1280x800 screenshot is in the initial submission; replace it after review with a fresh v1.6 set covering Element, Region annotations/redact, History, and export</li>
+            <li>One valid 1280x800 screenshot is in the initial submission; replace it after review with a current set covering Element, Region/PDF annotations and redaction, History, and Agent Handoff</li>
             <li>Optional promotional images only after the core listing is ready</li>
           </ul>
         </div>
         <div>
           <strong>Copy and support</strong>
           <ul>
-            <li>Concise single-purpose description: compiling visual change specs from browser-visible surfaces</li>
+            <li>Concise single-purpose description: capturing browser-visible feedback and compiling a local handoff</li>
             <li>Install/use instructions, version notes, support email or support page</li>
             <li>Privacy policy that explains local capture, storage, deletion, exports, and absence of network transmission</li>
           </ul>
@@ -110,7 +110,7 @@
         <div>
           <strong>Review proof</strong>
           <ul>
-            <li>Unpacked Edge/Chromium runtime proof for Element, Region, PDF, History, and every export</li>
+            <li>Unpacked Edge/Chromium runtime proof for Element, Region/PDF, History, and Agent Handoff</li>
             <li>Evidence that redact permanently removes source pixels from both “before” and annotated exports</li>
             <li>Old-history compatibility and package verification</li>
           </ul>
@@ -119,10 +119,10 @@
     </section>
 
     <section>
-      <h2>Future paid-product lane - separate from v1.6</h2>
+      <h2>Future paid-product lane - separate from the browser capture core</h2>
       <p>Chrome Web Store Payments is deprecated. Any paid edition needs an external processor plus a separate account/service boundary for authentication, entitlements, licensing records, refunds, support, tax handling, and failure recovery.</p>
       <p><strong>Recommended later shape:</strong> a small web account service using Stripe Checkout and Customer Portal, with the extension contacting it only after a separately reviewed permission, privacy, security, and offline-behavior design. Declare any external paid features in the store listing. A physical address is required for items offering purchases, subscriptions, or paid additional features.</p>
-      <p class="muted">Do not add a payment SDK, auth, network sync, or new permission to the submitted v1.6 extension.</p>
+      <p class="muted">Do not add a payment SDK, auth, network sync, or new permission to the browser capture core without a separately reviewed product, privacy, security, and billing boundary.</p>
     </section>
 
     <section>
@@ -135,7 +135,7 @@
         <li><a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq">User-data policy FAQ</a></li>
         <li><a href="https://developer.chrome.com/docs/webstore/program-policies/trader-verification-faq">Trader verification FAQ</a></li>
       </ul>
-      <p class="muted">Prepared on July 18, 2026 and updated after the first v1.6 Store submission on July 19, 2026. This records readiness and submission state; it is not proof of approval, publication, or deferred runtime verification.</p>
+      <p class="muted">Prepared on July 18, 2026 and updated after the first Store submission on July 19, 2026. This records readiness and submission state; it is not proof of approval, publication, or runtime verification.</p>
     </section>
   </main>
 </body>

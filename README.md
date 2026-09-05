@@ -1,32 +1,29 @@
 # Dev Feedback Capture
 
-Pick and annotate browser elements or regions, propose new content blocks, then copy AI-ready prompts or export local visual change specs for Codex, Claude Code, Cursor, or another developer. Dev Feedback Capture supports four evidence-rich workflows:
+Turn browser-visible feedback into a local, buildable handoff. Dev Feedback Capture focuses on four connected surfaces: Element capture, Region/PDF capture, History, and one explicit Agent Handoff.
 
-> [Chrome Web Store v1.7 is public](https://chromewebstore.google.com/detail/dev-feedback-capture/hhdmfaaplpiokafjieefpgoppckijafc). The v1.7.2 Add Content update is pending Google review and will publish automatically after approval; the latest GitHub Release ZIP remains v1.2.0 as a manual fallback.
+> This branch documents the unreleased 1.8.0 candidate. Store and GitHub downloads may contain earlier versions; source changes are not publication evidence.
 
-- `Element` mode injects a lightweight in-page UI so you can click DOM elements and save selectors, styles, and notes.
-- `Visual` mode lets you directly drag and resize one live DOM element, records original versus proposed intent, and restores the page after Save or Cancel.
-- `Add` mode anchors a proposed text, image, list, or HTML/embed frame to an existing element and saves a structured insert request without persisting the preview into the page.
-- `Region` mode captures the visible viewport and compiles a crop, vector annotations, best-effort DOM anchors, requested change, and acceptance checks into one visual change spec.
+- `Element` capture records a selected DOM element with selectors, visible text, styles, and a requested change.
+- `Region` capture records a visible page or PDF region with a crop, annotations, source context, and acceptance checks.
+- `History` keeps saved Capture Records together on the device and provides review and export actions.
+- `Send to Codex` is the named Agent Handoff: select captures and review the export through the browser, let the local MCP companion import the newest valid handoff from its configured Downloads inbox, and keep implementation and verification as separate agent steps.
 
-All feedback stays local in extension storage. Open History to review captures, use the legacy standalone exports, or download one AI Bundle with instructions, structured data, page context, and before/annotated images.
+Feedback stays local until you explicitly export it. There is no cloud sync, hosted AI connection, automatic browser control, or Electron injection in the browser extension.
 
 ## Features
 
-- Element capture with selector, text, styles, and note metadata
-- Pointer-first Visual Edit previews with drag-to-move, corner-handle resize, undo, redo, and reset
-- Original/proposed evidence plus explicit requested-mutation data; the live page is always restored
-- Reversible Add Content previews for text, image placeholders, lists, and safe HTML/embed frame placeholders
-- Visual Change Spec editor with crop, arrow, rectangle, ellipse, pin, text, blur/redact, color, undo, and redo
-- DOM-linked vector annotations with selector fallbacks, roles, surrounding text, geometry, and parent-layout context when the source DOM is available
+- Element capture with selector, text, style, position, and note metadata
+- Region capture for normal pages, hosted PDFs, and local PDFs when file access is enabled
+- Crop, arrow, rectangle, ellipse, numbered pin, text, blur/redact, color, undo, and redo tools for Region captures
+- DOM-linked vector annotations with selector fallbacks, roles, geometry, and parent-layout context when the source DOM is available
 - Optional acceptance checks plus browser, viewport, scroll, zoom, DPR, and source metadata
 - Works on arbitrary sites through explicit user-triggered activation
-- PDF-friendly screenshot workflow for local and hosted PDFs
 - Extension-owned History page that works even when the source page cannot accept injected UI
 - One downloadable AI Bundle ZIP plus standalone JSON and self-contained HTML reports
 - Project-scoped local MCP companion over stdio; no cloud or localhost service
 - Copyable Markdown and implementation-prompt exports
-- Expanded-by-default in-page capture list that stays anchored to the viewport edge when collapsed and dragged
+- Minimal permissions and user-triggered activation
 
 ## Installation
 
@@ -60,66 +57,74 @@ Use this path when developing the extension or reviewing source changes:
 2. Leave the mode switch on `Element`.
 3. Click `Start Element Mode` or use `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 4. Hover and click a page element.
-5. Add your note in the modal and save it.
-6. Drag the compact capture chip along the viewport edge, then use **⌃** to expand the saved-item list and **⌄** to collapse it again.
+5. Add your note in the private overlay and save it. The source tab stays open.
+6. Open History from the picker or extension popup to review saved captures. Saved notes are never rendered into the inspected website.
+
+Keyboard: focus the target with Tab, then press Alt+Enter while picking. Escape stops picking. If the suggested extension shortcut is unassigned, configure it in your browser’s extension shortcut settings.
 
 ### Region Mode
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
 3. Click `Capture Region`.
-4. Use Crop to define the evidence area.
+4. The editor opens as an overlay. On protected surfaces that block overlays, it opens in a separate capture window. Use Crop to define the evidence area.
 5. Add arrows, shapes, numbered pins, text, or blur/redact marks. Undo and redo operate on the visual spec.
 6. Describe the requested change and optionally add one acceptance criterion per line.
 7. Save the spec to local history.
 
 The cropped image, viewport rectangle, and source context are saved into the same local history as element captures. Open `History` from the popup to review captures from any supported source, including PDFs and pages where Element mode is unavailable.
 
-### Visual Edit Mode
+### History and Agent Handoff
 
-1. Open an injectable webpage and choose `Visual` in the popup.
-2. Start Visual Edit and select one element.
-3. Drag the selected outline to move the element, or drag its corner handle to resize it. Use Undo, Redo, or Reset as needed.
-4. Add the requested implementation change and optional acceptance criteria.
-5. Save the spec, or Cancel to discard it. Either path restores the original live page.
+Open `History` from the popup to review captures from any supported source. Select the captures to share, then choose `Send to Codex`. Review the export preview and confirm. Every export uses that same selected snapshot. Changing the filter clears selection; hidden captures are excluded. Delete shown removes only the displayed captures in that group. When the browser download location matches the MCP companion's configured Downloads inbox, the companion discovers the newest valid handoff and imports it into the target project's ignored `.dev-feedback` sidecar without manual file movement.
 
-Visual Edit does not change source files, persist mutations into the page, or replay saved edits automatically. It records intent so a developer or coding agent can implement the change in the correct source layer.
+The handoff contract is deliberately explicit:
 
-### Add Content Mode
+1. The extension captures and saves a Capture Record.
+2. The user selects and reviews captures, then sends that handoff to Downloads.
+3. MCP imports the newest valid handoff and exposes its records, evidence, and implementation brief.
+4. The coding agent implements the requested change with its normal project tools.
+5. The agent records implementation and verification separately.
 
-1. Open an injectable webpage and choose `Add` in the popup.
-2. Click the existing element that should anchor the new content.
-3. Choose Text, Image placeholder, List, or HTML/embed frame, then choose before, after, inside-start, or inside-end placement when the anchor supports children.
-4. Add basic filler, an optional heading, and what the content should communicate or support.
-5. Save the insert spec, or Cancel to remove the preview. Either path restores the original live page.
-
-The HTML/embed frame is intentionally a non-executable placeholder. Add Content never runs supplied markup, scripts, or remote embeds; it records the requested content and placement for implementation in source.
+No step gives the extension browser control, source-editing authority, or an automatic cloud bridge.
 
 ## Data Model
 
 Stored feedback items use a discriminated shape:
 
-- `type: "element"` items include selector, element info, and position.
-- v1.5 element items may also include a sanitized `changeRequest`, original/proposed element state, and local evidence images. Older element items normalize as visual suggestions without invented mutations.
-- Add Content items remain compatible `type: "element"` records and use a sanitized `insert` mutation containing an anchor, placement, content type, filler, support intent, and optional acceptance checks.
-- `type: "region"` items include one evidence crop, vector annotations, DOM anchors when available, acceptance criteria, and page context. Annotated PNGs are rendered locally when the AI Bundle is built.
+- `type: "element"` items include selector, element information, position, request text, and source context.
+- `type: "region"` items include one evidence crop, vector annotations, DOM anchors when available, acceptance criteria, and page context.
+- Older Capture Records remain loadable and are normalized without inventing missing evidence or mutations. Historical Visual and Add records remain compatible as records even though those creation surfaces are not part of the active product.
 
-Older element-only captures are still loaded and normalized automatically.
+Annotated PNGs are rendered locally when the AI Bundle is built. Large image data stays in local extension storage until you export or clear History.
 
 ## Export Formats
 
-- `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, before/proposed/annotated PNG evidence when available, and `report.html` in one ZIP. The bundle is assembled locally.
+- `Send to Codex` writes the current History as a local handoff payload for MCP import.
+- `Download AI Bundle` creates `prompt.md`, `feedback.json`, `page-context.json`, available evidence PNGs, and `report.html` in one local ZIP.
 
-- `Download JSON for MCP` includes the full saved payload, including region image data URLs, for explicit local import.
+- The `Send to Codex` JSON includes the full saved payload, including region image data URLs, for explicit local import.
 - `Download HTML Report` creates a self-contained review with embedded region images.
 - `Copy Markdown` creates a readable text review for issues or docs.
 - `Copy AI Prompt` creates numbered implementation instructions from the saved requirements, anchors, and acceptance checks. Download the AI Bundle when images are needed.
 
 ## Local MCP Agent Companion
 
-v1.6 includes a separate Node MCP server under `mcp/`. A local coding agent can import an explicit History JSON export into the target project's ignored `.dev-feedback` sidecar, then list/get feedback, read evidence resources, create agent-authored feedback, build an implementation brief, and record revision-checked status.
+The Node MCP companion under `mcp/` imports an explicit History export from a configured local inbox into the target project's ignored `.dev-feedback` sidecar. It can list and get feedback, read evidence resources, create agent-authored feedback, build an implementation brief, and record revision-checked status.
 
 The companion does not read Chromium's internal storage, open a network port, control the browser, execute shell commands, or edit source code. The connected agent uses its normal browser and coding tools. Tool results and evidence are still delivered to that MCP client, so cloud-backed clients may transmit captured data under their provider policies. See [docs/mcp-local-agent.md](docs/mcp-local-agent.md) for setup and the trust boundary.
+
+## Electron Inspector developer package
+
+Electron apps cannot use Chrome's extension toolbar or attach this browser extension from Chrome. Developers can instead add the free, MIT-licensed `@flyingchangescode/dev-feedback-electron` development package to their app.
+
+The Host App integration is one guarded import in its main-process entry, before any window is created:
+
+```js
+if (!app.isPackaged) await import('@flyingchangescode/dev-feedback-electron/register')
+```
+
+Press `Cmd/Ctrl+Shift+.` in any registered development window to start Element capture. The package owns its session preload, shortcut, package-owned overlay, local History under Electron `userData`, and `Copy History` action. It does not require React, replace the Host App preload, or expose Electron IPC to the Host App renderer. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md) for installation and the trust contract.
 
 ## Permissions
 
@@ -127,7 +132,9 @@ The extension requests:
 
 - `storage` for local history
 - `activeTab` for temporary, user-invoked access to the current tab
-- `scripting` to inject the in-page capture UI and history panel only when requested
+- `scripting` to collect the selected element and open the capture overlay only when requested
+
+Only the two capture editor HTML entry points are web-accessible so they can appear in extension-origin frames. The message broker restricts each editor to its own session and keeps global History access in the top-level History page.
 
 The extension does not use static host permissions, always-on content scripts, telemetry, or network sync. Region captures can include visible page content in screenshot data URLs; those crops stay in local extension storage until the user clears history or removes the extension.
 
@@ -142,16 +149,16 @@ The extension does not use static host permissions, always-on content scripts, t
 ### Project Files
 
 - `manifest.json`: Manifest V3 configuration
-- `background.js`: runtime injection and region-capture session orchestration
-- `content.js`: in-page panel and element capture
-- `visual-edit.js`: dependency-free reversible mutation engine used by Visual Edit Mode
-- `content-proposal.js`: dependency-free safe placeholder builder used by Add Content Mode
+- `background.js`: runtime injection and Region-capture orchestration
+- `content.js`: public picker and private editor frame host
+- `collector.js`: read-only DOM snapshot collection
+- `element.html` / `element.js`: private Element note editor
 - `mcp/`: project-scoped stdio MCP companion and filesystem sidecar store
 - `capture.html` / `capture.js`: screenshot region selection editor
-- `popup.html` / `popup.js`: mode switch, current-tab actions, and History entry point
+- `popup.html` / `popup.js`: mode switch, current-tab actions, History entry point, and handoff action
 - `history.html` / `history.js`: extension-owned history review and export controls
 - `ai-bundle.js`: local, dependency-free AI Bundle assembly and ZIP creation
-- `shared.js`: shared helpers, normalization, and export formatting
+- `shared.js`: shared helpers, legacy normalization, and export formatting
 - `styles.css`: injected in-page UI styles
 - `docs/store-monetization-readiness.html`: local store identity, listing, privacy, and future paid-product decision artifact
 
@@ -166,28 +173,36 @@ The extension does not use static host permissions, always-on content scripts, t
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
 3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching version tag when publishing a GitHub Release.
-4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
+4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and attaches it to a draft GitHub Release. Publish the draft only after recording the runtime and artifact checks.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Limitations
 
 - Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
-- Visual Edit is intentionally limited to direct move and resize of one normal-page DOM target. Text, visibility, order, style, matching, alignment, cross-origin frames, arbitrary CSS, responsive breakpoints, animation, and reparenting are outside this release.
-- Add Content previews basic content structure and placement only. It does not generate production markup, upload image assets, load remote embeds, or execute user-supplied HTML.
+- Historical Visual and Add Capture Records may still be read and normalized, but those creation surfaces are not active product workflows.
 - Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
+- Export previews remove URL credentials, query strings, fragments, and local file directories. Page content, images, and your notes can still contain private information; review them before sharing.
+- Save failures retain the draft. History has an 8 MiB budget, a 3 MiB item limit, and a 500-capture limit per site; export and delete older captures when capacity is reached.
+- A redacted Region discards all DOM annotation anchors and page titles, and reduces its source URL to the origin. User-written notes and labels remain.
 - Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
 - Region mode captures the current viewport only, not full-page stitched screenshots.
 - Cross-origin iframe DOM capture remains limited by browser security rules.
+- Chrome's extension menu cannot attach this browser extension to an arbitrary already-running Electron app. Electron developers must explicitly install the separate Electron Inspector package in their Host App.
 
 ## Roadmap
 
 - Add verification against saved acceptance criteria
 - Add full-page or multi-step PDF region capture
 - Add user-triggered import back into extension History
-- Add optional provider-specific AI handoff after the provider/auth shape is defined
+- Publish and dogfood the Element-only Electron Inspector across more development apps, then decide whether Region capture earns the additional screenshot permission and storage surface
+- Evaluate a private cross-app History Hub only after app-local History and explicit clipboard export prove useful
 
 ## License
 
-This repository is source-visible for portfolio, review, and evaluation purposes only. All rights are reserved unless Monroe Stone grants written permission otherwise. See [LICENSE](LICENSE).
+Dev Feedback Capture and its Electron package are free software under the [MIT License](LICENSE).
+
+## Support
+
+Dev Feedback Capture stays free, local-first, and available without an account. If it saves you time, you can [support its development](https://buy.stripe.com/eVqaEZghLdhKaka0NJawo01) with an optional one-time thank-you payment. Payment does not unlock features or services.

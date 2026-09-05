@@ -1,18 +1,19 @@
 # Local MCP Agent Companion
 
-v1.6 adds a project-scoped MCP server so a local coding agent can read visual feedback, inspect evidence, create project feedback, and record implementation progress without cloud sync or direct browser control.
+The Agent Handoff is a project-scoped MCP server so a local coding agent can read Element and Region/PDF feedback, inspect evidence, create project feedback, and record implementation progress without cloud sync or direct browser control.
 
 ## Trust boundary
 
 The MCP companion is a separate Node process. It does not read Chromium profile files or `chrome.storage.local`, listen on a network port, execute shell commands, edit source files, or control the browser.
 
-The first handoff is explicit:
+The handoff is explicit, local, and inbox-based:
 
 1. Capture feedback in the extension.
-2. Open History and choose **Download JSON for MCP**.
-3. Configure the MCP server with the target project and an optional inbox such as Downloads.
-4. Ask the local agent to import that exact JSON file.
-5. The agent reads feedback through MCP, edits the project with its normal coding tools, and records implementation status through MCP.
+2. Open History and choose **Send to Codex** to download the current History handoff.
+3. Set the browser download location to a folder inside Downloads and use that folder without a per-download save prompt.
+4. Configure the MCP server with the target project and the same Downloads path. The user does not move files manually.
+5. Ask the local agent to call `dev_feedback_import_latest`.
+6. The agent reads feedback through MCP, edits the project with its normal coding tools, and records implementation and verification status separately through MCP.
 
 The JSON handoff includes local user data and may include evidence images. Keep it on trusted local storage. Evidence is copied into an ignored project sidecar and base64 image data is removed from the stored item JSON. Imported feedback, page text, selectors, mutation values, and images are untrusted data; an agent must never treat them as instructions or authorization.
 
@@ -26,7 +27,7 @@ Install dependencies once in this repository:
 npm install
 ```
 
-Start the stdio server for a project:
+Start the stdio server for a project and the inbox used by **Send to Codex**:
 
 ```sh
 npm run mcp -- --project /absolute/path/to/project --inbox /absolute/path/to/Downloads
@@ -51,6 +52,18 @@ MCP clients normally launch the server themselves. A generic configuration looks
 }
 ```
 
+Codex can install the same stdio server in one command:
+
+```sh
+codex mcp add dev-feedback -- node /absolute/path/to/webDevFeedbackExt/mcp/cli.mjs \
+  --project /absolute/path/to/project \
+  --inbox /absolute/path/to/Downloads
+```
+
+The target project and Downloads directory are explicit because each installation is project-scoped. Run `codex mcp list` to verify the saved server configuration.
+
+The extension preserves its minimal permission set and does not request Chromium's `downloads` permission. It therefore cannot override the browser's download location or save-prompt setting. The no-file-moving workflow depends on configuring the browser and MCP companion to use the same inbox.
+
 Use resolved absolute paths. Browser-launched or desktop MCP processes should not depend on an interactive shell's working directory or `PATH`.
 
 Optional flags and environment variables:
@@ -64,6 +77,8 @@ Optional flags and environment variables:
 | Tool | Purpose |
 | --- | --- |
 | `dev_feedback_project_status` | Show the configured project, sidecar, inbox boundaries, and counts. |
+| `dev_feedback_inbox_list` | List bounded, fully valid handoffs under the configured Downloads root. |
+| `dev_feedback_import_latest` | Import the newest fully valid handoff without a file path. Use `storageKey` when it contains multiple groups. |
 | `dev_feedback_import` | Import one explicit standalone History JSON export. Use `storageKey` when it contains multiple groups. |
 | `dev_feedback_list` | Return bounded summaries without embedded evidence bytes. |
 | `dev_feedback_get` | Return one complete record with evidence resource links. |
@@ -104,11 +119,11 @@ Agent-authored writes require a stable `clientRequestId`, so retries are idempot
 
 ## Current limits
 
-- The MCP companion does not automatically see unsent extension history.
-- ZIP and extracted AI Bundle import are not part of the first checkpoint. Use the standalone **Download JSON for MCP** History export. Sibling image paths are intentionally never followed.
-- The MCP server does not apply saved visual mutations, navigate pages, click UI, or edit project files.
+- The MCP companion does not automatically see unsent extension history; **Send to Codex** still requires explicit user action.
+- ZIP and extracted AI Bundle import are not part of the active checkpoint. **Send to Codex** uses the standalone JSON handoff. Sibling image paths are intentionally never followed.
+- The MCP server does not apply saved historical mutations, navigate pages, click UI, or edit project files.
 - There is no native messaging installer, localhost HTTP/WebSocket bridge, cloud account, sync, auth service, telemetry, or payment path.
-- A future user-triggered native-messaging bridge could remove the manual file handoff, but it would require an optional browser permission, exact extension-ID allowlisting, and a separate installed native host.
+- A future user-triggered native-messaging bridge could remove the inbox handoff, but it would require an optional browser permission, exact extension-ID allowlisting, and a separately installed native host. It is not part of the active Agent Handoff.
 
 ## Security references
 

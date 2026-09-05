@@ -20,6 +20,9 @@
   let currentTab = null;
   let currentTabId = null;
   let selectedMode = window.localStorage.getItem(STORAGE_KEYS.captureMode) || 'element';
+  if (!['element', 'region'].includes(selectedMode)) {
+    selectedMode = 'element';
+  }
   let currentFeedbackMode = false;
 
   function getShortcutLabel() {
@@ -125,16 +128,6 @@
     const primaryButton = document.getElementById('primary-action-btn');
     const canInject = canInjectIntoUrl(currentTab?.url || '');
     const canCaptureRegion = canAttemptRegionCapture(currentTab);
-    const visualInput = document.querySelector('input[name="capture-mode"][value="visual"]');
-    const contentInput = document.querySelector('input[name="capture-mode"][value="content"]');
-
-    if (visualInput) {
-      visualInput.disabled = !canInject;
-    }
-    if (contentInput) {
-      contentInput.disabled = !canInject;
-    }
-
     setWarning('');
     setInfo('');
 
@@ -157,36 +150,8 @@
       if ((currentTab?.url || '').startsWith('file://')) {
         setInfo('If region capture fails on a local PDF, enable "Allow access to file URLs" on the extension first.');
       } else {
-        setInfo('Region capture opens the Visual Change Spec editor for cropping, DOM-linked annotations, and acceptance checks.');
+        setInfo('Region capture opens the editor for cropping, DOM-linked annotations, and acceptance checks.');
       }
-      return;
-    }
-
-    if (selectedMode === 'visual') {
-      primaryButton.disabled = !canInject;
-      primaryButton.classList.remove('stop');
-      primaryButton.textContent = 'Start Visual Edit';
-
-      if (!canInject) {
-        setWarning('Visual mode needs an injectable page such as http, https, or file. Use Region mode for PDFs and browser viewer surfaces.');
-        return;
-      }
-
-      setInfo('Visual mode previews reversible element edits and saves the result as a local change spec.');
-      return;
-    }
-
-    if (selectedMode === 'content') {
-      primaryButton.disabled = !canInject;
-      primaryButton.classList.remove('stop');
-      primaryButton.textContent = 'Start Add Content';
-
-      if (!canInject) {
-        setWarning('Add mode needs an injectable page such as http, https, or file. Use Region mode for PDFs and browser viewer surfaces.');
-        return;
-      }
-
-      setInfo('Add mode places a reversible content placeholder and saves an implementation-ready insert spec.');
       return;
     }
 
@@ -232,69 +197,7 @@
       return;
     }
 
-    if (selectedMode === 'visual') {
-      await startVisualEdit();
-      return;
-    }
-
-    if (selectedMode === 'content') {
-      await startAddContent();
-      return;
-    }
-
     await toggleElementMode();
-  }
-
-  async function startVisualEdit() {
-    setWarning('');
-
-    const ensured = await chrome.runtime.sendMessage({
-      action: 'ensure-content-script',
-      tabId: currentTabId,
-      url: currentTab?.url || ''
-    });
-
-    if (!ensured || !ensured.ok) {
-      setWarning(ensured?.reason || 'Unable to load the visual editor on this tab.');
-      return;
-    }
-
-    try {
-      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'start-visual-edit' });
-      if (!response?.ok) {
-        setWarning(response?.reason || 'Unable to start Visual Edit on this tab.');
-        return;
-      }
-      window.close();
-    } catch (error) {
-      setWarning('Refresh the current page and try again. The visual editor did not attach cleanly.');
-    }
-  }
-
-  async function startAddContent() {
-    setWarning('');
-
-    const ensured = await chrome.runtime.sendMessage({
-      action: 'ensure-content-script',
-      tabId: currentTabId,
-      url: currentTab?.url || ''
-    });
-
-    if (!ensured || !ensured.ok) {
-      setWarning(ensured?.reason || 'Unable to load Add Content on this tab.');
-      return;
-    }
-
-    try {
-      const response = await chrome.tabs.sendMessage(currentTabId, { action: 'start-add-content' });
-      if (!response?.ok) {
-        setWarning(response?.reason || 'Unable to start Add Content on this tab.');
-        return;
-      }
-      window.close();
-    } catch (error) {
-      setWarning('Refresh the current page and try again. Add Content did not attach cleanly.');
-    }
   }
 
   async function toggleElementMode() {

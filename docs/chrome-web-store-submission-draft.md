@@ -1,5 +1,7 @@
 # Chrome Web Store Submission Record
 
+Scope note: this file preserves the historical v1.7.1/v1.7.2 Store submission evidence. The active product is now the browser capture core: Element, Region/PDF, History, and one explicit Agent Handoff. Historical Visual and Add Content copy below must not be reused as current-product behavior or release proof.
+
 Status: v1.7.0 is public in the Chrome Web Store. The v1.7.1 review was cancelled and replaced by the exact v1.7.2 Add Content package on August 3, 2026. Google accepted v1.7.2 for normal review with no warnings; it is pending review at a 100% target and will publish automatically after approval. Google distributes the Browser Code icon inside the public v1.7 CRX, but the Store listing still rendered the retired purple-flag asset before these submissions.
 
 The submitted v1.7.2 package adds the user-triggered Add Content workflow plus the v1.7.1 discovery metadata and refreshed icon encoding without adding permissions, remote code, or network services. It excludes the separate v1.8 Feedback Session work. Store acceptance and automated checks do not prove the deferred browser runtime gates in `docs/manual-release-checklist.md`.
@@ -12,9 +14,9 @@ The submitted v1.7.2 package adds the user-triggered Add Content workflow plus t
 - Public product page: `https://monroes.tech/software/dev-feedback-capture/`
 - Privacy policy: `https://monroes.tech/software/dev-feedback-capture/privacy/`
 - Support email: `monroe@flyingchangesfarm.net`
-- Single purpose: Capture structured, local visual change specifications from the current browser-visible page or PDF and export them for implementation.
+- Historical single purpose: Capture structured, local visual change specifications from the current browser-visible page or PDF and export them for implementation.
 
-## Discovery metadata for v1.7.2
+## Historical discovery metadata for v1.7.2
 
 Manifest title, 44 of 45 characters:
 
@@ -50,7 +52,7 @@ Store overview:
 >
 > Dev Feedback Capture produces portable handoff files and copyable prompts. It does not claim an official integration with Codex, Claude Code, Cursor, or their publishers.
 
-## Submitted privacy practices copy
+## Historical submitted privacy practices copy
 
 These values were entered in the Chrome Web Store Privacy practices tab and are retained here for reviewer follow-up and future releases.
 
@@ -92,7 +94,7 @@ Use this privacy-policy URL:
 
 The publisher reviewed and checked the three Developer Program Policies data-use certifications before submitting the item on July 19, 2026.
 
-## Store screenshot plan
+## Historical Store screenshot plan
 
 Capture the real v1.7 extension operating on its own public product page. Produce full-bleed `1280x800` PNG files with square corners and no padding.
 
@@ -120,7 +122,7 @@ Before capture:
 - Confirm saved and exported redact evidence cannot reveal original pixels.
 - Confirm every screenshot reflects v1.7 behavior, including the Browser Code icon and edge-anchored compact list.
 
-## Small promotional tile
+## Historical small promotional tile
 
 Create after the final screenshots establish the visual direction.
 
@@ -129,7 +131,7 @@ Create after the final screenshots establish the visual direction.
 - Add only the product name and the short line `Visual feedback, ready to build.`
 - Do not use a raw screenshot, Store badge, ranking claim, or excessive text.
 
-## Feature video plan
+## Historical feature video plan
 
 Target: 75-90 seconds, `1920x1080`, recorded in a clean Edge window on the public Dev Feedback Capture product page.
 

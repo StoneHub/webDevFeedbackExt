@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.8.0 hardening candidate (unreleased)
+
+- Keep Element and ordinary-page Region capture in private overlays; use a capture window for protected browser surfaces.
+- Restrict History storage and broker actions to trusted extension contexts, with session-bound editors.
+- Export only selected, previewed captures; delete only exact selected or shown IDs.
+- Strip redacted DOM context and URL secrets from shared records. Keep drafts on save failures and enforce storage budgets.
+- Reject source-tab changes during screenshot capture. Mark page evidence as untrusted in agent prompts.
+- Update vulnerable transitive dependencies and check advisories in CI. Create draft releases for review.
+- Fix the separate Electron Inspector menu callback; package candidate 0.2.1.
+
+
+## 1.8.0 (Unreleased)
+
+- Refocused the active product on Element capture, Region/PDF capture, History, and one explicit Agent Handoff.
+- Removed the active Visual Edit and Add Content creators while keeping their historical Capture Records readable.
+- Added canonical Capture Record constructors shared by Element and Region saves.
+- Renamed the History JSON handoff to `Send to Codex` and gave each Downloads export a unique filename.
+- Added bounded MCP inbox discovery and newest-valid import under the user's Downloads directory.
+- Added the `@flyingchangescode/dev-feedback-electron` development inspector package with one guarded registration import, package-owned preload and shortcut wiring, local History, and explicit clipboard export.
+- Released the browser extension source and Electron package under the MIT License.
+- Removed stale implementation plans and added current issue-tracker, triage-label, and domain-document instructions.
+- Kept Feedback Sessions on the checkpointed experiment branch rather than shipping them in this release.
+
 ## 1.7.2 (Submitted August 3, 2026)
 
 - Added Add Content mode for anchoring proposed text, image placeholders, lists, and safe HTML/embed-frame placeholders to existing page elements.

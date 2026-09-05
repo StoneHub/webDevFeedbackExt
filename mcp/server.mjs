@@ -47,6 +47,24 @@ export async function createDevFeedbackServer(options = {}) {
     }
   }, wrapMutation(readOnly, async ({ path, storageKey }) => store.importFeedbackExport({ path, storageKey })));
 
+  server.registerTool('dev_feedback_inbox_list', {
+    title: 'List Dev Feedback Inbox Captures',
+    description: 'List valid standalone History JSON exports in the configured inbox, newest first. Invalid and non-capture JSON files are omitted.',
+    annotations: READ_ANNOTATIONS,
+    inputSchema: {
+      limit: z.number().int().min(1).max(constants.MAX_INBOX_CAPTURES).optional()
+    }
+  }, wrapTool(async ({ limit }) => store.listInboxCaptures({ limit })));
+
+  server.registerTool('dev_feedback_import_latest', {
+    title: 'Import Latest Dev Feedback Capture',
+    description: 'Import the newest valid standalone History JSON export from the configured inbox without requiring a file path. The import is stored in the project sidecar like an explicit-path import.',
+    annotations: IDEMPOTENT_WRITE_ANNOTATIONS,
+    inputSchema: {
+      storageKey: z.string().max(2000).optional().describe('Required when the newest export contains more than one site/file history group.')
+    }
+  }, wrapMutation(readOnly, async ({ storageKey }) => store.importLatestInboxCapture({ storageKey })));
+
   server.registerTool('dev_feedback_list', {
     title: 'List Dev Feedback',
     description: 'List bounded feedback summaries without embedding image bytes or base64 evidence.',

@@ -11,8 +11,11 @@ const expectedFiles = [
   'background.js',
   'capture.html',
   'capture.js',
-  'content-proposal.js',
   'content.js',
+  'collector.js',
+  'element.js',
+  'editor-dialog.js',
+  'element.html',
   'history.css',
   'history.html',
   'history.js',
@@ -23,8 +26,7 @@ const expectedFiles = [
   'popup.html',
   'popup.js',
   'shared.js',
-  'styles.css',
-  'visual-edit.js'
+  'styles.css'
 ].sort();
 const defaultZip = path.join(rootDir, 'dist', `dev-feedback-capture-v${packageJson.version}.zip`);
 const zipPath = path.resolve(process.argv[2] || defaultZip);

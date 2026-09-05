@@ -16,8 +16,11 @@ const extensionFiles = [
   'background.js',
   'capture.html',
   'capture.js',
-  'content-proposal.js',
   'content.js',
+  'collector.js',
+  'element.js',
+  'editor-dialog.js',
+  'element.html',
   'history.css',
   'history.html',
   'history.js',
@@ -28,8 +31,7 @@ const extensionFiles = [
   'popup.html',
   'popup.js',
   'shared.js',
-  'styles.css',
-  'visual-edit.js'
+  'styles.css'
 ];
 
 const crcTable = Array.from({ length: 256 }, (_, index) => {

@@ -72,8 +72,8 @@
       throw new Error('Missing region capture session id.');
     }
 
-    const result = await chrome.storage.session.get([`${SESSION_PREFIX}${sessionId}`]);
-    session = result[`${SESSION_PREFIX}${sessionId}`];
+    const result = await chrome.runtime.sendMessage({ action:'get-capture-session' });
+    session = result?.session;
     if (!session || !session.screenshotDataUrl) {
       throw new Error('The region capture session expired before it could be opened.');
     }
@@ -93,7 +93,7 @@
     render();
   }
 
-  function startGesture(event) {
+  async function startGesture(event) {
     if (event.button !== 0 || !session || gesture || saving) {
       return;
     }
@@ -128,7 +128,8 @@
     }
 
     if (activeTool === 'text') {
-      const text = window.prompt('Annotation text (up to 280 characters):', '');
+      event.preventDefault();
+      const text = await DevFeedbackDialog({message:'Annotation text (up to 280 characters)',input:true,confirmLabel:'Add label'});
       if (text?.trim()) {
         const annotationText = text.trim().slice(0, 280);
         const textPoint = fitTextPoint(point, annotationText, selection);
@@ -153,7 +154,7 @@
       return;
     }
 
-    const drawBounds = getToolBounds(activeTool, selection);
+    const drawBounds = activeTool === 'crop' ? null : getToolBounds(activeTool, selection);
     const gesturePoint = activeTool === 'crop' ? point : clampPointToRect(point, drawBounds);
     gesture = {
       tool: activeTool,
@@ -443,7 +444,7 @@
       const beforeImage = cropSelectedRegion();
       const storageKey = makeStorageKey(session.pageUrl || session.rawTabUrl || '');
       const item = globalThis.DevFeedbackShared.createRegionRecord({
-        id: buildFeedbackId(),
+        id: session.sessionId,
         pageUrl: session.pageUrl || session.rawTabUrl || '',
         pageTitle: session.pageTitle || '',
         viewportRect: roundRect(selection),
@@ -468,10 +469,9 @@
       if (!result?.ok) {
         throw new Error(result?.reason || 'Unable to save visual change spec.');
       }
-      await chrome.runtime.sendMessage({ action: 'notify-feedback-updated', tabId: session.tabId });
-      await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId });
-      setStatus('Visual change spec saved. This tab will close.');
-      window.setTimeout(() => window.close(), 350);
+      await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId }).catch(() => {});
+      setStatus('Saved to History.');
+      if (!session.embedded) window.setTimeout(() => window.close(), 350);
     } catch (error) {
       saving = false;
       setEditorLocked(false);
@@ -492,7 +492,7 @@
   async function resolveAnnotationTarget(annotation, pageContext) {
     const response = await chrome.runtime.sendMessage({
       action: 'resolve-annotation-target',
-      tabId: session.tabId,
+      sessionId: session.sessionId,
       point: getAnnotationTargetPoint(annotation),
       pageContext
     });
@@ -502,7 +502,7 @@
   function addAnnotation(annotation) {
     annotations.push(annotation);
     const pageContext = buildPageContext();
-    const promise = resolveAnnotationTarget(annotation, pageContext)
+    const promise = (annotation.type === 'blur' ? Promise.resolve(null) : resolveAnnotationTarget(annotation, pageContext))
       .then((target) => {
         applyResolvedTarget(annotation.id, target);
       })
@@ -537,16 +537,18 @@
   }
 
   async function cancelCapture() {
-    if (hasUnsavedWork() && !window.confirm('Discard this visual change spec?')) {
+    if (saving) return;
+    if (hasUnsavedWork() && !await DevFeedbackDialog({message:'Discard this visual change spec?'})) {
       return;
     }
     if (session?.sessionId) {
-      await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId });
+      await chrome.runtime.sendMessage({ action: 'clear-region-session', sessionId: session.sessionId }).catch(() => {});
     }
-    window.close();
+    if (!session?.embedded) window.close();
   }
 
   function handleKeydown(event) {
+    if (document.querySelector('dialog[open]')) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z' && !isTextInput(event.target)) {
       event.preventDefault();
       event.shiftKey ? redo() : undo();
@@ -647,10 +649,10 @@
     const top = Math.max(crop.y, rect.y * scaleY);
     const right = Math.min(crop.x + crop.width, (rect.x + rect.width) * scaleX);
     const bottom = Math.min(crop.y + crop.height, (rect.y + rect.height) * scaleY);
-    const x = Math.round(left - crop.x);
-    const y = Math.round(top - crop.y);
-    const width = Math.round(right - left);
-    const height = Math.round(bottom - top);
+    const x = Math.floor(left - crop.x);
+    const y = Math.floor(top - crop.y);
+    const width = Math.ceil(right - crop.x) - x;
+    const height = Math.ceil(bottom - crop.y) - y;
     if (width <= 0 || height <= 0) {
       return;
     }

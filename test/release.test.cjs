@@ -566,7 +566,7 @@ assert.equal(
   shared.MAC_SHORTCUT_LABEL
 );
 assert.equal(packageJson.version, manifest.version);
-assert.equal(Array.isArray(manifest.web_accessible_resources), false);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','capture.html'], matches:['<all_urls>'] }]);
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
 assert.equal(packageJson.scripts['verify:package'], 'node scripts/verify-package.cjs');
 assert.match(ciWorkflow, /pull_request:/);
@@ -581,14 +581,6 @@ assert.match(captureSource, /fillStyle = '#191919'/);
 assert.doesNotMatch(captureSource, /function pixelateRect/);
 assert.match(historySource, /function redactEvidenceRect/);
 assert.match(historySource, /annotatedImages\.get\(item\.id\)/);
-assert.match(contentSource, /let panelCollapsed = false/);
-assert.doesNotMatch(contentSource, /feedbackPanel\.classList\.add\('collapsed'\)/);
-assert.match(contentSource, /aria-expanded="true"/);
-assert.match(contentSource, /title="Collapse changes"[\s\S]*>⌄<\/button>/);
-assert.match(contentSource, /button\.textContent = panelCollapsed \? '⌃' : '⌄'/);
-assert.match(contentSource, /function getAnchoredPanelPosition\(/);
-assert.match(contentSource, /function anchorPanelToViewportEdge\(/);
-assert.match(contentSource, /if \(panelCollapsed\) \{[\s\S]*anchorPanelToViewportEdge\(panelAnchor\);/);
 assert.match(backgroundSource, /files:/);
 assert.match(popupSource, /capture-mode/);
 assert.match(popupScriptSource, /History|history/i);

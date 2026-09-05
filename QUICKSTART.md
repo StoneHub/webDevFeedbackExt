@@ -2,7 +2,7 @@
 
 Get Dev Feedback Capture running in a few minutes.
 
-The active product is the browser capture core: Element, Region/PDF, History, and one explicit Agent Handoff. Store and GitHub release notes in this repository preserve earlier submission evidence.
+This guide describes the unreleased 1.8.0 candidate: Element, Region/PDF, History, and one explicit Agent Handoff. Store and GitHub release notes in this repository preserve earlier submission evidence.
 
 ## 1. Install the extension
 
@@ -29,21 +29,21 @@ Optional for local PDFs:
 3. Leave the mode on `Element`.
 4. Click `Start Element Mode` or press `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 5. Click a page element, add your note, and save it.
-6. The in-page capture list starts expanded. Use **⌄** to collapse it; the compact list stays on the nearest viewport edge as you drag it, and **⌃** expands it again.
+6. Save or cancel in the private overlay. Your source tab stays in place; use History to review saved captures.
 
 ## 3. Compile an annotated region spec
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
 3. Click `Capture Region`.
-4. Use `Crop` to define the evidence area.
+4. Use `Crop` in the overlay to define the evidence area. Protected browser surfaces use a separate capture window.
 5. Add arrows, rectangles, ellipses, numbered pins, text, or blur/redact marks. Use Undo and Redo as needed.
 6. Describe the requested change and optionally add one acceptance check per line.
 7. Save the visual change spec.
 
 ## 4. Export saved feedback
 
-Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. From History, you can:
+Open the extension popup and select `Open History & Export`. This extension-owned page works for captures from normal pages, PDFs, and other surfaces where the in-page panel is unavailable. Select the captures to share, choose an export, and review the preview before confirming. Filters clear selection and hidden captures stay out of exports. From History, you can:
 
 - Download one `AI Bundle` ZIP with `prompt.md`, structured feedback and page context, before/annotated PNGs, and `report.html`
 - Choose `Send to Codex` to place the selected handoff payload in the configured local Downloads inbox for MCP import
@@ -55,7 +55,7 @@ AI Prompt is text-only. Use AI Bundle when the implementation handoff needs its 
 
 ## 5. Give a local agent project-scoped feedback
 
-1. In History, choose `Send to Codex` to download the current History handoff.
+1. In History, choose `Send to Codex` to review and download the selected captures.
 2. Configure the MCP companion with the absolute target project path and the browser Downloads folder.
 3. Ask the agent to call `dev_feedback_import_latest`. If the handoff contains multiple site/file groups, provide the exact `storageKey` shown by the first rejected import.
 4. The agent can call `dev_feedback_list`, `dev_feedback_get`, and `dev_feedback_build_brief`, implement changes with its normal project tools, then record progress with `dev_feedback_status_update`.

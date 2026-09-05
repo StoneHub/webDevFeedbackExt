@@ -1,6 +1,6 @@
 # Manual Release Checklist
 
-Automated checks are necessary but do not replace the unpacked-extension gate.
+Automated checks are necessary but do not replace the exact-package unpacked-extension gate. Headless QA may use an isolated synthetic-page profile while the owner uses their Mac; record any test-only permission differences. See `docs/hardening-validation.md` for this candidate’s evidence and remaining limits.
 
 Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store, v1.7.1 was cancelled, and v1.7.2 is pending review for automatic publication. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call these releases runtime-verified until the relevant evidence is recorded.
 
@@ -36,7 +36,7 @@ Before tagging or publishing the active browser capture core:
 - Start Element and Region modes and confirm the capture UI opens with the current product controls.
 - In Element mode, select one element and save a Capture Record.
 - In Region mode, capture one normal-page region and one rendered PDF region, then save both to History.
-- Resize the browser window and confirm the collapsed list remains visible on its selected edge.
+- Resize the browser window and confirm the private capture overlay remains usable. Verify that saving and cancelling preserve the source tab and that opening another capture cannot discard an existing draft.
 - Confirm History renders both records after the source tab is closed.
 - Set the browser download location to the configured MCP inbox and disable the per-download save prompt for this check.
 - Confirm **Send to Codex** places one explicit handoff file in that inbox without requiring manual file movement.

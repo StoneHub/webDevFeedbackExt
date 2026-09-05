@@ -11,11 +11,15 @@ const license = fs.readFileSync(path.join(rootDir, 'LICENSE'), 'utf8');
 const shared = require(path.join(rootDir, 'shared.js'));
 
 const requiredFiles = [
+  'element.html',
   'ai-bundle.js',
   'background.js',
   'capture.html',
   'capture.js',
   'content.js',
+  'collector.js',
+  'element.js',
+  'editor-dialog.js',
   'history.css',
   'history.html',
   'history.js',
@@ -43,6 +47,9 @@ const shippedJavaScriptFiles = [
   'background.js',
   'capture.js',
   'content.js',
+  'collector.js',
+  'element.js',
+  'editor-dialog.js',
   'history.js',
   'popup.js',
   'shared.js'
@@ -94,7 +101,7 @@ assert.equal(productJson.summary, 'Capture browser elements or regions and send 
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);
-assert.equal(Array.isArray(manifest.web_accessible_resources), false);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','capture.html'], matches:['<all_urls>'] }]);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared.MAC_SHORTCUT_LABEL);
 assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');

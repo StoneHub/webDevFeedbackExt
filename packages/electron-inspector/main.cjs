@@ -104,7 +104,7 @@ function installElectronInspector(options = {}) {
       return {
         label: 'Inspect this app',
         accelerator: 'CmdOrCtrl+Shift+.',
-        click: inspect
+        click: (_menuItem, window) => inspect(window?.webContents ? window : getMainWindow())
       };
     },
     async dispose() {

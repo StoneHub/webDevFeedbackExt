@@ -2,12 +2,12 @@
 
 Turn browser-visible feedback into a local, buildable handoff. Dev Feedback Capture focuses on four connected surfaces: Element capture, Region/PDF capture, History, and one explicit Agent Handoff.
 
-> The Chrome Web Store and GitHub release records in this repository describe earlier submissions. The active product direction is the browser capture core documented here.
+> This branch documents the unreleased 1.8.0 candidate. Store and GitHub downloads may contain earlier versions; source changes are not publication evidence.
 
 - `Element` capture records a selected DOM element with selectors, visible text, styles, and a requested change.
 - `Region` capture records a visible page or PDF region with a crop, annotations, source context, and acceptance checks.
 - `History` keeps saved Capture Records together on the device and provides review and export actions.
-- `Send to Codex` is the named Agent Handoff: export the current History through the browser, let the local MCP companion import the newest valid handoff from its configured Downloads inbox, and keep implementation and verification as separate agent steps.
+- `Send to Codex` is the named Agent Handoff: select captures and review the export through the browser, let the local MCP companion import the newest valid handoff from its configured Downloads inbox, and keep implementation and verification as separate agent steps.
 
 Feedback stays local until you explicitly export it. There is no cloud sync, hosted AI connection, automatic browser control, or Electron injection in the browser extension.
 
@@ -16,7 +16,7 @@ Feedback stays local until you explicitly export it. There is no cloud sync, hos
 - Element capture with selector, text, style, position, and note metadata
 - Region capture for normal pages, hosted PDFs, and local PDFs when file access is enabled
 - Crop, arrow, rectangle, ellipse, numbered pin, text, blur/redact, color, undo, and redo tools for Region captures
-- DOM-linked vector annotations with selector fallbacks, roles, surrounding text, geometry, and parent-layout context when the source DOM is available
+- DOM-linked vector annotations with selector fallbacks, roles, geometry, and parent-layout context when the source DOM is available
 - Optional acceptance checks plus browser, viewport, scroll, zoom, DPR, and source metadata
 - Works on arbitrary sites through explicit user-triggered activation
 - Extension-owned History page that works even when the source page cannot accept injected UI
@@ -57,15 +57,17 @@ Use this path when developing the extension or reviewing source changes:
 2. Leave the mode switch on `Element`.
 3. Click `Start Element Mode` or use `Ctrl+Shift+F` (`Command+Shift+F` on macOS).
 4. Hover and click a page element.
-5. Add your note in the modal and save it.
-6. Drag the compact capture chip along the viewport edge, then use **⌃** to expand the saved-item list and **⌄** to collapse it again.
+5. Add your note in the private overlay and save it. The source tab stays open.
+6. Open History from the picker or extension popup to review saved captures. Saved notes are never rendered into the inspected website.
+
+Keyboard: focus the target with Tab, then press Alt+Enter while picking. Escape stops picking. If the suggested extension shortcut is unassigned, configure it in your browser’s extension shortcut settings.
 
 ### Region Mode
 
 1. Open the target page or PDF in the browser.
 2. Open the extension popup and switch to `Region`.
 3. Click `Capture Region`.
-4. Use Crop to define the evidence area.
+4. The editor opens as an overlay. On protected surfaces that block overlays, it opens in a separate capture window. Use Crop to define the evidence area.
 5. Add arrows, shapes, numbered pins, text, or blur/redact marks. Undo and redo operate on the visual spec.
 6. Describe the requested change and optionally add one acceptance criterion per line.
 7. Save the spec to local history.
@@ -74,12 +76,12 @@ The cropped image, viewport rectangle, and source context are saved into the sam
 
 ### History and Agent Handoff
 
-Open `History` from the popup to review captures from any supported source. Choose `Send to Codex` to download the current History as an explicit handoff. When the browser download location matches the MCP companion's configured Downloads inbox, the companion discovers the newest valid handoff and imports it into the target project's ignored `.dev-feedback` sidecar without manual file movement.
+Open `History` from the popup to review captures from any supported source. Select the captures to share, then choose `Send to Codex`. Review the export preview and confirm. Every export uses that same selected snapshot. Changing the filter clears selection; hidden captures are excluded. Delete shown removes only the displayed captures in that group. When the browser download location matches the MCP companion's configured Downloads inbox, the companion discovers the newest valid handoff and imports it into the target project's ignored `.dev-feedback` sidecar without manual file movement.
 
 The handoff contract is deliberately explicit:
 
 1. The extension captures and saves a Capture Record.
-2. The user sends the current History to Downloads.
+2. The user selects and reviews captures, then sends that handoff to Downloads.
 3. MCP imports the newest valid handoff and exposes its records, evidence, and implementation brief.
 4. The coding agent implements the requested change with its normal project tools.
 5. The agent records implementation and verification separately.
@@ -130,7 +132,9 @@ The extension requests:
 
 - `storage` for local history
 - `activeTab` for temporary, user-invoked access to the current tab
-- `scripting` to inject the in-page capture UI and history panel only when requested
+- `scripting` to collect the selected element and open the capture overlay only when requested
+
+Only the two capture editor HTML entry points are web-accessible so they can appear in extension-origin frames. The message broker restricts each editor to its own session and keeps global History access in the top-level History page.
 
 The extension does not use static host permissions, always-on content scripts, telemetry, or network sync. Region captures can include visible page content in screenshot data URLs; those crops stay in local extension storage until the user clears history or removes the extension.
 
@@ -146,7 +150,9 @@ The extension does not use static host permissions, always-on content scripts, t
 
 - `manifest.json`: Manifest V3 configuration
 - `background.js`: runtime injection and Region-capture orchestration
-- `content.js`: in-page panel and element capture
+- `content.js`: public picker and private editor frame host
+- `collector.js`: read-only DOM snapshot collection
+- `element.html` / `element.js`: private Element note editor
 - `mcp/`: project-scoped stdio MCP companion and filesystem sidecar store
 - `capture.html` / `capture.js`: screenshot region selection editor
 - `popup.html` / `popup.js`: mode switch, current-tab actions, History entry point, and handoff action
@@ -167,7 +173,7 @@ The extension does not use static host permissions, always-on content scripts, t
 1. Confirm `package.json` and `manifest.json` versions match.
 2. Run `npm test`, `npm run check`, and `npm run package`. `npm test` covers both extension and MCP contracts.
 3. Complete the package, listing, and manual unpacked-extension gates in `docs/manual-release-checklist.md`, then create and push the matching version tag when publishing a GitHub Release.
-4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and publishes it as a GitHub Release asset.
+4. The release workflow builds `dist/dev-feedback-capture-v<version>.zip` and attaches it to a draft GitHub Release. Publish the draft only after recording the runtime and artifact checks.
 
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
@@ -176,6 +182,9 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - Element mode depends on DOM/script injection and is not intended for browser-internal surfaces.
 - Historical Visual and Add Capture Records may still be read and normalized, but those creation surfaces are not active product workflows.
 - Region mode stores one crop plus vector metadata in local storage; very large capture histories will still increase storage usage.
+- Export previews remove URL credentials, query strings, fragments, and local file directories. Page content, images, and your notes can still contain private information; review them before sharing.
+- Save failures retain the draft. History has an 8 MiB budget, a 3 MiB item limit, and a 500-capture limit per site; export and delete older captures when capacity is reached.
+- A redacted Region discards all DOM annotation anchors and page titles, and reduces its source URL to the origin. User-written notes and labels remain.
 - Blur/redact masks are applied to the saved crop before the transient viewport screenshot is discarded, so AI Bundle “before” evidence does not restore redacted pixels.
 - DOM annotation anchors are best-effort and are unavailable for protected browser pages, PDFs without an accessible DOM, cross-origin frames, and pages that move after capture.
 - Region mode captures the current viewport only, not full-page stitched screenshots.

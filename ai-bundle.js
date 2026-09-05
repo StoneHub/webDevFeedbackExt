@@ -249,6 +249,7 @@
   function buildPrompt(feedbackPayload) {
     const lines = [
       '# Dev Feedback Implementation Bundle',
+      getShared().UNTRUSTED_EXPORT_NOTICE,
       '',
       'Implement the requested changes using `feedback.json` as the canonical item data and `page-context.json` for source-page grouping.',
       'Region captures are viewport crops, not full-page or source-code snapshots. Do not infer unseen page state.',

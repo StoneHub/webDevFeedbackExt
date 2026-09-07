@@ -38,6 +38,21 @@ final class FeedbackHistoryTests: XCTestCase {
         try loaded.delete(ids: [other.id])
         XCTAssertEqual(try FeedbackHistory(url: url).records.map(\.id), [first.id])
     }
+    func testIndependentWindowsMergeAndFinderDeletionIsRespected() throws {
+        let firstWindow = try FeedbackHistory(url: url)
+        let secondWindow = try FeedbackHistory(url: url)
+        let first = record()
+        let second = record(note: "Second window")
+        try firstWindow.save(first)
+        try secondWindow.save(second)
+        XCTAssertEqual(try FeedbackHistory(url: url).records.count, 2)
+        try firstWindow.delete(ids: [first.id])
+        XCTAssertEqual(try FeedbackHistory(url: url).records.map(\.id), [second.id])
+        try FileManager.default.removeItem(at: url)
+        let fresh = record(note: "After emptying history in Finder")
+        try secondWindow.save(fresh)
+        XCTAssertEqual(try FeedbackHistory(url: url).records.map(\.id), [fresh.id])
+    }
     func testWriteFailureDoesNotPublishUnsavedRecord() throws {
         let history = try FeedbackHistory(url: url, write: { _, _ in throw CocoaError(.fileWriteNoPermission) })
         XCTAssertThrowsError(try history.save(record()))

@@ -44,6 +44,11 @@ final class FeedbackSession: ObservableObject {
     }
 
     func showPanel() {
+        do {
+            try history?.reload()
+            records = history?.records ?? []
+            selected.formIntersection(Set(records.map(\.id)))
+        } catch { self.error = "Could not reload feedback history: \(error.localizedDescription)" }
         if panel == nil {
             let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 520, height: 690),
                                  styleMask: [.titled, .closable, .resizable, .utilityWindow], backing: .buffered, defer: false)

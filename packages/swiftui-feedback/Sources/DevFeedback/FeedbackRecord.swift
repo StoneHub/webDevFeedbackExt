@@ -49,14 +49,19 @@ final class FeedbackHistory {
     }) throws {
         self.url = url
         self.write = write
-        if FileManager.default.fileExists(atPath: url.path) {
-            let bundle = try JSONDecoder().decode(FeedbackBundle.self, from: Data(contentsOf: url))
-            guard bundle.schemaVersion == 1, bundle.source == "swiftui-dev-feedback" else {
-                throw FeedbackError.unsupportedHistory
-            }
-            records = bundle.records
-        }
+        records = try readCurrent()
     }
+
+    private func readCurrent() throws -> [FeedbackRecord] {
+        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+        let bundle = try JSONDecoder().decode(FeedbackBundle.self, from: Data(contentsOf: url))
+        guard bundle.schemaVersion == 1, bundle.source == "swiftui-dev-feedback" else {
+            throw FeedbackError.unsupportedHistory
+        }
+        return bundle.records
+    }
+
+    func reload() throws { records = try readCurrent() }
 
     func save(_ record: FeedbackRecord) throws {
         guard !record.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -65,7 +70,7 @@ final class FeedbackHistory {
         guard record.note.count <= Self.maxTextLength, record.acceptance.count <= Self.maxTextLength else {
             throw FeedbackError.textTooLong
         }
-        var next = records
+        var next = try readCurrent()
         if let index = next.firstIndex(where: { $0.id == record.id }) {
             // Editing changes requests only. Target, time, bounds, and build stay attached to the capture.
             next[index].note = record.note
@@ -78,7 +83,7 @@ final class FeedbackHistory {
     }
 
     func delete(ids: Set<UUID>) throws {
-        try persist(records.filter { !ids.contains($0.id) })
+        try persist(readCurrent().filter { !ids.contains($0.id) })
     }
 
     func selected(_ ids: Set<UUID>) -> [FeedbackRecord] {

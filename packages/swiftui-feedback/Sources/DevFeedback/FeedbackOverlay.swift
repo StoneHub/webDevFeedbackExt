@@ -17,9 +17,11 @@ private struct TargetPreference: PreferenceKey {
 @MainActor
 private struct FeedbackOverlay: ViewModifier {
     @StateObject private var session: FeedbackSession
+    private let screen: String
     @Environment(\.colorScheme) private var appearance
 
     init(appID: String, screen: String) {
+        self.screen = screen
         _session = StateObject(wrappedValue: FeedbackSession(appID: appID, screen: screen))
     }
 
@@ -67,6 +69,7 @@ private struct FeedbackOverlay: ViewModifier {
                 }
             }
         }
+        .onChange(of: screen) { _, value in session.updateScreen(value) }
     }
 }
 #endif

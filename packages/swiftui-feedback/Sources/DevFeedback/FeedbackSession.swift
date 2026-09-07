@@ -15,7 +15,7 @@ final class FeedbackSession: ObservableObject {
     @Published var message: String?
     @Published var preview = false
     private let appID: String
-    private let screen: String
+    private var screen: String
     private var history: FeedbackHistory?
     private var panel: NSPanel?
 
@@ -25,12 +25,17 @@ final class FeedbackSession: ObservableObject {
         do {
             let root = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             // Hex encoding keeps arbitrary app and screen identifiers from becoming path traversal.
-            let key = Data("\(appID)/\(screen)".utf8).map { String(format: "%02x", $0) }.joined()
+            let key = Data(appID.utf8).map { String(format: "%02x", $0) }.joined()
             let url = root.appendingPathComponent("DevFeedback", isDirectory: true)
                 .appendingPathComponent(key, isDirectory: true).appendingPathComponent("history.json")
             history = try FeedbackHistory(url: url)
             records = history?.records ?? []
         } catch { self.error = "Could not load feedback history: \(error.localizedDescription)" }
+    }
+
+    func updateScreen(_ screen: String) {
+        self.screen = screen
+        panel?.title = "UI Feedback · \(screen)"
     }
 
     var hasUnsavedChanges: Bool {

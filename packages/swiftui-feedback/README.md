@@ -26,7 +26,7 @@ Button("Save", action: save)
     .feedbackTarget("profile.save", label: "Save profile")
 ```
 
-Reserve a top strip for the development Feedback chip. Targets report their actual layout bounds using anchor preferences; nested picking chooses the smallest registered bounds under the pointer. Repeated components need distinct non-sensitive instance IDs. Labels should be static developer text, never values from a transcript, document, or form. The default `#fileID` and `#line` identify the tagging call, not a guaranteed permanent source location.
+Reserve a top strip for the development Feedback chip. Targets report their actual layout bounds using anchor preferences; nested picking chooses the smallest registered bounds under the pointer. Container tags preserve descendant tags. Register a row/card and its independently discussable mode label, timestamp, text body, and actions; a lone container tag cannot provide granular feedback. Repeated components need distinct non-sensitive instance IDs. Labels should be static developer text, never values from a transcript, document, or form. The default `#fileID` and `#line` identify the tagging call, not a guaranteed permanent source location.
 
 The screen parameter may change with navigation: new captures use the current screen while saved records and open drafts preserve their original screen. History is shared within the app ID. Install an overlay separately on any sheet needing capture. Release builds compile both public modifiers as no-ops and exclude the panel, store, and record implementation. Host and dependency must both use Debug; a host-only flag does not enable the Release package.
 
@@ -60,4 +60,4 @@ swift test --package-path packages/swiftui-feedback
 swift build -c release --package-path packages/swiftui-feedback
 ```
 
-Tests cover persistence, selected-only export, edits preserving context, failed writes, corrupt/future history, field limits, same-process windows, and Finder deletion. The host integration must also exercise the real picker, panel, and export dialog.
+Tests include an actual SwiftUI hosting/rendering regression for nested parent/child registrations, plus persistence, selected-only export, edits preserving context, failed writes, corrupt/future history, field limits, same-process windows, and Finder deletion. The host integration must also exercise the real picker, panel, and export dialog.

@@ -2,12 +2,12 @@ import SwiftUI
 #if DEBUG
 import AppKit
 
-private struct TargetAnchor: Identifiable {
+struct TargetAnchor: Identifiable {
     let id = UUID()
     let target: FeedbackTarget
     let anchor: Anchor<CGRect>
 }
-private struct TargetPreference: PreferenceKey {
+struct TargetPreference: PreferenceKey {
     static var defaultValue: [TargetAnchor] = []
     static func reduce(value: inout [TargetAnchor], nextValue: () -> [TargetAnchor]) {
         value.append(contentsOf: nextValue())
@@ -80,8 +80,8 @@ public extension View {
     @ViewBuilder
     func feedbackTarget(_ id: String, label: String? = nil, file: String = #fileID, line: UInt = #line) -> some View {
         #if DEBUG
-        anchorPreference(key: TargetPreference.self, value: .bounds) {
-            [TargetAnchor(target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line), anchor: $0)]
+        transformAnchorPreference(key: TargetPreference.self, value: .bounds) { targets, anchor in
+            targets.append(TargetAnchor(target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line), anchor: anchor))
         }
         #else
         self

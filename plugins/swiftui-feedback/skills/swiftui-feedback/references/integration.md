@@ -10,14 +10,13 @@ The library product and import are both `DevFeedback`. It requires macOS 14 or n
 import DevFeedback
 
 StatusView()
-    .padding(.top, 38) // room for the development Feedback chip
     .feedbackOverlay(appID: "example.app", screen: currentScreen)
 
 Button("Save", action: save)
     .feedbackTarget("profile.save", label: "Save profile")
 ```
 
-Make the reserved strip conditional on `#if DEBUG` in real apps. The package modifiers are no-ops in Release. Use Debug in both host and package for feedback testing; adding a host-only flag to a Release build will not enable capture. Attach another overlay to presented sheet content if that sheet needs its own picking surface. System menus, native title bars, and untagged subviews are outside this prototype's picker.
+Add `FeedbackCommands()` inside the scene’s `.commands` builder under `#if DEBUG`. It provides Developer menu activation and Cmd+Option+Shift+F. The idle overlay has no visible controls or reserved strip. The package modifiers are inlinable no-ops in Release with unevaluated metadata arguments. Guard host imports/commands and feedback-only key-generation state; hosts that omit the import in Release need lazy no-op tagging shims or conditional tag calls. Run `swift test -c release` and inspect the actual host distribution executable and bundle for feedback-only symbols, strings, and artifacts. Fail distribution on contamination. Use Debug in both host and package for feedback testing; adding a host-only flag to a Release build will not enable capture. Attach another overlay to presented sheet content if that sheet needs its own picking surface. System menus, native title bars, and untagged subviews are outside this prototype's picker.
 
 The panel stores app-scoped JSON under Application Support/DevFeedback; Show in Finder reveals the exact file. The app owns this storage. No network, microphone, Accessibility, or Screen Recording access is requested by the package. For sandboxed hosts, a user-selected read/write file entitlement is needed for NSSavePanel exports; verify the host's existing entitlements before changing them. No additional entitlement is needed for ordinary unsandboxed development hosts.
 

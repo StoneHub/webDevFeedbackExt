@@ -1,0 +1,29 @@
+name: SwiftUI package
+
+on:
+  pull_request:
+    paths:
+      - 'packages/swiftui-feedback/**'
+      - 'plugins/swiftui-feedback/**'
+      - '.github/workflows/swiftui.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/swiftui-feedback/**'
+      - 'plugins/swiftui-feedback/**'
+      - '.github/workflows/swiftui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  swiftui:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test feedback persistence and export
+        run: swift test --package-path packages/swiftui-feedback
+      - name: Compile Release no-op API
+        run: swift build -c release --package-path packages/swiftui-feedback
+      - name: Check helper syntax
+        run: python3 -m py_compile plugins/swiftui-feedback/skills/swiftui-feedback/scripts/check-targets.py

@@ -15,7 +15,7 @@ The product story is: a Chromium extension for collecting structured feedback fr
 - `.github/workflows/release.yml` publishes a zip asset when a matching `v*` tag is pushed.
 - GitHub Release `v1.2.0` is published with `dev-feedback-capture-v1.2.0.zip`.
 
-`product.json.downloadUrl` remains a fallback to a known published asset. Do not update it until the active browser capture core passes the manual browser gate and the matching asset is actually published. The latest-release API remains the preferred source for consumers that can resolve the newest matching asset automatically.
+`product.json.downloadUrl` remains a fallback to a known published asset. Do not update it until the active browser capture core passes the automated exact-ZIP browser gate and the matching asset is actually published. The latest-release API remains the preferred source for consumers that can resolve the newest matching asset automatically.
 
 ## Catalog Metadata
 

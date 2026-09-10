@@ -41,6 +41,20 @@ jobs:
       - name: Package extension
         run: npm run package
 
+      - name: Install acceptance browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Accept exact release ZIP in browser
+        run: npm run test:browser
+
+      - name: Upload browser acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-acceptance-${{ github.sha }}
+          path: output/browser-acceptance/
+          if-no-files-found: error
+
       - name: Verify package artifact
         run: npm run verify:package
 

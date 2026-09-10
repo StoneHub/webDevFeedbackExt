@@ -68,7 +68,7 @@ Electron developers can explicitly install `@flyingchangescode/dev-feedback-elec
 
 Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm run package`, and `npm run verify:package`. The browser ZIP excludes tests, MCP code, and Node dependencies.
 
-Before publishing, follow [docs/manual-release-checklist.md](docs/manual-release-checklist.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
+Before publishing, run the [automated exact-ZIP browser gate](docs/browser-release-acceptance.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
 
 Core files: `popup.*`, `content.js`, `collector.js`, `element.*`, `background.js`, `history.*`, `shared.js`, and `ai-bundle.js`.
 

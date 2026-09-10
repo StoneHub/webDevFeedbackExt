@@ -38,6 +38,8 @@ Single purpose: Collect structured feedback about selected webpage elements and 
 
 ## Validation and package
 
+September 9 update: GitHub releases now use the [automated exact-ZIP browser gate](browser-release-acceptance.md). Its digest-bound report supersedes the human-only requirement and earlier test-only permission differences below. Store listing, screenshots, and submission remain separate.
+
 Validated locally on September 5, 2026:
 
 - `npm test`: 49 tests across extension/privacy, Electron, and MCP, plus release assertions; passed.
@@ -50,4 +52,4 @@ Validated locally on September 5, 2026:
 - PDF requests returned the popup fallback. History rendered at 360px inside the popup document without creating another tab. Native popup fallback acceptance remains separate from that automated document check.
 - Imported a real browser-exported JSON through an MCP SDK stdio client, listed the selected record, and built its implementation brief. The downloaded file was copied into the approved Downloads test inbox for this check; automatic inbox delivery and implementation/verification status are still separate acceptance steps.
 
-Remaining before submission: finish the outstanding acceptance checks in the manual checklist, capture current Store screenshots, land the reviewed source and CI, update the Store listing, and record upload/review readback. The previous main artifact is superseded and must not be submitted.
+Remaining before Store submission: pass the automated gate for the selected package, capture current Store screenshots, update the Store listing, and record upload/review readback. The previous main artifact is superseded and must not be submitted.

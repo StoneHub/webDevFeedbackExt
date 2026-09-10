@@ -13,13 +13,15 @@
     "package": "node scripts/package-extension.cjs",
     "verify:package": "node scripts/verify-package.cjs",
     "mcp": "node mcp/cli.mjs",
-    "audit:dependencies": "npm audit --omit=dev --audit-level=moderate"
+    "audit:dependencies": "npm audit --omit=dev --audit-level=moderate",
+    "test:browser": "node test/browser/release-acceptance.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "playwright": "1.63.0"
   }
 }

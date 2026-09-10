@@ -1,6 +1,6 @@
-# Manual Release Checklist
+# Release Checklist
 
-Automated checks are necessary but do not replace the exact-package unpacked-extension gate. Headless QA may use an isolated synthetic-page profile while the owner uses their Mac; record any test-only permission differences. See `docs/store-release-1.8.0.md` for the current candidate’s evidence and remaining limits.
+The owner authorized automated exact-ZIP browser acceptance on September 9, 2026, replacing the human-only browser gate for GitHub releases. Follow [browser-release-acceptance.md](browser-release-acceptance.md). The historical records below do not override that authorization. Store submission, listing updates, and Google approval remain separate.
 
 Store status on August 3, 2026: v1.7.0 is public in the Chrome Web Store, v1.7.1 was cancelled, and v1.7.2 is pending review for automatic publication. The distributed CRX contains the Browser Code icon, while the Store listing still renders the retired purple-flag artwork. Store approval is not proof that the deferred checks below passed. Keep them open and do not call these releases runtime-verified until the relevant evidence is recorded.
 
@@ -28,9 +28,9 @@ For that historical package:
 - In the durable owner account, update the Store overview, screenshots, and optional video, then upload the exact verified v1.7.1 ZIP. Re-read the upload status before submitting for review.
 - After publication, confirm the Store listing and a clean Google result both show the Browser Code icon, revised title, short description, public version, and current screenshots. If the retired purple-flag asset remains despite the verified ZIP icon, record the listing asset URL and escalate through Chrome Web Store support rather than claiming the refresh worked.
 
-## Active Element release check
+## Element acceptance coverage and separate integration/Store checks
 
-The product was narrowed after hands-on review. New Region/PDF capture is removed; do not use the earlier broad workflow as an acceptance checklist for this release.
+The product was narrowed after hands-on review. New Region/PDF capture is removed. The automated gate covers browser behavior below; configured MCP implementation and Store steps remain separate and are not human-only blockers to GitHub publication.
 
 - Verify the exact release ZIP and minimal manifest permissions.
 - When replacing an unpacked build in an existing test profile, enable Developer mode and use Chrome’s extension Reload control. Restarting Chrome alone can leave the old service-worker behavior active; a new manifest or files on disk is insufficient proof.

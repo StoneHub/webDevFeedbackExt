@@ -26,7 +26,7 @@ assert.equal(manifest.host_permissions,undefined);assert.equal(manifest.content_
 assert.equal(manifest.version,version);
 const report={status:'running',sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),zip:zip.split('/').at(-1),sha256:zipHash,version,files:originalFiles,checks:[],limitations:[
  'Isolated Chrome for Testing via CDP; does not certify every Chrome/Edge version or Chrome Web Store approval.',
- 'Toolbar action uses the browser Extensions.triggerAction API. Keyboard selection/cancel uses trusted browser input; OS-global shortcut dispatch is covered by manifest/command-handler checks, not the host OS hotkey dispatcher.',
+ 'Toolbar action uses the browser Extensions.triggerAction API. Keyboard selection/cancel uses trusted browser input; OS-global shortcut dispatch is covered by manifest and command-registration checks, not the host OS hotkey dispatcher.',
  'Synthetic legacy and capacity fixtures are seeded through the browser storage debugging API. No real user history or extension code is changed.'
 ]};
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
@@ -64,8 +64,8 @@ try{
    const cb=e=>{if(e.sessionId!==sessionId)return;const m=JSON.parse(e.message);if(m.id!==commandId)return;clearTimeout(timer);cdp.off('Target.receivedMessageFromTarget',cb);m.error?reject(new Error(m.error.message)):resolve(m.result);};
    cdp.on('Target.receivedMessageFromTarget',cb);cdp.send('Target.sendMessageToTarget',{sessionId,message:JSON.stringify({id:commandId,method,params})}).catch(reject);
   });}
-  const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.text);return r.result.value;};
-  async function click(selector){const box=await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)throw Error('Missing/enabled control');const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...box});await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...box});}
+  const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
+  async function click(selector){const box=await until(()=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)return null;const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`),'popup control '+selector);await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...box});await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...box});}
   return {evaluate,click,send};
  }
  async function start(){const p=await popup();await until(()=>p.evaluate("!document.querySelector('#primary-action-btn').disabled"),'enabled pick');await p.click('#primary-action-btn');await until(async()=>(await state()).feedbackMode,'picker active');}

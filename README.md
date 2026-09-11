@@ -64,6 +64,12 @@ The companion does not control the browser, execute shell commands, or edit sour
 
 Electron developers can explicitly install `@flyingchangescode/dev-feedback-electron` in a development Host App. This is a separate package, not part of the Chrome Web Store extension. See [packages/electron-inspector/README.md](packages/electron-inspector/README.md).
 
+## SwiftUI developer package (prototype)
+
+Mac developers can integrate the separate **DevFeedback** Swift package in development builds to pick tagged views, save local notes, and export selected feedback with source references. Porch Speech is the first host integration. See [package setup and testing](packages/swiftui-feedback/README.md) and the [Codex tagging plugin](plugins/swiftui-feedback/README.md).
+
+The package is a local/vendored prototype requiring macOS 14+; it is not in the browser ZIP or published as a standalone Swift package. Release builds omit capture. Its native JSON is readable by agents through file tools; the browser MCP importer does not yet accept that schema.
+
 ## Development and release
 
 Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm run package`, and `npm run verify:package`. The browser ZIP excludes tests, MCP code, and Node dependencies.

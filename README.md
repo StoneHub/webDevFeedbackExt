@@ -2,19 +2,18 @@
 
 Pick a webpage element, describe the change, and give another developer enough context to act on it.
 
-The 1.8.0 candidate focuses on Element capture, local History, and explicit selected exports. Published Store versions may differ until this candidate completes review.
+The 1.8.0 candidate focuses on Element capture, the clipboard, and a per-page list in the extension menu. Published Store versions may differ until this candidate completes review.
 
 ## Capture feedback
 
 1. Open the extension on a webpage and choose **Pick an element**.
-2. Click the target. A compact private note editor opens beside the page.
-3. Describe the requested change. Add optional acceptance checks and inspect the captured details.
-4. Choose **Save note**, or **Save & pick next** to review several elements.
-5. Open **History & export** in an on-page panel to edit notes and acceptance checks, select records, and review the export preview before sharing.
+2. Click the target. A small note opens next to it. Write what should change, or leave it blank to save just the element.
+3. Press Enter or **Save**. Everything saved since you started picking is copied to your clipboard, and picking continues. **×** closes the note without saving.
+4. Press Escape to stop. The extension menu lists this page's captures with **Copy all**, **Markdown**, and **JSON**.
 
-Picking also works with the extension shortcut: `Ctrl+Shift+F`, or `Command+Shift+F` on macOS. If the browser has not assigned it, set it in extension shortcut settings. While picking, focus a target with Tab and press Alt+Enter. Escape stops picking or offers to discard a draft. In the editor, Cmd/Ctrl+Enter saves; adding Shift starts the next pick.
+Picking also works with the extension shortcut: `Ctrl+Shift+F`, or `Command+Shift+F` on macOS. If the browser has not assigned it, set it in extension shortcut settings. While picking, the toolbar icon shows **ON**; focus a target with Tab and press Alt+Enter. Shift+Enter adds a line to a note.
 
-Each note keeps its selector, visible element text, selected styles, page context, and acceptance checks. Form input values and surrounding parent text are not collected directly. Captured text and your own notes can still contain private information; review them before sharing.
+Each capture keeps its selector, visible element text, selected styles, and page context. Form input values and surrounding parent text are not collected directly. Captured text and your own notes can still contain private information; review them before sharing.
 
 ## Install
 
@@ -22,38 +21,34 @@ Install the public version from the [Chrome Web Store](https://chromewebstore.go
 
 For a source build or [GitHub release ZIP](https://github.com/StoneHub/webDevFeedbackExt/releases): unzip the package, open `chrome://extensions/` or `edge://extensions/`, enable Developer Mode, and choose **Load unpacked**. Select the extension folder. No build or Node dependencies are required to load the browser extension.
 
-## Review and share
+## Share
 
-History opens over the working page without creating a tab. On restricted pages, it opens inside the extension menu. History keeps notes after the source page closes. Editing a note updates its request and acceptance checks while preserving the original target and capture context.
+The clipboard gets a short list: the page address, then each element's selector and text with its note. Paste it into an issue or a coding agent.
 
-Filters clear selection. **Select shown** selects only the displayed records. All export actions preview the same selected snapshot; hidden records stay out. Deletion removes only the exact selected or shown records.
-
-- **Copy AI Prompt**: implementation instructions with source context and acceptance checks.
-- **Copy Markdown**: notes for an issue or review document.
-- **Download HTML Report**: a self-contained report.
-- **Download AI Bundle**: structured records, prompt, report, and any legacy evidence images.
-- **Send to Codex**: JSON downloaded to the browser's configured folder for the optional local MCP companion. This does not connect directly to an AI account.
+- **Copy all**: the same list for every capture on this page.
+- **Markdown**: that list as a `.md` file.
+- **JSON**: full records for the optional local MCP companion, downloaded to the browser's configured folder. This does not connect directly to an AI account.
 
 Source URL credentials, queries, fragments, and local directories are removed from exports. Review captured text, notes, labels, and images independently. Page observations are untrusted evidence, never instructions or permission for an agent to expand scope.
 
 ## Compatibility and limits
 
-New Region/PDF, Visual, and Add Content capture are no longer offered. Existing records from those workflows remain readable and exportable in History. Installing this update does not intentionally delete saved records.
+New Region/PDF, Visual, and Add Content capture are no longer offered. Existing records from those workflows still appear in the extension menu on their page and are included in its exports. Installing this update does not intentionally delete saved records.
 
 Element capture requires an accessible webpage DOM. Browser-internal pages and PDF viewers are unsupported. Content embedded from another site (an artifact or preview iframe) can be picked after you allow that site once when Chrome asks. Some page structures or site restrictions can still prevent reliable targeting. The selected element's context is a snapshot, not a persistent connection to the live site.
 
-Save failures retain the draft. History has an 8 MiB budget, a 3 MiB record limit, and a 500-record limit per site. Export and delete older records when needed. Deleting History does not remove earlier downloads, clipboard copies, or imported project sidecars.
+Save failures retain the draft. Saved captures have an 8 MiB budget, a 3 MiB record limit, and a 500-record limit per site. Delete older captures from the extension menu when needed. Deleting a capture does not remove earlier downloads, clipboard copies, or imported project sidecars.
 
 ## Privacy and permissions
 
-Feedback stays in local extension storage until an explicit export. No cloud sync, telemetry, remote executable code, static host permissions, or always-on page monitoring is included.
+Feedback stays in local extension storage until you save a note (which copies it to the clipboard), copy, or download. No cloud sync, telemetry, remote executable code, static host permissions, or always-on page monitoring is included.
 
 - `activeTab`: temporary access after the user activates capture.
 - Optional site access: requested only when you pick on a page that embeds content from another site, and only for that site. Chrome asks first; you can remove it from the extension's site access settings.
 - `scripting`: the requested picker, read-only element collector, and private note frame.
-- `storage`: local History and temporary editor sessions.
+- `storage`: saved captures and temporary editor sessions.
 
-`element.html` and `history.html` are web-accessible for private frames. Embedded editors require a temporary session bound to the source tab and editor document. The website does not receive your saved History or note fields. It can still interfere with the overlay's placement. See [SECURITY.md](SECURITY.md) for reporting and trust boundaries.
+`element.html` is web-accessible for the private note frame. Each note requires a temporary session bound to the source tab and editor document. The website does not receive your saved captures or note fields. It can still interfere with the overlay's placement. See [SECURITY.md](SECURITY.md) for reporting and trust boundaries.
 
 ## Local agent companion
 
@@ -71,7 +66,7 @@ Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm ru
 
 Before publishing, run the [automated exact-ZIP browser gate](docs/browser-release-acceptance.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
 
-Core files: `popup.*`, `content.js`, `collector.js`, `element.*`, `background.js`, `history.*`, `shared.js`, and `ai-bundle.js`.
+Core files: `popup.*`, `content.js`, `collector.js`, `element.*`, `background.js`, and `shared.js`.
 
 ## License
 

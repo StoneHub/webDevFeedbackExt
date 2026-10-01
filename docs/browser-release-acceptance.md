@@ -22,12 +22,11 @@ The harness uses Chrome for Testing's extension debugging API to invoke the actu
 
 Coverage includes:
 
-- Toolbar activation, keyboard selection, Escape, pointer selection, private editor context, and Save & pick next.
-- Refusal to replace an open draft, keep-editing/discard dialogs, a real 500-record capacity rejection, and a successful single-record retry.
-- On-page History without new tabs, note/check editing with preserved capture identity, and persistence after closing the source tab.
-- Synthetic legacy Region/PDF and Visual/Add records, decoded original/proposed/redacted images, selected deletion, and preservation of hidden records.
-- All five selected exports: preview contents, downloaded JSON/HTML/ZIP bytes, rendered HTML, and actual clipboard readback.
-- Native restricted-page popup History with capture disabled.
+- Toolbar activation, the ON badge, no in-page panel while picking, keyboard and pointer selection, and Escape.
+- A one-field note placed just below the picked element, refusal to replace an open draft, a real 500-record capacity rejection, and a successful retry.
+- Enter saves, the clipboard holds every capture of the picking run (actual readback), the toast appears, and picking continues; × discards and keeps picking.
+- The extension menu's per-page list including a synthetic legacy Region record, Copy all, the Markdown and JSON downloads, and single-item deletion.
+- Restricted pages and the real PDF viewer disable picking.
 
 Evidence is written to `output/browser-acceptance/`: a JSON report tied to the ZIP SHA-256, browser trace, synthetic screenshots, and export artifacts. Temporary profiles, server, and browsers are closed at completion. CI retains evidence even when the test fails. Do not treat partial output or an old passing report as acceptance of a different digest.
 

@@ -71,95 +71,82 @@ try{
  async function start(){const p=await popup();await until(()=>p.evaluate("!document.querySelector('#primary-action-btn').disabled"),'enabled pick');await p.click('#primary-action-btn');await until(async()=>(await state()).feedbackMode,'picker active');}
  const frame=name=>until(()=>page.frames().find(f=>f.url().startsWith(extURL+'/'+name+'.html')),'frame '+name);
  const check=(name)=>{report.checks.push({name,status:'passed'});console.log('PASS '+name);};
- await start();await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'Escape cancels picker');check('toolbar activation and trusted keyboard cancel');
- await start();await page.locator('#save-button').focus();await page.keyboard.press('Alt+Enter');
- let editor=await frame('element');await editor.locator('#note').fill('SELECTED element spacing');
- await editor.locator('summary').filter({hasText:'Acceptance checks'}).click();await editor.locator('#acceptance').fill('Button remains keyboard accessible');
- assert.equal(await page.evaluate(()=>window.siteClicks),0);
- const targetText=await editor.locator('#target').textContent();assert.match(targetText,/#save-button/);assert.doesNotMatch(targetText,/SECRET_INPUT_SENTINEL|PARENT_SECRET_SENTINEL/);
- assert.doesNotMatch(await page.locator('body').innerText(),/SELECTED element spacing/);
- await page.screenshot({path:join(out,'element-editor.png')});
- const sessionBefore=Object.keys(await getStorage('session'));
- const p=await popup();await until(()=>p.evaluate("document.querySelector('#primary-action-btn').textContent==='Return to open panel'"),'draft return action');
- await p.click('#history-btn');
- await until(()=>p.evaluate("document.querySelector('#warning').textContent.includes('Save or cancel')"),'draft replacement refused');
- assert.equal(await editor.locator('#note').inputValue(),'SELECTED element spacing');assert.deepEqual(Object.keys(await getStorage('session')),sessionBefore);
- await p.click('#primary-action-btn');
- await editor.locator('#note').press('Escape');await editor.getByRole('button',{name:'Keep editing',exact:true}).click();
- assert.equal(await editor.locator('#note').inputValue(),'SELECTED element spacing');check('keyboard pick, private context, and draft replacement protection');
- const base={type:'element',selector:'#save-button',pageUrl:url,timestamp:'2026-09-09T00:00:00Z'};
- await seed({[storageKey]:Array.from({length:500},(_,i)=>({...base,id:`capacity-${i}`,note:`Synthetic capacity ${i}`}))});
- await editor.locator('#save').click();await until(async()=>(await editor.locator('#status').textContent()).includes('500 captures'),'capacity rejection');
- assert.equal(await editor.locator('#note').inputValue(),'SELECTED element spacing');assert.equal((await getStorage())[storageKey].length,500);
- await seed({[storageKey]:[]});await editor.locator('#save-next').click();await until(async()=>(await state()).feedbackMode,'save and pick next');
- const saved=(await getStorage())[storageKey];assert.equal(saved.length,1);assert.equal(saved[0].note,'SELECTED element spacing');assert.deepEqual(saved[0].acceptance,['Button remains keyboard accessible']);check('real capacity failure preserves draft; retry saves once and resumes picking');
- await page.locator('#second').click();editor=await frame('element');await editor.locator('#note').fill('Discard me');await editor.locator('#cancel').click();await editor.getByRole('button',{name:'Discard',exact:true}).click();await until(async()=>!(await state()).editorOpen,'discard closes editor');assert.equal((await getStorage())[storageKey].length,1);check('pointer picking and explicit discard');
- const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
- const legacy=[
-  {...base,id:'legacy-region',type:'region',note:'SELECTED legacy redacted region',pageUrl:'https://legacy.test/PRIVATE_PATH?secret=PRIVATE_QUERY',screenshot:{dataUrl:PNG,annotatedDataUrl:PNG},annotations:[{type:'blur',rect:{x:0,y:0,width:1,height:1},target:{text:'PRIVATE_TARGET'}}]},
-  {...base,id:'legacy-pdf',type:'region',sourceKind:'pdf',pageUrl:'file:///PRIVATE_DIRECTORY/brief.pdf',note:'SELECTED legacy PDF',screenshot:{dataUrl:PNG},annotations:[]},
-  {...base,id:'legacy-visual',note:'SELECTED legacy Visual',evidence:{before:{dataUrl:PNG},proposed:{dataUrl:PNG}},changeRequest:{kind:'requested-mutation',summary:'SELECTED legacy Visual',requestedMutations:[{action:'restyle',target:{selectors:['#save-button'],tag:'button'},parameters:{styles:{color:'#111111'}}}]}},
-  {...base,id:'legacy-add',note:'SELECTED legacy Add',changeRequest:{kind:'requested-mutation',summary:'SELECTED legacy Add',requestedMutations:[{action:'insert',target:{selectors:['#save-button'],tag:'button'},parameters:{placement:'inside-end',content:{type:'text',title:'Notice',body:'Synthetic notice'}}}]}},
-  {...base,id:'hidden',note:'UNSELECTED_SENTINEL'}
- ];
- await seed({[storageKey]:[...saved,...legacy]});
- let menu=await popup();await menu.click('#history-btn');let history=await frame('history');
- await until(async()=>(await history.locator('article.item').count())===6,'six historical records');
- assert.equal(ctx.pages().length,1,'History created a tab');
- for(const note of legacy.map(i=>i.note))assert.ok(await history.getByText(note,{exact:true}).count(),note);
- assert.match(await history.locator('body').innerText(),/Restyle|restyle/);assert.match(await history.locator('body').innerText(),/Insert|insert/);
- const evidenceImages=history.locator('img');for(let i=0;i<await evidenceImages.count();i++){await until(async()=>{await evidenceImages.nth(i).scrollIntoViewIfNeeded();return evidenceImages.nth(i).evaluate(im=>im.complete&&im.naturalWidth>0);},'legacy evidence decoded');}
- await history.getByRole('button',{name:'Edit feedback: SELECTED element spacing',exact:true}).click();
- await history.locator('#edit-note').fill('SELECTED revised element');await history.locator('#edit-acceptance').fill('Updated acceptance check');await history.locator('#edit-save').click();
- await until(async()=>(await getStorage())[storageKey][0].note==='SELECTED revised element','saved edit');
- const edited=(await getStorage())[storageKey][0];for(const key of ['id','selector','pageUrl','timestamp'])assert.deepEqual(edited[key],saved[0][key]);assert.deepEqual(edited.acceptance,['Updated acceptance check']);
- await history.locator('#history-search').fill('legacy');await history.locator('#select-shown').click();
- assert.equal(await history.locator('article.item').count(),4);
- await history.locator('h1').scrollIntoViewIfNeeded();
- await page.screenshot({path:join(out,'legacy-history.png')});check('native on-page History, decoded legacy Region/PDF/Visual/Add, and evidence-preserving edits');
- const expectedNotes=legacy.slice(0,4).map(i=>i.note);
- const assertExport=text=>{for(const note of expectedNotes)assert.ok(text.includes(note),`missing ${note}`);assert.doesNotMatch(text,/UNSELECTED_SENTINEL|SELECTED revised element|PRIVATE_PATH|PRIVATE_QUERY|PRIVATE_TARGET|PRIVATE_DIRECTORY/);};
- async function preview(button){
-  if((await history.locator('details.share-menu').getAttribute('open'))===null)await history.locator('details.share-menu > summary').click();
-  await history.locator('#'+button).click();await history.locator('#export-preview[open]').waitFor();
-  assert.match(await history.locator('#export-preview-count').innerText(),/^4 items/);assertExport(await history.locator('#export-preview-content').textContent());
- }
- for(const button of ['download-json','download-html','download-ai-bundle']){
-  await preview(button);const downloaded=page.waitForEvent('download');await history.getByRole('button',{name:'Share these records',exact:true}).click();const download=await downloaded;const path=join(out,download.suggestedFilename());await download.saveAs(path);
-  const data=button==='download-ai-bundle'?execFileSync('unzip',['-p',path],{maxBuffer:10*1024*1024}).toString():readFileSync(path,'utf8');assertExport(data);
-  if(button==='download-json'){const payload=JSON.parse(data);writeFileSync(join(out,'selected-handoff.json'),JSON.stringify(payload,null,2));}
-  if(button==='download-html'){const rendered=await ctx.newPage();await rendered.goto('file://'+path);assert.equal(await rendered.locator('article').count(),4);for(const image of await rendered.locator('img').all())assert.ok(await image.evaluate(im=>im.complete&&im.naturalWidth>0));await rendered.screenshot({path:join(out,'exported-report.png'),fullPage:true});await rendered.close();await page.bringToFront();}
- }
- // Use a separate extension-origin top-level document for clipboard reads: embedded frames
- // intentionally do not receive clipboard-read permission. The extension files stay unchanged.
+ const badge=()=>worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({active:true,currentWindow:true});return chrome.action.getBadgeText({tabId:tab.id});});
+ // The toast lives in a closed shadow root; CDP's pierced DOM still reads it.
+ async function overlayText(){const {root}=await pageCDP.send('DOM.getDocument',{depth:-1,pierce:true});const text=[];(function walk(node){if(node.nodeType===3)text.push(node.nodeValue);for(const child of [...(node.children||[]),...(node.shadowRoots||[])])walk(child);})(root);return text.join(' ');}
+ await start();
+ assert.equal(await badge(),'ON');assert.equal(await page.locator('[data-dev-feedback-picker]').isHidden(),true,'no in-page panel while picking');
+ await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'Escape cancels picker');assert.equal(await badge(),'');
+ check('toolbar activation, ON badge, no page panel, and trusted keyboard cancel');
+ // Read the clipboard from a separate extension-origin top-level document; embedded frames do not get clipboard-read.
  await ctx.grantPermissions(['clipboard-read','clipboard-write']);
- const clipboardReader=await ctx.newPage();await clipboardReader.goto(extURL+'/history.html');
- await clipboardReader.evaluate(async()=>{window.__acceptanceClipboard=await navigator.clipboard.readText();});
+ const clipboardReader=await ctx.newPage();await clipboardReader.goto(extURL+'/element.html');
+ const originalClipboard=await clipboardReader.evaluate(()=>navigator.clipboard.readText());
+ const clipboard=async()=>{await clipboardReader.bringToFront();const text=await clipboardReader.evaluate(()=>navigator.clipboard.readText());await page.bringToFront();return text;};
  try{
-  for(const button of ['copy-markdown','copy-ai']){
-   await page.bringToFront();await preview(button);await history.getByRole('button',{name:'Share these records',exact:true}).click();
-   await until(async()=>(await history.locator('#status').textContent()).startsWith(button==='copy-markdown'?'Markdown copied.':'AI prompt copied.'),'clipboard export status');
-   await clipboardReader.bringToFront();const copied=await clipboardReader.evaluate(()=>navigator.clipboard.readText());assertExport(copied);if(button==='copy-ai')assert.match(copied,/untrusted observations/);writeFileSync(join(out,button+'.txt'),copied);
-  }
- }finally{await clipboardReader.bringToFront();await clipboardReader.evaluate(()=>navigator.clipboard.writeText(window.__acceptanceClipboard));await clipboardReader.close();await page.bringToFront();}
- check('all five reviewed selected exports, downloaded bytes, rendered HTML, and clipboard readback');
- // Exact selected deletion must preserve hidden records.
- await history.locator('#select-none').click();await history.getByRole('checkbox',{name:'Select SELECTED legacy Add',exact:true}).check();
- page.once('dialog',d=>d.accept());await history.locator('#clear-all').click();await until(async()=>(await getStorage())[storageKey].length===5,'selected deletion');
- assert.ok((await getStorage())[storageKey].some(i=>i.id==='hidden'));assert.ok(!(await getStorage())[storageKey].some(i=>i.id==='legacy-add'));check('selected deletion preserves hidden records');
- await history.locator('#close-history').click();
- // Close the original source tab, then use the actual native popup on a restricted page.
+  await start();await page.locator('#save-button').focus();await page.keyboard.press('Alt+Enter');
+  let editor=await frame('element');
+  const placed=await (await editor.frameElement()).boundingBox();const picked=await page.locator('#save-button').boundingBox();
+  assert.ok(placed.y>=picked.y+picked.height&&Math.abs(placed.x-picked.x)<2,'note opens just below the picked element');
+  assert.equal(await editor.locator('textarea').count(),1);assert.equal(await editor.locator('button').count(),2,'only Save and close');
+  await editor.locator('#note').fill('SELECTED element spacing');
+  assert.equal(await page.evaluate(()=>window.siteClicks),0);
+  assert.doesNotMatch(await page.locator('body').innerText(),/SELECTED element spacing/);
+  await page.screenshot({path:join(out,'element-editor.png')});
+  const p=await popup();await until(()=>p.evaluate("document.querySelector('#primary-action-btn').textContent==='Return to open note'"),'draft return action');
+  await p.click('#primary-action-btn');assert.equal(await editor.locator('#note').inputValue(),'SELECTED element spacing');
+  check('keyboard pick opens a one-field private note beside the element');
+  const base={type:'element',selector:'#save-button',pageUrl:url,timestamp:'2026-09-09T00:00:00Z'};
+  await seed({[storageKey]:Array.from({length:500},(_,i)=>({...base,id:`capacity-${i}`,note:`Synthetic capacity ${i}`}))});
+  await editor.locator('#note').press('Enter');await until(async()=>(await editor.locator('#status').textContent()).includes('500 captures'),'capacity rejection');
+  assert.equal(await editor.locator('#note').inputValue(),'SELECTED element spacing');assert.equal((await getStorage())[storageKey].length,500);
+  await seed({[storageKey]:[]});await editor.locator('#note').press('Enter');await until(async()=>(await state()).feedbackMode,'save resumes picking');
+  await until(async()=>(await overlayText()).includes('Copied to clipboard · 1 selection'),'clipboard toast');
+  await page.screenshot({path:join(out,'saved-toast.png')});
+  const saved=(await getStorage())[storageKey];assert.equal(saved.length,1);assert.equal(saved[0].note,'SELECTED element spacing');
+  assert.match(await clipboard(),/^Page feedback: [^\n]+\n\n1\. `#save-button` \(button "Save changes"\)\n   SELECTED element spacing\n/);
+  check('capacity failure keeps the draft; Enter saves, copies, toasts, and keeps picking');
+  await page.locator('#second').click();editor=await frame('element');await editor.locator('#note').press('Enter');
+  await until(async()=>(await overlayText()).includes('Copied to clipboard · 2 selections'),'run toast');
+  assert.equal((await getStorage())[storageKey].length,2);assert.equal(await page.evaluate(()=>window.siteClicks),0);
+  const run=await clipboard();assert.match(run,/1\. `#save-button`[\s\S]*2\. `#second` \(button "Second action"\)\n\n/);assert.doesNotMatch(run,/SECRET_INPUT_SENTINEL|PARENT_SECRET_SENTINEL/);
+  check('pointer pick with a blank note appends the element to the run clipboard');
+  await page.locator('h1').click();editor=await frame('element');await editor.locator('#note').fill('Discard me');await editor.locator('#cancel').click();
+  await until(async()=>{const s=await state();return !s.editorOpen&&s.feedbackMode;},'close keeps picking');assert.equal((await getStorage())[storageKey].length,2);
+  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop after close');
+  check('closing a note discards it and keeps picking');
+  const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+  await seed({[storageKey]:[...(await getStorage())[storageKey],
+   {...base,id:'legacy-region',type:'region',note:'SELECTED legacy region',pageUrl:url+'?secret=PRIVATE_QUERY',screenshot:{dataUrl:PNG},annotations:[]},
+   {...base,id:'other-page',pageUrl:new URL('/other',url).href,note:'OTHER_PAGE_SENTINEL'}]});
+  let menu=await popup();
+  await until(()=>menu.evaluate("document.querySelectorAll('#capture-list li').length===3"),'page list');
+  const listed=await menu.evaluate("document.querySelector('#captures').innerText");
+  for(const text of ['SELECTED element spacing','No note','SELECTED legacy region'])assert.ok(listed.includes(text),text);assert.doesNotMatch(listed,/OTHER_PAGE_SENTINEL/);
+  writeFileSync(join(out,'popup-list.png'),Buffer.from((await menu.send('Page.captureScreenshot')).data,'base64'));
+  await menu.click('#copy-btn');await until(async()=>(await menu.evaluate("document.querySelector('#copy-btn').textContent"))==='Copied','popup copy');
+  const copied=await clipboard();assert.match(copied,/3\. Region capture\n   SELECTED legacy region/);assert.doesNotMatch(copied,/PRIVATE_QUERY|OTHER_PAGE_SENTINEL/);
+  const downloads=new Map();
+  cdp.on('Browser.downloadWillBegin',e=>downloads.set(e.guid,{name:e.suggestedFilename}));
+  cdp.on('Browser.downloadProgress',e=>{if(e.state==='completed'&&downloads.has(e.guid))downloads.get(e.guid).done=true;});
+  await cdp.send('Browser.setDownloadBehavior',{behavior:'allowAndName',downloadPath:out,eventsEnabled:true});
+  menu=await popup();
+  async function download(selector){const before=downloads.size;await menu.click(selector);const [guid,entry]=await until(()=>[...downloads.entries()].slice(before).find(([,d])=>d.done),'download '+selector);return {name:entry.name,text:readFileSync(join(out,guid),'utf8')};}
+  const md=await download('#markdown-btn');assert.match(md.name,/^dev-feedback-127\.0\.0\.1-.*\.md$/);assert.equal(md.text,copied);
+  const json=await download('#json-btn');assert.match(json.name,/\.json$/);const payload=JSON.parse(json.text);
+  assert.equal(payload.schemaVersion,1);assert.equal(payload.histories[0].items.length,3);assert.doesNotMatch(json.text,/PRIVATE_QUERY|OTHER_PAGE_SENTINEL/);
+  writeFileSync(join(out,'selected-handoff.json'),JSON.stringify(payload,null,2));
+  await menu.click('#capture-list li:last-child button');await until(async()=>!(await getStorage())[storageKey].some(i=>i.id==='legacy-region'),'delete one');
+  assert.ok((await getStorage())[storageKey].some(i=>i.id==='other-page'));await until(()=>menu.evaluate("document.querySelectorAll('#capture-list li').length===2"),'list refresh');
+  check('extension menu lists this page, copies, downloads Markdown and MCP JSON, and deletes one capture');
+ }finally{await clipboardReader.bringToFront();await clipboardReader.evaluate(text=>navigator.clipboard.writeText(text),originalClipboard);await clipboardReader.close();await page.bringToFront();}
  const replacement=await ctx.newPage();await replacement.goto('chrome://version/');await page.close();page=replacement;pageCDP=await ctx.newCDPSession(page);
- menu=await popup();await until(()=>menu.evaluate("document.querySelector('#warning').textContent.length>0"),'restricted-page warning');assert.equal(await menu.evaluate("document.querySelector('#primary-action-btn').disabled"),true);
- await menu.click('#history-btn');await until(()=>menu.evaluate("location.pathname==='/history.html'&&document.querySelectorAll('article.item').length===5"),'native popup fallback History');
- assert.equal(ctx.pages().length,1);assert.ok((await menu.evaluate('document.body.innerText')).includes('UNSELECTED_SENTINEL'));
- const shot=await menu.send('Page.captureScreenshot');writeFileSync(join(out,'restricted-popup-history.png'),Buffer.from(shot.data,'base64'));
- check('closed-source persistence and native restricted-page popup fallback without extra tabs');
- await menu.click('#close-history');await page.goto(new URL('/sample.pdf',url).href);
+ let menu=await popup();await until(()=>menu.evaluate("document.querySelector('#warning').textContent.length>0"),'restricted-page warning');assert.equal(await menu.evaluate("document.querySelector('#primary-action-btn').disabled"),true);
+ check('restricted page disables picking');
+ await page.goto(new URL('/sample.pdf',url).href);
  menu=await popup();await until(()=>menu.evaluate("document.querySelector('#warning').textContent.length>0"),'PDF warning');assert.equal(await menu.evaluate("document.querySelector('#primary-action-btn').disabled"),true);
- await menu.click('#history-btn');await until(()=>menu.evaluate("location.pathname==='/history.html'&&document.querySelectorAll('article.item').length===5"),'PDF popup History');check('real PDF viewer disables capture and opens native History fallback');
+ check('real PDF viewer disables picking');
  assert.equal(hash(zip),zipHash);assert.deepEqual(files(),originalFiles);check('exact ZIP and extracted bytes unchanged after acceptance');
-
  report.status='passed';
 }catch(error){report.status='failed';report.error=error.stack;throw error;
 }finally{

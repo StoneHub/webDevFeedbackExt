@@ -6,12 +6,11 @@ const path = require('node:path');
 const { webcrypto } = require('node:crypto');
 const shared = require('../shared.js');
 globalThis.DevFeedbackShared = shared;
-const bundle = require('../ai-bundle.js');
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const element = (id, note = 'Change spacing') => ({ id, type:'element', selector:'#button', pageUrl:'https://site.test/page', note, timestamp:'2026-09-05T00:00:00Z' });
 const source = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 
-test('redacted legacy regions remove every DOM anchor and source context from saved and bundled records', () => {
+test('redacted legacy regions remove every DOM anchor and source context from saved records', () => {
   const item = shared.normalizeFeedbackItem({ id:'masked', type:'region', pageUrl:'https://site.test/PRIVATE_PATH?token=PRIVATE_TOKEN', pageTitle:'PRIVATE_TITLE', note:'User request', screenshot:{ dataUrl:PNG }, annotations:[
     { type:'blur', rect:{x:0,y:0,width:10,height:10}, target:{text:'PRIVATE_TEXT'} },
     { type:'pin', point:{x:20,y:20}, target:{surroundingText:'PRIVATE_NEIGHBOR',selectors:['#PRIVATE_SELECTOR']} }
@@ -20,9 +19,6 @@ test('redacted legacy regions remove every DOM anchor and source context from sa
   assert.equal(item.annotations.every(a=>a.target===null),true);
   assert.equal(item.note,'User request');
   assert.doesNotMatch(JSON.stringify(item),/PRIVATE_/);
-  const bytes = Buffer.from(bundle.buildAiBundle([{storageKey:'site',items:[item]}]).bytes);
-  assert.equal(bytes.includes(Buffer.from('PRIVATE_')),false);
-  assert.equal(bytes.includes(Buffer.from('Security boundary:')),true);
 });
 
 test('sharing removes URL credentials and local directories and preserves group identity across selection changes', async () => {
@@ -33,6 +29,18 @@ test('sharing removes URL credentials and local directories and preserves group 
   assert.doesNotMatch(JSON.stringify(result),/PRIVATE_DIR/);
   assert.equal(shared.safeShareUrl('https://name:pass@site.test/page?token=secret#private'),'https://site.test/page');
   assert.match(shared.buildAiPromptExport('https://site.test', [element('a')]),/untrusted observations/);
+});
+
+test('clipboard text names each element, keeps notes, and strips URL secrets', () => {
+  const text = shared.buildClipboardText([
+    {...element('a','Make it bigger'),pageUrl:'https://user:pw@site.test/page?token=SECRET#frag',elementInfo:{tag:'button',text:'Save'}},
+    {...element('b',''),selector:'#other'}
+  ]);
+  assert.match(text,/^Page feedback: https:\/\/site\.test\/page\n/);
+  assert.match(text,/1\. `#button` \(button "Save"\)\n   Make it bigger\n/);
+  assert.match(text,/2\. `#other` \(\w+\)\n\n/,'a blank note saves just the element reference');
+  assert.doesNotMatch(text,/SECRET|pw@/);
+  assert.match(text,/references, not instructions/);
 });
 
 function background(options={}) {
@@ -61,30 +69,34 @@ function background(options={}) {
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
   const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
-  return {local,sessions,content,page,windowTypes,badges,tabMessages,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('history.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
+  return {local,sessions,content,page,windowTypes,badges,tabMessages,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
 }
 
-test('broker denies content-script History reads/writes, forged extension URLs, subframes, and wrong editor ownership', async () => {
+test('broker denies content-script deletes and adds, forged extension URLs, popup subframes, and wrong editor ownership', async () => {
   const app=background({local:{'dev-feedback-https://private.test':[element('private')]}});
-  for(const request of [{action:'list-feedback-history'},{action:'get-feedback-items',storageKey:'dev-feedback-https://private.test'},{action:'delete-feedback-items',storageKey:'dev-feedback-https://private.test',itemIds:['private']},{action:'add-feedback-item',item:element('evil') }])assert.equal((await app.send(request,app.content)).ok,false);
-  assert.equal((await app.send({action:'list-feedback-history'},{...app.content,url:'file:///history.html'})).ok,false);
-  assert.equal((await app.send({action:'list-feedback-history'},{...app.page('history.html'),frameId:1})).ok,false);
+  const del={action:'delete-feedback-items',storageKey:'dev-feedback-https://private.test',itemIds:['private']};
+  for(const request of [del,{action:'add-feedback-item',item:element('evil')}])assert.equal((await app.send(request,app.content)).ok,false);
+  assert.equal((await app.send(del,{...app.content,url:'file:///popup.html'})).ok,false);
+  assert.equal((await app.send(del,{...app.page('popup.html'),frameId:1})).ok,false);
   assert.equal((await app.send({action:'get-capture-session'},app.page('element.html','not-owned'))).ok,false);
-  assert.equal((await app.send({action:'list-feedback-history'})).histories.length,1);
+  assert.equal(app.local['dev-feedback-https://private.test'].length,1);
   assert.equal(app.access.accessLevel,'TRUSTED_CONTEXTS');
 });
 
 // Background objects come from another vm realm; compare their JSON shape.
 const plain=value=>JSON.parse(JSON.stringify(value));
 
-test('embedded frames can pick and stop picking but cannot reach History',async()=>{
+test('embedded frames can pick and stop picking but cannot reach saved captures',async()=>{
   const app=background({local:{'dev-feedback-https://private.test':[element('private')]}});
   const frame={...app.content,frameId:3,url:'https://abc123.frame.usercontent.test/'};
-  assert.equal((await app.send({action:'list-feedback-history'},frame)).ok,false);
-  assert.equal((await app.send({action:'open-history'},frame)).ok,false);
+  assert.equal((await app.send({action:'delete-feedback-items',storageKey:'dev-feedback-https://private.test',itemIds:['private']},frame)).ok,false);
+  assert.equal(app.local['dev-feedback-https://private.test'].length,1);
   assert.equal((await app.send({action:'start-element-capture',snapshot:{selector:'#inner'}},{...frame,url:'chrome-extension://evil/'})).ok,false);
-  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#inner',tag:'button'}},frame);
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#inner',tag:'button'},rect:{left:10,top:20,right:110,bottom:50},frame:{url:'https://forged.test/',width:800,height:600}},frame);
   assert.equal(started.ok,true);
+  const shown=app.tabMessages.find(m=>m.message.action==='show-capture-overlay');
+  assert.deepEqual(plain(shown.message.anchor),{frameId:3,rect:{left:10,top:20,right:110,bottom:50},frame:{url:frame.url,width:800,height:600}},'the top page places the note beside the element inside the frame, using the frame URL Chrome reports');
+  assert.equal(shown.options.frameId,0);
   assert.deepEqual(plain(app.tabMessages.at(-1)),{tabId:1,message:{action:'set-feedback-mode',enabled:false}},'picking stops in every frame once the editor opens');
   assert.equal((await app.send({action:'stop-picking'},frame)).ok,true);
   assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:''});
@@ -112,7 +124,7 @@ test('embedded frame access asks for the frame site, never the parent or non-web
 });
 
 test('broker fails closed when storage access cannot be restricted',async()=>{
-  const app=background({denyAccess:true});assert.equal((await app.send({action:'list-feedback-history'})).ok,false);
+  const app=background({denyAccess:true});assert.equal((await app.send({action:'delete-feedback-items',storageKey:'dev-feedback-https://site.test',itemIds:[]})).ok,false);
 });
 
 test('selected deletion preserves hidden items and serializes simultaneous operations',async()=>{
@@ -136,6 +148,39 @@ test('Element editor session saves are retryable and idempotent without disclosi
   assert.equal(app.local['dev-feedback-https://site.test'].length,1);
 });
 
+test('each save copies the whole picking run, and a new run starts fresh',async()=>{
+  const app=background();
+  const popup=app.page('popup.html');
+  const save=async(selector,note)=>{
+    const started=await app.send({action:'start-element-capture',snapshot:{selector,tag:'button',text:selector}},app.content);
+    return app.send({action:'add-feedback-item',item:{note}},app.page('element.html',started.sessionId));
+  };
+  await app.send({action:'set-picking',tabId:1,enabled:true},popup);
+  const first=await save('#one','Bigger');
+  assert.equal(first.count,1);assert.match(first.clipboard,/`#one`[\s\S]*Bigger/);
+  const second=await save('#two','');
+  assert.equal(second.count,2);assert.match(second.clipboard,/1\. `#one`[\s\S]*2\. `#two`/);
+  await app.send({action:'set-picking',tabId:1,enabled:true},popup);
+  const third=await save('#three','Next run');
+  assert.equal(third.count,1);assert.doesNotMatch(third.clipboard,/#one|#two/);
+  assert.equal(app.local['dev-feedback-https://site.test'].length,3,'every save still lands in the page list');
+});
+
+test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
+  const app=background();
+  const open=async()=>app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content)).sessionId);
+  const lastToast=()=>app.tabMessages.filter(m=>m.message.action==='close-capture-overlay').at(-1).message.toast;
+  await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},await open());
+  assert.equal(lastToast(),'Copied to clipboard · 2 selections');
+  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
+  await app.send({action:'clear-capture-session',saved:true,copied:false,count:1},await open());
+  assert.equal(lastToast(),'Saved. Copy it from the extension menu.');
+  await app.send({action:'clear-capture-session'},await open());
+  assert.equal(lastToast(),'','closing without saving shows nothing');
+  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
+});
+
 test('storage capacity rejection preserves the editor session and existing history',async()=>{
   const app=background({usedBytes:9*1024*1024});
   const result=await app.send({action:'start-element-capture',snapshot:{selector:'#button'}},app.content);
@@ -144,22 +189,7 @@ test('storage capacity rejection preserves the editor session and existing histo
 });
 
 
-test('History filter and selection exclude hidden items from export and deletion',async()=>{
-  const controls=new Map();const control=id=>{if(!controls.has(id))controls.set(id,{addEventListener(){},setAttribute(){},style:{}});return controls.get(id);};
-  const context={window:{top:null,location:{search:''}},URLSearchParams,DevFeedbackShared:shared,document:{addEventListener(){},documentElement:{classList:{add(){}}},getElementById:control},chrome:{storage:{onChanged:{addListener(){}}}},Set,JSON};
-  let script=source('history.js').replace('\n  loadHistory();','\n  // Suppress initial rendering in this contract test.');
-  script=script.replace(/\}\)\(\);\s*$/,`globalThis.audit={seed(h,q){histories=h;searchQuery=q;h.forEach(group=>group.items.forEach(item=>selected.add(identity(group,item))));},getSelectedHistories,getFilteredHistories,clearHistoryGroup};})();`);
-  vm.runInNewContext(script,context);
-  context.audit.seed([{storageKey:'site',items:[element('a','VISIBLE'),element('b','HIDDEN')]}],'visible');
-  assert.equal(context.audit.getSelectedHistories()[0].items.length,1);
-  let request,confirmation;
-  context.window={confirm(value){confirmation=value;return true;}};
-  context.chrome.runtime={async sendMessage(value){request=value;return {ok:false,reason:'stop after observing request'};}};
-  await context.audit.clearHistoryGroup(context.audit.getFilteredHistories()[0]);
-  assert.match(confirmation,/1 shown/);assert.deepEqual(Array.from(request.itemIds),['a']);
-});
-
-test('private editor rejects another document and keeps global History unavailable', async()=>{
+test('private editor rejects another document and cannot delete saved captures', async()=>{
   const app=background();
   const started=await app.send({action:'start-element-capture',snapshot:{selector:'#button'}},app.content);
   const sender=app.page('element.html',started.sessionId);
@@ -167,7 +197,7 @@ test('private editor rejects another document and keeps global History unavailab
   assert.equal(Object.values(app.sessions)[0].editorTabId,app.content.tab.id);
   assert.equal((await app.send({action:'get-capture-session'},{...sender,documentId:'other-document'})).ok,false);
   assert.equal((await app.send({action:'get-capture-session'},{...sender,tab:{id:99}})).ok,false);
-  assert.equal((await app.send({action:'list-feedback-history'},sender)).ok,false);
+  assert.equal((await app.send({action:'delete-feedback-items',storageKey:'dev-feedback-https://site.test',itemIds:[]},sender)).ok,false);
 });
 
 test('legacy histories above the item budget can still be cleaned up',async()=>{
@@ -180,11 +210,12 @@ test('legacy histories above the item budget can still be cleaned up',async()=>{
 
 
 
-test('Region creation and retired editor routes are unavailable',async()=>{
+test('Region creation, History, and retired editor routes are unavailable',async()=>{
   const app=background();
   assert.equal((await app.send({action:'start-region-capture',tab:{id:1}},app.page('popup.html'))).ok,false);
   assert.equal((await app.send({action:'start-region-capture'},app.content)).ok,false);
   assert.equal((await app.send({action:'get-capture-session'},app.page('capture.html','old'))).ok,false);
+  for(const action of ['open-history','list-feedback-history','edit-feedback-note'])assert.equal((await app.send({action})).ok,false,action);
   assert.equal(Object.keys(app.sessions).length,0);
 });
 
@@ -195,32 +226,4 @@ test('Element saving cannot smuggle a screenshot into a new Region record',async
   assert.equal(result.ok,true);
   const item=Object.values(app.local).flat()[0];
   assert.equal(item.type,'element');assert.equal(item.screenshot,undefined);
-});
-
-test('History edits change the note and checks while preserving original evidence and identity',async()=>{
-  const key='dev-feedback-https://site.test'; const original={...element('a'),acceptance:['Old check']};
-  const app=background({local:{[key]:[original,element('b')]}});
-  const request={action:'edit-feedback-note',storageKey:key,itemId:'a',note:'Updated request',acceptance:['New check'],selector:'#forged',pageUrl:'https://forged.test'};
-  assert.equal((await app.send(request,app.content)).ok,false);
-  assert.equal((await app.send(request)).ok,true);
-  assert.equal(app.local[key][0].note,'Updated request');
-  assert.equal(app.local[key][0].changeRequest.summary,'Updated request');
-  assert.equal(app.local[key][0].selector,original.selector);
-  assert.equal(app.local[key][0].timestamp,original.timestamp);
-  assert.equal(app.local[key][1].note,'Change spacing');
-  assert.equal((await app.send({...request,itemId:'deleted'})).ok,false);
-});
-
-
-test('History overlays need an owned session and cannot be opened by an arbitrary embedded frame',async()=>{
-  const app=background({local:{'dev-feedback-https://site.test':[element('a')]}});
-  const started=await app.send({action:'open-history',tabId:1},app.page('popup.html'));
-  assert.equal(started.ok,true);
-  assert.equal(app.tabCount,1,'History must keep the existing tab');
-  assert.equal(app.windowTypes.length,0);
-  const owner=app.page('history.html',started.sessionId);
-  assert.equal((await app.send({action:'list-feedback-history'},owner)).histories.length,1);
-  assert.equal((await app.send({action:'list-feedback-history'},{...owner,documentId:'foreign-document'})).ok,false);
-  assert.equal((await app.send({action:'list-feedback-history'},app.page('history.html','unknown'))).ok,false);
-  assert.equal((await app.send({action:'close-history'},owner)).ok,true);
 });

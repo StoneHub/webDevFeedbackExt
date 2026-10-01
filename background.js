@@ -6,8 +6,10 @@
   const {
     FEEDBACK_STORAGE_PREFIX,
     REGION_CAPTURE_SESSION_PREFIX,
+    buildClipboardText,
     buildFeedbackId,
     canInjectIntoUrl,
+    makeStorageKey,
     sanitizeFeedbackItems,
     detectSourceKind
   } = globalThis.DevFeedbackShared;
@@ -15,8 +17,9 @@
   const mutationQueues = new Map();
 
   const ELEMENT_SESSION_PREFIX = 'dev-feedback-element-session-';
-  const HISTORY_SESSION_PREFIX = 'dev-feedback-history-session-';
-  const SESSION_PREFIXES = [REGION_CAPTURE_SESSION_PREFIX, ELEMENT_SESSION_PREFIX, HISTORY_SESSION_PREFIX];
+  const SESSION_PREFIXES = [REGION_CAPTURE_SESSION_PREFIX, ELEMENT_SESSION_PREFIX];
+  // A picking run lasts from Pick to Stop in one tab. Each save copies the whole run to the clipboard.
+  const RUN_PREFIX = 'dev-feedback-run-';
   const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
   const MAX_ITEM_BYTES = 3 * 1024 * 1024;
   const MAX_ITEMS_PER_SITE = 500;
@@ -33,15 +36,15 @@
     try {
       const url = new URL(sender.url);
       const page = url.pathname.slice(1);
-      if (sender.frameId && !['element.html','history.html'].includes(page)) return '';
-      return url.protocol === new URL(chrome.runtime.getURL('')).protocol && url.host === new URL(chrome.runtime.getURL('')).host && ['popup.html', 'history.html', 'element.html'].includes(page) ? page : '';
+      if (sender.frameId && page !== 'element.html') return '';
+      return url.protocol === new URL(chrome.runtime.getURL('')).protocol && url.host === new URL(chrome.runtime.getURL('')).host && ['popup.html', 'element.html'].includes(page) ? page : '';
     } catch { return ''; }
   }
 
-  async function ownedSession(sender, page) {
+  async function ownedSession(sender) {
     const id = new URL(sender.url).searchParams.get('session');
     if (!id || !/^[a-zA-Z0-9-]{1,100}$/.test(id)) throw new Error('Invalid capture session.');
-    const key = (page === 'history.html' ? HISTORY_SESSION_PREFIX : ELEMENT_SESSION_PREFIX) + id;
+    const key = ELEMENT_SESSION_PREFIX + id;
     const session = (await chrome.storage.session.get(key))[key];
     if (!session || !Number.isFinite(Date.parse(session.createdAt)) || session.editorTabId !== sender.tab?.id || Date.now() - Date.parse(session.createdAt) > REGION_SESSION_MAX_AGE_MS) {
       throw new Error('This capture session expired or belongs to another editor.');
@@ -64,55 +67,36 @@
     if (!request || typeof request !== 'object' || typeof request.action !== 'string' || sender.id !== chrome.runtime.id) throw new Error('Invalid extension request.');
     const page = trustedPage(sender);
     const contentSender = !page && sender.frameId === 0 && Number.isInteger(sender.tab?.id) && canInjectIntoUrl(sender.url) && sender.url === sender.tab.url;
-    if (!page && !contentSender) throw new Error('Untrusted request sender.');
-    if (request.action === 'open-history' && (page || contentSender)) {
-      const tabId = contentSender || sender.frameId ? sender.tab?.id : request.tabId;
-      const tab = Number.isInteger(tabId) ? await chrome.tabs.get(tabId) : (await chrome.tabs.query({active:true,currentWindow:true}))[0];
-      if (!tab?.id || !canInjectIntoUrl(tab.url) || detectSourceKind(tab.url) === 'pdf') return {ok:true,usePopup:true};
-      await assertCaptureTab(tab);
-      const injected = await ensureContentScript(tab.id, tab.url);
-      if (!injected.ok) return {ok:true,usePopup:true};
-      const session = {sessionId:buildFeedbackId(),tabId:tab.id,pageUrl:tab.url,createdAt:new Date().toISOString()};
-      return openCaptureEditor(HISTORY_SESSION_PREFIX,session,'history.html');
-    }
-    if (request.action === 'start-element-capture' && contentSender) return startElementCapture(sender, request.snapshot);
-    if (request.action === 'ensure-content-script' && page === 'popup.html') {
+    // Embedded frames (an artifact or preview iframe) may pick and stop picking, nothing else.
+    const frameSender = !page && sender.frameId > 0 && Number.isInteger(sender.tab?.id) && canInjectIntoUrl(sender.url);
+    if (!page && !contentSender && !frameSender) throw new Error('Untrusted request sender.');
+    if (request.action === 'start-element-capture' && (contentSender || frameSender)) return startElementCapture(sender, request.snapshot, request.rect, request.frame);
+    if (request.action === 'stop-picking' && (contentSender || frameSender)) return setPicking(sender.tab.id, false);
+    if (request.action === 'set-picking' && page === 'popup.html') {
       const tab = await chrome.tabs.get(request.tabId);
       await assertCaptureTab(tab);
-      return ensureContentScript(tab.id, tab.url);
+      if (request.enabled === true) {
+        const injected = await ensureContentScript(tab.id, tab.url);
+        if (!injected.ok) return injected;
+        await startRun(tab.id);
+      }
+      return setPicking(tab.id, request.enabled === true);
     }
-    if (page === 'history.html') {
-      if (sender.frameId) {
-        const {key,session} = await ownedSession(sender,page);
-        if (request.action === 'close-history') {
-          await chrome.storage.session.remove(key);
-          await chrome.tabs.sendMessage(session.tabId,{action:'close-capture-overlay',sessionId:session.sessionId},{frameId:0}).catch(()=>{});
-          return {ok:true};
-        }
-      }
-
-      if (request.action === 'edit-feedback-note') {
-        if (typeof request.itemId !== 'string' || typeof request.note !== 'string' || !request.note.trim() || request.note.length > 2000) throw new Error('Write a note of up to 2000 characters.');
-        return mutateFeedbackItems(request.storageKey, items => {
-          if (!items.some(item => item.id === request.itemId)) throw new Error('This note was deleted. Refresh History.');
-          return items.map(item => item.id === request.itemId ? {
-            ...item, note:request.note.trim(), acceptance:request.acceptance,
-            changeRequest:{ ...item.changeRequest, summary:request.note.trim() }
-          } : item);
-        });
-      }
-      if (request.action === 'list-feedback-history') return listFeedbackHistory();
-      if (request.action === 'delete-feedback-items') {
-        if (!Array.isArray(request.itemIds) || request.itemIds.length > MAX_ITEMS_PER_SITE || request.itemIds.some(id => typeof id !== 'string')) throw new Error('Invalid selection.');
-        return mutateFeedbackItems(request.storageKey, items => items.filter(item => !request.itemIds.includes(item.id)));
-      }
+    if (request.action === 'delete-feedback-items' && page === 'popup.html') {
+      if (!Array.isArray(request.itemIds) || request.itemIds.length > MAX_ITEMS_PER_SITE || request.itemIds.some(id => typeof id !== 'string')) throw new Error('Invalid selection.');
+      return mutateFeedbackItems(request.storageKey, items => items.filter(item => !request.itemIds.includes(item.id)));
     }
     if (page === 'element.html') {
-      const { key, session } = await ownedSession(sender, page);
+      const { key, session } = await ownedSession(sender);
       if (request.action === 'get-capture-session') return { ok:true, session };
       if (request.action === 'clear-capture-session') {
         await chrome.storage.session.remove(key);
-        if (session.embedded) await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, pickNext:request.pickNext === true }, { frameId:0 }).catch(()=>{});
+        const count = Number.isInteger(request.count) ? request.count : 0;
+        const toast = request.saved !== true ? ''
+          : request.copied === true ? `Copied to clipboard · ${count} selection${count === 1 ? '' : 's'}`
+          : 'Saved. Copy it from the extension menu.';
+        await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, toast }, { frameId:0 }).catch(()=>{});
+        await setPicking(session.tabId, true);
         return { ok:true };
       }
       if (request.action === 'add-feedback-item') {
@@ -121,10 +105,11 @@
           id:session.sessionId, pageUrl:session.pageUrl, pageTitle:session.pageTitle,
           selector:session.snapshot.selector, elementInfo:session.snapshot,
           position:session.snapshot.position, pageContext:session.pageContext,
-          note:request.item.note, acceptance:request.item.acceptance, timestamp:new Date().toISOString()
+          note:typeof request.item.note === 'string' ? request.item.note : '', timestamp:new Date().toISOString()
         });
-        await addFeedbackItem(globalThis.DevFeedbackShared.makeStorageKey(session.pageUrl), item);
-        return { ok:true };
+        const { items } = await addFeedbackItem(makeStorageKey(session.pageUrl), item);
+        const runItems = (await addToRun(session.tabId, item.id)).map(id => items.find(saved => saved.id === id)).filter(Boolean);
+        return { ok:true, clipboard:buildClipboardText(runItems), count:runItems.length };
       }
     }
     throw new Error('This action is not allowed from this context.');
@@ -149,24 +134,64 @@
     return results[0]?.result;
   }
 
-  async function startElementCapture(sender, rawSnapshot) {
+  async function startElementCapture(sender, rawSnapshot, rawRect, rawFrame) {
     const tab = await assertCaptureTab(sender.tab);
     if (!rawSnapshot || typeof rawSnapshot.selector !== 'string' || rawSnapshot.selector.length > 2000) throw new Error('Invalid element target.');
     const sessionId = buildFeedbackId();
     const snapshot = { ...globalThis.DevFeedbackShared.sanitizeElementInfo(rawSnapshot), selector:rawSnapshot.selector, position:rawSnapshot.position };
     const pageContext = await runCollector(tab.id, 'buildPageContext');
     await assertCaptureTab(tab);
-    const session = { sessionId, tabId:tab.id, pageUrl:tab.url, pageTitle:tab.title || '', snapshot, pageContext, createdAt:new Date().toISOString() };
-    return openCaptureEditor(ELEMENT_SESSION_PREFIX, session, 'element.html');
+    // Where the element sits in its own frame, so the note opens beside it.
+    const rect = ['left', 'top', 'right', 'bottom'].every(side => Number.isFinite(rawRect?.[side]))
+      ? { left:rawRect.left, top:rawRect.top, right:rawRect.right, bottom:rawRect.bottom } : null;
+    // The frame's own URL comes from Chrome, not the page; its viewport size helps tell same-origin frames apart.
+    const frame = sender.frameId > 0
+      ? { url:sender.url, width:Number.isFinite(rawFrame?.width) ? rawFrame.width : 0, height:Number.isFinite(rawFrame?.height) ? rawFrame.height : 0 } : null;
+    const session = { sessionId, tabId:tab.id, pageUrl:tab.url, pageTitle:tab.title || '', snapshot, pageContext, anchor:{ frameId:sender.frameId, rect, frame }, createdAt:new Date().toISOString() };
+    const opened = await openCaptureEditor(session);
+    await setPicking(tab.id, false);
+    return opened;
   }
 
-  async function openCaptureEditor(prefix, session, page) {
-    const key = prefix + session.sessionId;
+  async function startRun(tabId) {
+    await chrome.storage.session.set({ [RUN_PREFIX + tabId]:{ ids:[] } });
+  }
+
+  async function addToRun(tabId, itemId) {
+    const key = RUN_PREFIX + tabId;
+    const run = (await chrome.storage.session.get(key))[key] || { ids:[] };
+    if (!run.ids.includes(itemId)) run.ids.push(itemId);
+    await chrome.storage.session.set({ [key]:run });
+    return run.ids;
+  }
+
+  // Every frame keeps its own picker, so on/off goes to all of them at once. The badge shows it is on.
+  async function setPicking(tabId, enabled) {
+    await chrome.tabs.sendMessage(tabId, { action:'set-feedback-mode', enabled }).catch(() => {});
+    await chrome.action.setBadgeText({ tabId, text:enabled ? 'ON' : '' }).catch(() => {});
+    return { ok:true };
+  }
+
+  // Granting an embedded site from the popup can close the popup, so finish the job here.
+  chrome.permissions.onAdded.addListener(() => {
+    withActiveTab(async (tab) => {
+      if (!tab?.id) return;
+      const state = await chrome.tabs.sendMessage(tab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
+      if (!state?.feedbackMode) return;
+      const injected = await ensureContentScript(tab.id, tab.url);
+      if (injected.ok) await setPicking(tab.id, true);
+    }).catch(error => console.debug('Unable to pick in newly allowed frames:', error.message));
+  });
+
+  chrome.action.setBadgeBackgroundColor({ color:'#4f46e5' }).catch(() => {});
+
+  async function openCaptureEditor(session) {
+    const key = ELEMENT_SESSION_PREFIX + session.sessionId;
     const injected = await ensureContentScript(session.tabId, session.pageUrl);
     if (!injected.ok) throw new Error(injected.reason);
     await chrome.storage.session.set({ [key]:{ ...session, editorTabId:session.tabId, embedded:true } });
     try {
-      const shown = await chrome.tabs.sendMessage(session.tabId, { action:'show-capture-overlay', sessionId:session.sessionId, page }, { frameId:0 });
+      const shown = await chrome.tabs.sendMessage(session.tabId, { action:'show-capture-overlay', sessionId:session.sessionId, anchor:session.anchor }, { frameId:0 });
       if (!shown?.ok) throw new Error(shown?.reason || 'Could not open the note editor.');
       return { ok:true, sessionId:session.sessionId };
     } catch (error) {
@@ -179,6 +204,7 @@
     clearRegionSessionsForEditorTab(tabId).catch((error) => {
       console.debug('Unable to clear closed region editor session:', error.message);
     });
+    chrome.storage.session.remove(RUN_PREFIX + tabId).catch(() => {});
   });
 
   sweepExpiredRegionSessions().catch((error) => {
@@ -201,11 +227,10 @@
         return;
       }
 
-      try {
-        await sendTabMessage(activeTab.id, { action: 'toggle-feedback-mode' });
-      } catch (error) {
-        console.debug('Unable to toggle feedback mode from command:', error.message);
-      }
+      const state = await chrome.tabs.sendMessage(activeTab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
+      if (!state || state.editorOpen) return;
+      if (!state.feedbackMode) await startRun(activeTab.id);
+      await setPicking(activeTab.id, !state.feedbackMode);
     });
   });
 
@@ -218,7 +243,7 @@
       const result = await chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType});
       if (result[0]?.result === 'application/pdf') return {ok:false,reason:'PDF capture is no longer offered. Open a webpage to pick an element.'};
       await chrome.scripting.insertCSS({
-        target: { tabId },
+        target: { tabId, allFrames: true },
         files: ['styles.css']
       });
     } catch (error) {
@@ -228,8 +253,9 @@
     }
 
     try {
+      // Cross-origin frames are reached only once the user allows their site from the popup.
       await chrome.scripting.executeScript({
-        target: { tabId },
+        target: { tabId, allFrames: true },
         files: ['shared.js', 'collector.js', 'content.js']
       });
       return { ok: true };
@@ -265,32 +291,6 @@
     if (expiredKeys.length) {
       await chrome.storage.session.remove(expiredKeys);
     }
-  }
-
-  async function listFeedbackHistory() {
-    const stored = await chrome.storage.local.get(null);
-    const histories = await Promise.all(Object.entries(stored).flatMap(([storageKey, value]) => {
-      if (!storageKey.startsWith(FEEDBACK_STORAGE_PREFIX) || !Array.isArray(value)) {
-        return [];
-      }
-      return [getFeedbackItems(storageKey).then((response) => ({ storageKey, items: response.items || [] }))];
-    }));
-
-    return { ok:true, histories, bytesUsed:await chrome.storage.local.getBytesInUse(null), byteLimit:MAX_HISTORY_BYTES };
-  }
-
-  async function getFeedbackItems(storageKey) {
-    if (!isFeedbackStorageKey(storageKey)) {
-      return { ok: false, reason: 'Invalid feedback storage key.' };
-    }
-    return enqueueFeedbackOperation('history', async () => {
-      const stored = await chrome.storage.local.get([storageKey]);
-      const { items, needsMigration } = normalizeStoredFeedbackItems(stored[storageKey]);
-      if (needsMigration) {
-        await chrome.storage.local.set({ [storageKey]: items });
-      }
-      return { ok: true, items };
-    });
   }
 
   async function addFeedbackItem(storageKey, item) {
@@ -351,10 +351,6 @@
   async function withActiveTab(callback) {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     await callback(tabs && tabs[0]);
-  }
-
-  async function sendTabMessage(tabId, message) {
-    return chrome.tabs.sendMessage(tabId, message);
   }
 
 })();

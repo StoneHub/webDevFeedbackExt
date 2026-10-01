@@ -1,50 +1,44 @@
+// One note per picked element. Saving copies this picking run to the clipboard and keeps picking.
 (function() {
   'use strict';
   let session;
   let saving = false;
+  const form = document.getElementById('capture-form');
   const note = document.getElementById('note');
   const status = document.getElementById('status');
   const save = document.getElementById('save');
-  const saveNext = document.getElementById('save-next');
   const cancel = document.getElementById('cancel');
-  save.disabled = saveNext.disabled = true;
+  function showError(message) { status.textContent = message; status.classList.add('error'); }
+  save.disabled = true;
   chrome.runtime.sendMessage({ action:'get-capture-session' }).then(result => {
     if (!result?.ok || !result.session) throw new Error(result?.reason || 'Capture session expired.');
     session = result.session;
-    document.getElementById('source').textContent = session.snapshot.selector;
-    document.getElementById('target').textContent = JSON.stringify(session.snapshot, null, 2);
-    save.disabled = saveNext.disabled = false;
+    save.disabled = false;
     note.focus();
-  }).catch(error => { status.textContent = error.message; });
-  document.getElementById('capture-form').addEventListener('submit', async event => {
+  }).catch(error => showError(error.message));
+  form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!session || saving || !note.value.trim()) return;
-    const pickNext = event.submitter === saveNext;
-    saving = true; save.disabled = saveNext.disabled = true; cancel.disabled = true;
-    status.textContent = 'Saving locally...';
+    if (!session || saving) return;
+    saving = true; save.disabled = cancel.disabled = true;
     try {
-      const result = await chrome.runtime.sendMessage({ action:'add-feedback-item', item:{
-        note:note.value.trim(), acceptance:document.getElementById('acceptance').value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean), timestamp:new Date().toISOString()
-      }});
+      const result = await chrome.runtime.sendMessage({ action:'add-feedback-item', item:{ note:note.value.trim() } });
       if (!result?.ok) throw new Error(result?.reason || 'Could not save.');
-      status.textContent = 'Saved to History.';
-      await chrome.runtime.sendMessage({ action:'clear-capture-session', pickNext }).catch(()=>{});
-      if (!session?.embedded) window.close();
+      // The click is still the user's gesture, so this frame can write the clipboard.
+      const copied = await navigator.clipboard.writeText(result.clipboard).then(() => true, () => false);
+      await chrome.runtime.sendMessage({ action:'clear-capture-session', saved:true, copied, count:result.count }).catch(() => {});
     } catch (error) {
-      status.textContent = error.message + ' Your note is still here; retry when ready.';
-      saving = false; save.disabled = saveNext.disabled = false; cancel.disabled = false;
+      showError(error.message + ' Your note is still here.');
+      saving = false; save.disabled = cancel.disabled = false;
     }
+  });
+  note.addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); form.requestSubmit(); }
   });
   window.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !saving) {
-      event.preventDefault(); document.getElementById('capture-form').requestSubmit(event.shiftKey ? saveNext : save);
-    }
-    if (event.key === 'Escape' && !document.querySelector('dialog[open]')) { event.preventDefault(); cancel.click(); }
+    if (event.key === 'Escape') { event.preventDefault(); cancel.click(); }
   });
-  cancel.addEventListener('click', async()=> {
+  cancel.addEventListener('click', () => {
     if (saving) return;
-    if ((note.value.trim() || document.getElementById('acceptance').value.trim()) && !await DevFeedbackDialog({message:'Discard this unsaved note?'})) return;
-    await chrome.runtime.sendMessage({ action:'clear-capture-session' }).catch(()=>{});
-    if (!session?.embedded) window.close();
+    chrome.runtime.sendMessage({ action:'clear-capture-session' }).catch(() => {});
   });
 })();

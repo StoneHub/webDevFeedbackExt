@@ -34,16 +34,14 @@ The product was narrowed after hands-on review. New Region/PDF capture is remove
 
 - Verify the exact release ZIP and minimal manifest permissions.
 - When replacing an unpacked build in an existing test profile, enable Developer mode and use Chrome’s extension Reload control. Restarting Chrome alone can leave the old service-worker behavior active; a new manifest or files on disk is insufficient proof.
-- Open History through the real toolbar and verify a session-bound frame on the source page with no additional tab.
 - Open the production popup at its native size and start Element picking through the toolbar.
 - Pick by mouse and keyboard; verify Escape stops picking.
-- Save a note with acceptance checks; cancel another draft; verify Save & pick next resumes targeting.
+- Save a note and a blank note; verify each save copies the whole picking run, shows the toast, and keeps picking. Close another note with × and verify nothing is saved.
 - Confirm a new capture cannot replace an open draft and save errors preserve entered text.
-- Edit a saved note and checks without changing its target, source URL, original timestamp, or evidence.
-- Close the source tab and verify History persists.
-- Filter and select records; confirm all five export formats use only the reviewed selection.
-- Verify exact selected/shown deletion preserves hidden records.
-- Confirm previously saved Region/PDF and Visual/Add records remain readable and exportable, including redacted images.
+- Close the source tab, reopen the page, and verify the extension menu still lists its captures.
+- Confirm Copy all, Markdown, and JSON contain only this page's captures.
+- Delete one capture from the menu and verify the others remain.
+- Confirm previously saved Region/PDF and Visual/Add records still appear on their page and in its JSON download.
 - Confirm PDF/browser-internal pages cannot start new capture.
 - Send a selected JSON handoff to the configured Downloads inbox and import it through the MCP client.
 - Read the imported record and any legacy evidence; record implementation and separately verified status.

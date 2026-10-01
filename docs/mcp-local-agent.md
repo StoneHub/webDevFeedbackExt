@@ -9,7 +9,7 @@ The MCP companion is a separate Node process. It does not read Chromium profile 
 The handoff is explicit, local, and inbox-based:
 
 1. Capture feedback in the extension.
-2. Open History and choose **Send to Codex** to download the selected History handoff.
+2. Open the extension menu on that page and choose **JSON** to download its captures.
 3. Set the browser download location to a folder inside Downloads and use that folder without a per-download save prompt.
 4. Configure the MCP server with the target project and the same Downloads path. The user does not move files manually.
 5. Ask the local agent to call `dev_feedback_import_latest`.
@@ -27,7 +27,7 @@ Install dependencies once in this repository:
 npm install
 ```
 
-Start the stdio server for a project and the inbox used by **Send to Codex**:
+Start the stdio server for a project and the inbox the **JSON** download lands in:
 
 ```sh
 npm run mcp -- --project /absolute/path/to/project --inbox /absolute/path/to/Downloads
@@ -119,8 +119,8 @@ Agent-authored writes require a stable `clientRequestId`, so retries are idempot
 
 ## Current limits
 
-- The MCP companion does not automatically see unsent extension history; **Send to Codex** still requires explicit user action.
-- ZIP and extracted AI Bundle import are not part of the active checkpoint. **Send to Codex** uses the standalone JSON handoff. Sibling image paths are intentionally never followed.
+- The MCP companion does not automatically see captures that were never downloaded; **JSON** still requires explicit user action.
+- ZIP and extracted AI Bundle import are not part of the active checkpoint. The **JSON** download is the standalone handoff. Sibling image paths are intentionally never followed.
 - The MCP server does not apply saved historical mutations, navigate pages, click UI, or edit project files.
 - There is no native messaging installer, localhost HTTP/WebSocket bridge, cloud account, sync, auth service, telemetry, or payment path.
 - A future user-triggered native-messaging bridge could remove the inbox handoff, but it would require an optional browser permission, exact extension-ID allowlisting, and a separately installed native host. It is not part of the active Agent Handoff.

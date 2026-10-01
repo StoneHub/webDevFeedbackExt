@@ -75,6 +75,20 @@
     }
   }
 
+  // The host permission an embedded frame needs before its elements can be picked, or '' if none.
+  // Deep hosts such as <id>.frame.example.com change their first label per embed, so cover the siblings.
+  function frameAccessPattern(frameSrc, parentUrl) {
+    try {
+      const frame = new URL(frameSrc);
+      if (!['http:', 'https:'].includes(frame.protocol) || frame.origin === new URL(parentUrl).origin) return '';
+      const labels = frame.hostname.split('.');
+      const deep = labels.length >= 4 && !/^[\d.]+$/.test(frame.hostname);
+      return `${frame.protocol}//${deep ? '*.' + labels.slice(1).join('.') : frame.hostname}/*`;
+    } catch (error) {
+      return '';
+    }
+  }
+
   function getEffectivePageUrl(rawUrl) {
     try {
       const url = new URL(rawUrl);
@@ -1001,6 +1015,7 @@
     buildFeedbackId,
     buildMarkdownExport,
     canInjectIntoUrl,
+    frameAccessPattern,
     createCaptureRecord,
     createElementRecord,
     createRegionRecord,

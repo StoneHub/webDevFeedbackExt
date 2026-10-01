@@ -64,7 +64,9 @@
     if (!request || typeof request !== 'object' || typeof request.action !== 'string' || sender.id !== chrome.runtime.id) throw new Error('Invalid extension request.');
     const page = trustedPage(sender);
     const contentSender = !page && sender.frameId === 0 && Number.isInteger(sender.tab?.id) && canInjectIntoUrl(sender.url) && sender.url === sender.tab.url;
-    if (!page && !contentSender) throw new Error('Untrusted request sender.');
+    // Embedded frames (an artifact or preview iframe) may pick and stop picking, nothing else.
+    const frameSender = !page && sender.frameId > 0 && Number.isInteger(sender.tab?.id) && canInjectIntoUrl(sender.url);
+    if (!page && !contentSender && !frameSender) throw new Error('Untrusted request sender.');
     if (request.action === 'open-history' && (page || contentSender)) {
       const tabId = contentSender || sender.frameId ? sender.tab?.id : request.tabId;
       const tab = Number.isInteger(tabId) ? await chrome.tabs.get(tabId) : (await chrome.tabs.query({active:true,currentWindow:true}))[0];
@@ -75,11 +77,16 @@
       const session = {sessionId:buildFeedbackId(),tabId:tab.id,pageUrl:tab.url,createdAt:new Date().toISOString()};
       return openCaptureEditor(HISTORY_SESSION_PREFIX,session,'history.html');
     }
-    if (request.action === 'start-element-capture' && contentSender) return startElementCapture(sender, request.snapshot);
-    if (request.action === 'ensure-content-script' && page === 'popup.html') {
+    if (request.action === 'start-element-capture' && (contentSender || frameSender)) return startElementCapture(sender, request.snapshot);
+    if (request.action === 'stop-picking' && (contentSender || frameSender)) return setPicking(sender.tab.id, false);
+    if (request.action === 'set-picking' && page === 'popup.html') {
       const tab = await chrome.tabs.get(request.tabId);
       await assertCaptureTab(tab);
-      return ensureContentScript(tab.id, tab.url);
+      if (request.enabled === true) {
+        const injected = await ensureContentScript(tab.id, tab.url);
+        if (!injected.ok) return injected;
+      }
+      return setPicking(tab.id, request.enabled === true);
     }
     if (page === 'history.html') {
       if (sender.frameId) {
@@ -112,7 +119,10 @@
       if (request.action === 'get-capture-session') return { ok:true, session };
       if (request.action === 'clear-capture-session') {
         await chrome.storage.session.remove(key);
-        if (session.embedded) await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, pickNext:request.pickNext === true }, { frameId:0 }).catch(()=>{});
+        if (session.embedded) {
+          await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId }, { frameId:0 }).catch(()=>{});
+          if (request.pickNext === true) await setPicking(session.tabId, true);
+        }
         return { ok:true };
       }
       if (request.action === 'add-feedback-item') {
@@ -157,8 +167,30 @@
     const pageContext = await runCollector(tab.id, 'buildPageContext');
     await assertCaptureTab(tab);
     const session = { sessionId, tabId:tab.id, pageUrl:tab.url, pageTitle:tab.title || '', snapshot, pageContext, createdAt:new Date().toISOString() };
-    return openCaptureEditor(ELEMENT_SESSION_PREFIX, session, 'element.html');
+    const opened = await openCaptureEditor(ELEMENT_SESSION_PREFIX, session, 'element.html');
+    await setPicking(tab.id, false);
+    return opened;
   }
+
+  // Every frame keeps its own picker, so on/off goes to all of them at once. The badge shows it is on.
+  async function setPicking(tabId, enabled) {
+    await chrome.tabs.sendMessage(tabId, { action:'set-feedback-mode', enabled }).catch(() => {});
+    await chrome.action.setBadgeText({ tabId, text:enabled ? 'ON' : '' }).catch(() => {});
+    return { ok:true };
+  }
+
+  // Granting an embedded site from the popup can close the popup, so finish the job here.
+  chrome.permissions.onAdded.addListener(() => {
+    withActiveTab(async (tab) => {
+      if (!tab?.id) return;
+      const state = await chrome.tabs.sendMessage(tab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
+      if (!state?.feedbackMode) return;
+      const injected = await ensureContentScript(tab.id, tab.url);
+      if (injected.ok) await setPicking(tab.id, true);
+    }).catch(error => console.debug('Unable to pick in newly allowed frames:', error.message));
+  });
+
+  chrome.action.setBadgeBackgroundColor({ color:'#4f46e5' }).catch(() => {});
 
   async function openCaptureEditor(prefix, session, page) {
     const key = prefix + session.sessionId;
@@ -201,11 +233,8 @@
         return;
       }
 
-      try {
-        await sendTabMessage(activeTab.id, { action: 'toggle-feedback-mode' });
-      } catch (error) {
-        console.debug('Unable to toggle feedback mode from command:', error.message);
-      }
+      const state = await chrome.tabs.sendMessage(activeTab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
+      if (state && !state.editorOpen) await setPicking(activeTab.id, !state.feedbackMode);
     });
   });
 
@@ -218,7 +247,7 @@
       const result = await chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType});
       if (result[0]?.result === 'application/pdf') return {ok:false,reason:'PDF capture is no longer offered. Open a webpage to pick an element.'};
       await chrome.scripting.insertCSS({
-        target: { tabId },
+        target: { tabId, allFrames: true },
         files: ['styles.css']
       });
     } catch (error) {
@@ -228,8 +257,9 @@
     }
 
     try {
+      // Cross-origin frames are reached only once the user allows their site from the popup.
       await chrome.scripting.executeScript({
-        target: { tabId },
+        target: { tabId, allFrames: true },
         files: ['shared.js', 'collector.js', 'content.js']
       });
       return { ok: true };
@@ -351,10 +381,6 @@
   async function withActiveTab(callback) {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     await callback(tabs && tabs[0]);
-  }
-
-  async function sendTabMessage(tabId, message) {
-    return chrome.tabs.sendMessage(tabId, message);
   }
 
 })();

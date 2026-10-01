@@ -37,7 +37,7 @@ test('sharing removes URL credentials and local directories and preserves group 
 
 function background(options={}) {
   const local = structuredClone(options.local || {}), sessions = structuredClone(options.sessions || {});
-  let listener; let failWrite = false; let access; const windowTypes=[];
+  let listener; let failWrite = false; let access; const windowTypes=[]; const badges=[]; const tabMessages=[];
   const initialTab={id:1,windowId:1,url:'https://site.test/page',title:'Page',width:800,height:600};
   const tabs=new Map([[1, initialTab]]); let activeId=1;
   const area=data=>({
@@ -51,15 +51,17 @@ function background(options={}) {
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
     storage:{local:area(local),session:area(sessions)},
     scripting:{async insertCSS(){},async executeScript(details){ if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
-    tabs:{async sendMessage(){return {ok:true};},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
+    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return {ok:true};},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
+    action:{async setBadgeText(details){badges.push(details);},async setBadgeBackgroundColor(){}},
+    permissions:{onAdded:{addListener(){}}},
     commands:{onCommand:{addListener(){}}}
   };
   const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder};
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
   const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
-  return {local,sessions,content,page,windowTypes,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('history.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
+  return {local,sessions,content,page,windowTypes,badges,tabMessages,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('history.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
 }
 
 test('broker denies content-script History reads/writes, forged extension URLs, subframes, and wrong editor ownership', async () => {
@@ -70,6 +72,43 @@ test('broker denies content-script History reads/writes, forged extension URLs, 
   assert.equal((await app.send({action:'get-capture-session'},app.page('element.html','not-owned'))).ok,false);
   assert.equal((await app.send({action:'list-feedback-history'})).histories.length,1);
   assert.equal(app.access.accessLevel,'TRUSTED_CONTEXTS');
+});
+
+// Background objects come from another vm realm; compare their JSON shape.
+const plain=value=>JSON.parse(JSON.stringify(value));
+
+test('embedded frames can pick and stop picking but cannot reach History',async()=>{
+  const app=background({local:{'dev-feedback-https://private.test':[element('private')]}});
+  const frame={...app.content,frameId:3,url:'https://abc123.frame.usercontent.test/'};
+  assert.equal((await app.send({action:'list-feedback-history'},frame)).ok,false);
+  assert.equal((await app.send({action:'open-history'},frame)).ok,false);
+  assert.equal((await app.send({action:'start-element-capture',snapshot:{selector:'#inner'}},{...frame,url:'chrome-extension://evil/'})).ok,false);
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#inner',tag:'button'}},frame);
+  assert.equal(started.ok,true);
+  assert.deepEqual(plain(app.tabMessages.at(-1)),{tabId:1,message:{action:'set-feedback-mode',enabled:false}},'picking stops in every frame once the editor opens');
+  assert.equal((await app.send({action:'stop-picking'},frame)).ok,true);
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:''});
+});
+
+test('popup turns picking on in every frame and shows it on the toolbar badge',async()=>{
+  const app=background();
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'))).ok,true);
+  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
+  assert.equal(app.tabMessages.at(-1).options,undefined,'no frameId: the message reaches every frame');
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},app.content)).ok,false,'pages cannot turn picking on');
+});
+
+test('embedded frame access asks for the frame site, never the parent or non-web frames',()=>{
+  const parent='https://claude.ai/artifact/abc';
+  assert.equal(shared.frameAccessPattern('https://6401ba16-3e8e.frame.claudeusercontent.com/x?y',parent),'https://*.frame.claudeusercontent.com/*');
+  assert.equal(shared.frameAccessPattern('https://www.youtube.com/embed/1',parent),'https://www.youtube.com/*');
+  assert.equal(shared.frameAccessPattern('http://localhost:5173/',parent),'http://localhost/*');
+  assert.equal(shared.frameAccessPattern('http://10.0.0.12:3000/',parent),'http://10.0.0.12/*');
+  assert.equal(shared.frameAccessPattern('https://claude.ai/other',parent),'');
+  assert.equal(shared.frameAccessPattern('about:blank',parent),'');
+  assert.equal(shared.frameAccessPattern('javascript:alert(1)',parent),'');
+  assert.equal(shared.frameAccessPattern('not a url',parent),'');
 });
 
 test('broker fails closed when storage access cannot be restricted',async()=>{

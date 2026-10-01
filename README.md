@@ -40,7 +40,7 @@ Source URL credentials, queries, fragments, and local directories are removed fr
 
 New Region/PDF, Visual, and Add Content capture are no longer offered. Existing records from those workflows remain readable and exportable in History. Installing this update does not intentionally delete saved records.
 
-Element capture requires an accessible webpage DOM. Browser-internal pages and PDF viewers are unsupported. Some embedded frames, page structures, or site restrictions can prevent reliable targeting. The selected element's context is a snapshot, not a persistent connection to the live site.
+Element capture requires an accessible webpage DOM. Browser-internal pages and PDF viewers are unsupported. Content embedded from another site (an artifact or preview iframe) can be picked after you allow that site once when Chrome asks. Some page structures or site restrictions can still prevent reliable targeting. The selected element's context is a snapshot, not a persistent connection to the live site.
 
 Save failures retain the draft. History has an 8 MiB budget, a 3 MiB record limit, and a 500-record limit per site. Export and delete older records when needed. Deleting History does not remove earlier downloads, clipboard copies, or imported project sidecars.
 
@@ -49,6 +49,7 @@ Save failures retain the draft. History has an 8 MiB budget, a 3 MiB record limi
 Feedback stays in local extension storage until an explicit export. No cloud sync, telemetry, remote executable code, static host permissions, or always-on page monitoring is included.
 
 - `activeTab`: temporary access after the user activates capture.
+- Optional site access: requested only when you pick on a page that embeds content from another site, and only for that site. Chrome asks first; you can remove it from the extension's site access settings.
 - `scripting`: the requested picker, read-only element collector, and private note frame.
 - `storage`: local History and temporary editor sessions.
 

@@ -19,14 +19,16 @@
     button:disabled { opacity:.55; cursor:default; }
     button:focus-visible { outline:3px solid #aaa5ef; outline-offset:2px; }
     #warning { color:#a13232; }
+    #frame-access { color:#4a4560; background:#efedfa; border-radius:8px; padding:8px 10px; font-size:12px; overflow-wrap:anywhere; }
     footer { color:#6f6a7d; font-size:11px; border-top:1px solid #e5e2ee; margin-top:14px; padding-top:12px; }
     kbd { font:inherit; }
   </style>
 </head>
 <body>
   <header><img src="icon48.png" alt=""><h1>Dev Feedback Capture</h1></header>
-  <p>Pick an element. Describe the change.</p>
+  <p>Click an element on the page, or Tab to it and press <kbd>Alt+Enter</kbd>. <kbd>Esc</kbd> stops picking.</p>
   <p id="page-label">Current webpage</p>
+  <p id="frame-access" hidden></p>
   <button id="primary-action-btn" disabled>Pick an element</button>
   <button id="history-btn">History &amp; export</button>
   <p id="warning" role="alert" hidden></p>

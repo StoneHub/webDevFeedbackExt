@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Pick elements inside embedded frames from other sites, such as Claude artifacts, after allowing that site once.
+- Move picking instructions into the extension menu. The page shows no panel while picking; the toolbar badge reads ON.
+
 ## 1.8.0 Element-focused candidate (unreleased)
 
 - Remove new Region/PDF capture and its screenshot/editor code. Preserve old records and exports.

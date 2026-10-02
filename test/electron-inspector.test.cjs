@@ -177,6 +177,87 @@ test('one registration import preserves existing session preloads', async (t) =>
   ]]);
 });
 
+for (const cleanup of ['closed event', 'explicit disposal']) {
+  test(`registration cleanup handles a destroyed BrowserWindow during ${cleanup}`, async (t) => {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dev-feedback-destroyed-window-'));
+    t.after(() => fs.rm(tempRoot, { recursive: true, force: true }));
+    const electronModuleRoot = path.join(tempRoot, 'node_modules', 'electron');
+    await fs.mkdir(electronModuleRoot, { recursive: true });
+    await fs.writeFile(path.join(electronModuleRoot, 'index.js'), `
+      const { EventEmitter } = require('node:events');
+      const app = new EventEmitter();
+      app.isPackaged = false;
+      app.isReady = () => true;
+      app.getName = () => 'Destroyed Window Fixture';
+      app.getPath = () => ${JSON.stringify(tempRoot)};
+      app.getAppPath = () => ${JSON.stringify(tempRoot)};
+      function createWindow() {
+        const window = new EventEmitter();
+        const contents = new EventEmitter();
+        contents.isDestroyed = () => window.destroyed;
+        contents.send = () => {};
+        window.destroyed = false;
+        window.isDestroyed = () => window.destroyed;
+        Object.defineProperty(window, 'webContents', { get() {
+          if (window.destroyed) throw new TypeError('Object has been destroyed');
+          return contents;
+        } });
+        return { window, contents };
+      }
+      const first = createWindow();
+      const survivor = createWindow();
+      const defaultSession = {
+        preloads: ['/fixture/owned-by-host.cjs'],
+        getPreloads() { return [...this.preloads]; },
+        setPreloads(value) { this.preloads = [...value]; }
+      };
+      const handlers = new Map();
+      module.exports = { app, first, survivor, handlers, createWindow,
+        session: { defaultSession },
+        ipcMain: { handle(name, handler) { handlers.set(name, handler); }, removeHandler(name) { handlers.delete(name); } },
+        BrowserWindow: { getFocusedWindow() { return null; }, getAllWindows() { return [first.window, survivor.window]; } }
+      };
+    `);
+    const registerPath = path.resolve(__dirname, '..', 'packages', 'electron-inspector', 'register.cjs');
+    const script = `
+      (async () => {
+        const assert = require('node:assert/strict');
+        const electron = require('electron');
+        const { registerElectronInspector } = require(${JSON.stringify(registerPath)});
+        const registration = await registerElectronInspector();
+        const created = electron.createWindow();
+        electron.app.emit('browser-window-created', {}, created.window);
+        for (const entry of [electron.first, electron.survivor, created]) {
+          assert.equal(entry.contents.listenerCount('before-input-event'), 1);
+          assert.equal(entry.window.listenerCount('closed'), 1);
+        }
+        electron.first.window.destroyed = true;
+        if (${JSON.stringify(cleanup)} === 'closed event') {
+          electron.first.window.emit('closed');
+          assert.equal(electron.first.contents.listenerCount('before-input-event'), 0);
+          assert.equal(electron.first.window.listenerCount('closed'), 0);
+          assert.equal(electron.survivor.contents.listenerCount('before-input-event'), 1);
+        }
+        await registration.dispose();
+        await registration.dispose();
+        for (const entry of [electron.first, electron.survivor, created]) {
+          assert.equal(entry.contents.listenerCount('before-input-event'), 0);
+          assert.equal(entry.window.listenerCount('closed'), 0);
+        }
+        assert.equal(electron.app.listenerCount('browser-window-created'), 0);
+        assert.equal(electron.app.listenerCount('session-created'), 0);
+        assert.equal(electron.handlers.size, 0);
+        assert.deepEqual(electron.session.defaultSession.preloads, ['/fixture/owned-by-host.cjs']);
+        process.stdout.write('destroyed-window-cleanup-ok');
+      })().catch(error => { console.error(error); process.exit(1); });
+    `;
+    const observed = await execFile(process.execPath, ['-e', script], {
+      env: { ...process.env, NODE_PATH: path.join(tempRoot, 'node_modules') }
+    });
+    assert.equal(observed.stdout, 'destroyed-window-cleanup-ok');
+  });
+}
+
 test('one registration import is inert in a packaged application', async (t) => {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'dev-feedback-register-production-'));
   t.after(() => fs.rm(tempRoot, { recursive: true, force: true }));

@@ -21,6 +21,8 @@ Install the public version from the [Chrome Web Store](https://chromewebstore.go
 
 For a source build or [GitHub release ZIP](https://github.com/StoneHub/webDevFeedbackExt/releases): unzip the package, open `chrome://extensions/` or `edge://extensions/`, enable Developer Mode, and choose **Load unpacked**. Select the extension folder. No build or Node dependencies are required to load the browser extension.
 
+To pick elements in a local HTML file (`file://`), open the extension's **Details** in Chrome or Edge extensions and enable **Allow access to file URLs**. Return to the file and reopen the extension menu. When access is off, the menu explains this setting and offers **Open extension settings**; it never changes the setting for you. Local PDF viewers remain unsupported.
+
 ## Share
 
 The clipboard gets a short list: the page address, then each element's selector and text with its note. Paste it into an issue or a coding agent.

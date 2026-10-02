@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Check local HTML file access before picking and link to the browser's user-controlled file URL setting when access is off.
+
 - Pick elements inside embedded frames from other sites, such as Claude artifacts, after allowing that site once.
 - Move picking instructions into the extension menu. The page shows no panel while picking; the toolbar badge reads ON.
 - Open a one-field note next to the picked element with only Save and ×. A blank note saves just the element reference.

@@ -6,6 +6,7 @@ import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, readdirSync, rmSyn
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 const root=resolve(import.meta.dirname,'../..');
 const version=JSON.parse(readFileSync(join(root,'package.json'))).version;
@@ -115,6 +116,25 @@ try{
   await until(async()=>{const s=await state();return !s.editorOpen&&s.feedbackMode;},'close keeps picking');assert.equal((await getStorage())[storageKey].length,2);
   await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop after close');
   check('closing a note discards it and keeps picking');
+  // Unpacked Chrome extensions start with the user's local-file toggle enabled.
+  // Exercise the exact ZIP on a real file URL, not a localhost substitute.
+  const localFixture=join(temp,'local-plan.html');writeFileSync(localFixture,html);
+  const fileUrl=pathToFileURL(localFixture).href;
+  const fileStorageKey=await worker.evaluate(url=>DevFeedbackShared.makeStorageKey(url),fileUrl);
+  assert.equal(await worker.evaluate(()=>chrome.extension.isAllowedFileSchemeAccess()),true,'local-file acceptance requires the real browser toggle');
+  await page.goto(fileUrl);await start();await page.locator('#save-button').click();
+  editor=await frame('element');await editor.locator('#note').fill('LOCAL HTML spacing');
+  await page.screenshot({path:join(out,'local-html-editor.png')});
+  await editor.locator('#note').press('Enter');
+  await until(async()=>(await state()).feedbackMode,'local HTML save resumes picking');
+  const localItems=(await getStorage())[fileStorageKey];assert.equal(localItems.length,1);assert.equal(localItems[0].note,'LOCAL HTML spacing');
+  const localClipboard=await clipboard();assert.match(localClipboard,/^Page feedback: file:\/\/\/local-plan\.html\n/);assert.match(localClipboard,/LOCAL HTML spacing/);assert.doesNotMatch(localClipboard,new RegExp(temp.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'local HTML Escape');
+  const localMenu=await popup();await until(()=>localMenu.evaluate("document.querySelectorAll('#capture-list li').length===1"),'local page list');
+  assert.equal(await localMenu.evaluate("document.querySelector('#file-access-settings-btn').hidden"),true,'no access warning when local files are allowed');
+  check('real local HTML pick, private note, save, redacted clipboard, page list, and Escape');
+  await page.goto(url);
+  await start();await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop after returning to web fixture');
   const PNG='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
   await seed({[storageKey]:[...(await getStorage())[storageKey],
    {...base,id:'legacy-region',type:'region',note:'SELECTED legacy region',pageUrl:url+'?secret=PRIVATE_QUERY',screenshot:{dataUrl:PNG},annotations:[]},

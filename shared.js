@@ -75,6 +75,21 @@
     }
   }
 
+  const LOCAL_FILE_ACCESS_GUIDANCE = 'Open this extension’s Details in Chrome or Edge extensions, turn on “Allow access to file URLs”, then return to the local HTML page and reopen this menu.';
+
+  // This is the browser's user-controlled toggle, not an optional host grant.
+  // Check only file pages, and fail closed if the setting cannot be read.
+  async function checkFileAccess(rawUrl, extensionApi) {
+    try { if (new URL(rawUrl).protocol !== 'file:') return null; }
+    catch { return null; }
+    try {
+      if (await extensionApi.isAllowedFileSchemeAccess() === true) return null;
+      return { ok:false, needsFileAccess:true, reason:'Local HTML capture needs file access. ' + LOCAL_FILE_ACCESS_GUIDANCE };
+    } catch {
+      return { ok:false, needsFileAccess:true, reason:'Could not check local-file access. ' + LOCAL_FILE_ACCESS_GUIDANCE };
+    }
+  }
+
   // The host permission an embedded frame needs before its elements can be picked, or '' if none.
   // Deep hosts such as <id>.frame.example.com change their first label per embed, so cover the siblings.
   function frameAccessPattern(frameSrc, parentUrl) {
@@ -1035,6 +1050,7 @@
     buildFeedbackId,
     buildMarkdownExport,
     canInjectIntoUrl,
+    checkFileAccess,
     frameAccessPattern,
     createCaptureRecord,
     createElementRecord,

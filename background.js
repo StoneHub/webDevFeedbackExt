@@ -10,6 +10,7 @@
     buildClipboardText,
     buildFeedbackId,
     canInjectIntoUrl,
+    checkFileAccess,
     makeStorageKey,
     safeShareUrl,
     sanitizeFeedbackItems,
@@ -329,6 +330,9 @@
       return result.value;
     };
 
+    const fileAccess = await checkFileAccess(rawUrl, chrome.extension);
+    if (fileAccess) return fileAccess;
+
     try {
       const result = await step('content-type', () => chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType}));
       if (result[0]?.result === 'application/pdf') return {ok:false,reason:'PDF capture is no longer offered. Open a webpage to pick an element.'};
@@ -350,6 +354,9 @@
       }));
       return { ok: true };
     } catch (error) {
+      // Access may have been revoked since the popup's preflight.
+      const fileAccess = await checkFileAccess(rawUrl, chrome.extension);
+      if (fileAccess) return fileAccess;
       return { ok: false, reason: error.message || 'Unable to inject the feedback UI on this page.' };
     }
   }

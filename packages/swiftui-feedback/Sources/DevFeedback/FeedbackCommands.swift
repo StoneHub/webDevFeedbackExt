@@ -1,4 +1,7 @@
 import SwiftUI
+#if DEBUG
+import AppKit
+#endif
 
 #if DEBUG
 struct FeedbackSessionFocusKey: FocusedValueKey {
@@ -18,7 +21,12 @@ extension FocusedValues {
 @MainActor
 public struct FeedbackCommands: Commands {
     #if DEBUG
-    @FocusedValue(\.devFeedbackSession) private var session
+    @FocusedValue(\.devFeedbackSession) private var focusedSession
+    @ObservedObject private var registry = FeedbackWindowRegistry.shared
+    private var session: FeedbackSession? {
+        // AppKit-created NSWindows do not necessarily participate in scene focus.
+        registry.session(for: NSApp.keyWindow) ?? focusedSession
+    }
     #endif
 
     public init() {}

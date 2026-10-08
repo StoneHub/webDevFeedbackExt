@@ -3,7 +3,7 @@ import SwiftUI
 import AppKit
 
 struct TargetAnchor: Identifiable {
-    let id = UUID()
+    let id: UUID
     let target: FeedbackTarget
     let anchor: Anchor<CGRect>
     var viewports: [Anchor<CGRect>] = []
@@ -39,6 +39,7 @@ struct VisibleFeedbackTarget: Identifiable {
 @MainActor
 private struct FeedbackOverlay: ViewModifier {
     @StateObject private var session: FeedbackSession
+    @StateObject private var bridge = FeedbackOverlayBridge()
     private let screen: String
     @Environment(\.colorScheme) private var appearance
 
@@ -50,47 +51,56 @@ private struct FeedbackOverlay: ViewModifier {
     func body(content: Content) -> some View {
         content.overlayPreferenceValue(TargetPreference.self) { targets in
             GeometryReader { geometry in
-                let resolved = targets.compactMap { target in
-                    VisibleFeedbackTarget(id: target.id, target: target.target, bounds: geometry[target.anchor],
-                                          viewports: target.viewports.map { geometry[$0] } + [CGRect(origin: .zero, size: geometry.size)])
-                }
-                let duplicates = Dictionary(grouping: resolved, by: { $0.target.id }).filter { $0.value.count > 1 }.count
-                ZStack(alignment: .topTrailing) {
-                    if session.picking {
-                        // One hit surface prevents underlying app actions and resolves nested targets by area.
-                        Color.black.opacity(0.08).contentShape(Rectangle())
-                            .gesture(SpatialTapGesture().onEnded { tap in
-                                if let hit = VisibleFeedbackTarget.pick(at: tap.location, from: resolved) {
-                                    session.capture(hit.target, bounds: hit.sourceBounds, appearance: appearance == .dark ? "dark" : "light")
-                                }
-                            })
-                        ForEach(resolved) { target in
-                            let rect = target.visibleBounds
-                            Rectangle().strokeBorder(.orange, lineWidth: 2)
-                                .frame(width: rect.width, height: rect.height)
-                                .position(x: rect.midX, y: rect.midY)
-                                .allowsHitTesting(false)
-                        }
+                TimelineView(.animation(minimumInterval: 0.1, paused: !session.picking)) { _ in
+                    let anchored = targets.compactMap { target in
+                        VisibleFeedbackTarget(id: target.id, target: target.target, bounds: geometry[target.anchor],
+                                              viewports: target.viewports.map { geometry[$0] } + [CGRect(origin: .zero, size: geometry.size)])
                     }
-                    HStack(spacing: 8) {
+                    // Prefer anchor geometry within this root (including explicit SwiftUI viewports).
+                    // Native probes add targets belonging to independently hosted document roots.
+                    let localIDs = Set(targets.map { $0.id })
+                    let resolved = anchored + bridge.targets.filter { !localIDs.contains($0.id) }
+                    let duplicates = Dictionary(grouping: resolved, by: { $0.target.id }).filter { $0.value.count > 1 }.count
+                    ZStack(alignment: .topTrailing) {
                         if session.picking {
-                            Text("Pick a highlighted view · \(resolved.count) visible targets")
-                            Button("Cancel") { session.picking = false; session.showPanel() }
-                                .keyboardShortcut(.cancelAction)
+                            // One hit surface prevents underlying app actions and resolves nested targets by area.
+                            Color.black.opacity(0.08).contentShape(Rectangle())
+                                .gesture(SpatialTapGesture().onEnded { tap in
+                                    // Refresh separate-root geometry at the click, not only at outline refresh.
+                                    let current = anchored + bridge.targets.filter { !localIDs.contains($0.id) }
+                                    if let hit = VisibleFeedbackTarget.pick(at: tap.location, from: current) {
+                                        session.capture(hit.target, bounds: hit.sourceBounds, appearance: appearance == .dark ? "dark" : "light")
+                                    }
+                                })
+                            ForEach(resolved) { target in
+                                let rect = target.visibleBounds
+                                Rectangle().strokeBorder(.orange, lineWidth: 2)
+                                    .frame(width: rect.width, height: rect.height)
+                                    .position(x: rect.midX, y: rect.midY)
+                                    .allowsHitTesting(false)
+                            }
                         }
-                        if session.picking && duplicates > 0 {
-                            Text("\(duplicates) duplicate IDs").foregroundStyle(.red)
-                                .help("Give repeated instances distinct, non-sensitive feedback IDs.")
+                        HStack(spacing: 8) {
+                            if session.picking {
+                                Text("Pick a highlighted view · \(resolved.count) visible targets")
+                                Button("Cancel") { session.picking = false; session.showPanel() }
+                                    .keyboardShortcut(.cancelAction)
+                            }
+                            if session.picking && duplicates > 0 {
+                                Text("\(duplicates) duplicate IDs").foregroundStyle(.red)
+                                    .help("Give repeated instances distinct, non-sensitive feedback IDs.")
+                            }
                         }
+                        .font(.caption).padding(session.picking ? 8 : 0)
+                        .background {
+                            if session.picking { RoundedRectangle(cornerRadius: 8).fill(.regularMaterial) }
+                        }
+                        .padding(session.picking ? 6 : 0)
                     }
-                    .font(.caption).padding(session.picking ? 8 : 0)
-                    .background {
-                        if session.picking { RoundedRectangle(cornerRadius: 8).fill(.regularMaterial) }
-                    }
-                    .padding(session.picking ? 6 : 0)
                 }
             }
         }
+        .background(FeedbackOverlayRegistration(session: session, bridge: bridge))
         .focusedSceneValue(\.devFeedbackSession, session)
         .onChange(of: screen) { _, value in session.updateScreen(value) }
     }
@@ -102,8 +112,10 @@ public extension View {
     /// Repeated components should append a non-sensitive instance key. The source is this call site.
     #if DEBUG
     func feedbackTarget(_ id: String, label: String? = nil, file: String = #fileID, line: UInt = #line) -> some View {
-        transformAnchorPreference(key: TargetPreference.self, value: .bounds) { targets, anchor in
-            targets.append(TargetAnchor(target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line), anchor: anchor))
+        let registrationID = UUID()
+        return background(FeedbackTargetRegistration(id: registrationID, target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line)))
+        .transformAnchorPreference(key: TargetPreference.self, value: .bounds) { targets, anchor in
+            targets.append(TargetAnchor(id: registrationID, target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line), anchor: anchor))
         }
     }
     #else

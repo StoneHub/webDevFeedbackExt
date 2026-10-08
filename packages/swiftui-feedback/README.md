@@ -72,3 +72,9 @@ Tests include an actual SwiftUI hosting/rendering regression for nested parent/c
 ## Distribution gate
 
 Development installation and a distributable are distinct products. Use Xcode **Release** for Archive/export; never distribute the Debug app used for feedback. Check effective host and package compilation conditions: `DEBUG` must be absent. Verify the built app has no Developer feedback commands, picker, History panel/storage code, bundled DevFeedback framework/resources, source hints, or feedback-only tag markers. Inspect the actual linked executable and bundle, and fail packaging if markers remain. Importing a dependency in the project is not by itself proof that its runtime ships, nor is hiding a control proof of exclusion. Signing and notarization are separate host release requirements.
+
+### AppKit-hosted windows and scrolling documents
+
+Debug overlays also register their session with their native window. Developer commands resolve the active key window before falling back to SwiftUI scene focus, so custom `NSWindow` / `NSHostingView` windows work without an additional command API. Keep one overlay per window. Tags inside independently hosted document roots are discovered through weak native view probes in that same window. Their bounds are converted into the overlay coordinate space and clipped to native visible bounds and enclosing `NSClipView` viewports. Ordinary same-root SwiftUI tags retain their explicit `feedbackViewport()` clipping. No app text or screenshots are read. Geometry refreshes while picking; idle tags do not intercept clicks. The overlay remains the single picking hit surface.
+
+This bridge does not make untagged AppKit controls, native title bars, or system menus selectable. Keep target IDs unique across the whole window, including independently hosted roots.

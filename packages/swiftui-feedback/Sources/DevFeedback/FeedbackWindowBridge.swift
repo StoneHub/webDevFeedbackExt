@@ -25,7 +25,7 @@ final class FeedbackWindowRegistry: ObservableObject {
     }
     func session(for window: NSWindow?) -> FeedbackSession? {
         guard let window else { return nil }
-        return overlays.allObjects.first { $0.window === window }?.session
+        return overlays.allObjects.first { $0.window === window || $0.session?.owns(window) == true }?.session
     }
     func targets(in overlay: NSView) -> [VisibleFeedbackTarget] {
         guard let window = overlay.window else { return [] }
@@ -81,6 +81,7 @@ final class FeedbackOverlayProbe: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        session?.captureView = self
         FeedbackWindowRegistry.shared.register(self)
     }
 }

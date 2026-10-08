@@ -36,6 +36,20 @@ struct VisibleFeedbackTarget: Identifiable {
     }
 }
 
+private struct FeedbackTargetModifier: ViewModifier {
+    let target: FeedbackTarget
+    // SwiftUI retains this identity while the tagged view remains in the hierarchy.
+    // A fresh UUID in feedbackTarget() can desynchronize preference and native updates.
+    @State private var registrationID = UUID()
+
+    func body(content: Content) -> some View {
+        content.background(FeedbackTargetRegistration(id: registrationID, target: target))
+            .transformAnchorPreference(key: TargetPreference.self, value: .bounds) { targets, anchor in
+                targets.append(TargetAnchor(id: registrationID, target: target, anchor: anchor))
+            }
+    }
+}
+
 @MainActor
 private struct FeedbackOverlay: ViewModifier {
     @StateObject private var session: FeedbackSession
@@ -49,7 +63,8 @@ private struct FeedbackOverlay: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content.overlayPreferenceValue(TargetPreference.self) { targets in
+        content.accessibilityHidden(session.picking)
+        .overlayPreferenceValue(TargetPreference.self) { targets in
             GeometryReader { geometry in
                 TimelineView(.animation(minimumInterval: 0.1, paused: !session.picking)) { _ in
                     let anchored = targets.compactMap { target in
@@ -60,7 +75,7 @@ private struct FeedbackOverlay: ViewModifier {
                     // Native probes add targets belonging to independently hosted document roots.
                     let localIDs = Set(targets.map { $0.id })
                     let resolved = anchored + bridge.targets.filter { !localIDs.contains($0.id) }
-                    let duplicates = Dictionary(grouping: resolved, by: { $0.target.id }).filter { $0.value.count > 1 }.count
+                    let duplicateIDs = Dictionary(grouping: resolved, by: { $0.target.id }).filter { $0.value.count > 1 }.keys.sorted()
                     ZStack(alignment: .topTrailing) {
                         if session.picking {
                             // One hit surface prevents underlying app actions and resolves nested targets by area.
@@ -78,17 +93,27 @@ private struct FeedbackOverlay: ViewModifier {
                                     .frame(width: rect.width, height: rect.height)
                                     .position(x: rect.midX, y: rect.midY)
                                     .allowsHitTesting(false)
+                                    .accessibilityElement(children: .ignore)
+                                    .accessibilityLabel("Capture feedback: " + target.target.label)
+                                    .accessibilityIdentifier("dev-feedback.target." + target.target.id)
+                                    .accessibilityAddTraits(.isButton)
+                                    .accessibilityAction {
+                                        session.capture(target.target, bounds: target.sourceBounds,
+                                                        appearance: appearance == .dark ? "dark" : "light")
+                                    }
                             }
                         }
                         HStack(spacing: 8) {
                             if session.picking {
-                                Text("Pick a highlighted view · \(resolved.count) visible targets")
-                                Button("Cancel") { session.picking = false; session.showPanel() }
+                                Text("Pick a highlighted view · \(resolved.count) visible targets · Esc to stop")
+                                if let message = session.message { Text(message) }
+                                if let error = session.error { Text(error).foregroundStyle(.red) }
+                                Button("Stop") { session.stopPicking() }
                                     .keyboardShortcut(.cancelAction)
                             }
-                            if session.picking && duplicates > 0 {
-                                Text("\(duplicates) duplicate IDs").foregroundStyle(.red)
-                                    .help("Give repeated instances distinct, non-sensitive feedback IDs.")
+                            if session.picking && !duplicateIDs.isEmpty {
+                                Text("\(duplicateIDs.count) duplicate IDs").foregroundStyle(.red)
+                                    .help("Give repeated instances distinct, non-sensitive feedback IDs. Duplicates: " + duplicateIDs.joined(separator: ", "))
                             }
                         }
                         .font(.caption).padding(session.picking ? 8 : 0)
@@ -112,11 +137,7 @@ public extension View {
     /// Repeated components should append a non-sensitive instance key. The source is this call site.
     #if DEBUG
     func feedbackTarget(_ id: String, label: String? = nil, file: String = #fileID, line: UInt = #line) -> some View {
-        let registrationID = UUID()
-        return background(FeedbackTargetRegistration(id: registrationID, target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line)))
-        .transformAnchorPreference(key: TargetPreference.self, value: .bounds) { targets, anchor in
-            targets.append(TargetAnchor(id: registrationID, target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line), anchor: anchor))
-        }
+        modifier(FeedbackTargetModifier(target: FeedbackTarget(id: id, label: label ?? id, file: file, line: line)))
     }
     #else
     @inlinable

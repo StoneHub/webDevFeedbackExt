@@ -64,9 +64,6 @@ final class FeedbackHistory {
     func reload() throws { records = try readCurrent() }
 
     func save(_ record: FeedbackRecord) throws {
-        guard !record.note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw FeedbackError.emptyNote
-        }
         guard record.note.count <= Self.maxTextLength, record.acceptance.count <= Self.maxTextLength else {
             throw FeedbackError.textTooLong
         }
@@ -115,11 +112,10 @@ final class FeedbackHistory {
 }
 
 enum FeedbackError: LocalizedError {
-    case unsupportedHistory, emptyNote, textTooLong, historyFull
+    case unsupportedHistory, textTooLong, historyFull
     var errorDescription: String? {
         switch self {
         case .unsupportedHistory: return "History uses an unsupported format. The original file has been preserved."
-        case .emptyNote: return "Describe the requested change before saving."
         case .textTooLong: return "Keep each text field under 16,000 characters."
         case .historyFull: return "History holds 500 notes. Export and delete older notes before saving more."
         }

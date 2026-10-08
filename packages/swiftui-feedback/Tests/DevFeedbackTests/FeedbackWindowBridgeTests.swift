@@ -43,6 +43,26 @@ final class FeedbackWindowBridgeTests: XCTestCase {
     }
 
     @MainActor
+    func testTargetRegistrationIdentitySurvivesBodyUpdates() throws {
+        let model = RegistrationModel()
+        var anchors: [UUID] = []
+        let host = NSHostingView(rootView: RegistrationFixture(model: model) { anchors = $0 })
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 300, height: 240), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = host
+        defer { window.close() }
+        host.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        let initial = try XCTUnwrap(anchors.first)
+        model.revision += 1
+        host.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertEqual(anchors, [initial], "A retained target must keep one identity across preference/probe updates")
+        let native = FeedbackWindowRegistry.shared.targets(in: host).filter { $0.target.id == "stable" }
+        XCTAssertEqual(native.map(\.id), [initial])
+    }
+
+    @MainActor
     func testAppKitWindowSessionLookupAndRemoval() {
         let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 100, height: 100), styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -56,6 +76,21 @@ final class FeedbackWindowBridgeTests: XCTestCase {
         XCTAssertNil(FeedbackWindowRegistry.shared.session(for: nil))
         overlay.removeFromSuperview()
         XCTAssertNil(FeedbackWindowRegistry.shared.session(for: window))
+    }
+}
+@MainActor
+private final class RegistrationModel: ObservableObject {
+    @Published var revision = 0
+}
+private struct RegistrationFixture: View {
+    @ObservedObject var model: RegistrationModel
+    let observe: ([UUID]) -> Void
+    var body: some View {
+        Text("Synthetic \(model.revision)").feedbackTarget("stable")
+            .overlayPreferenceValue(TargetPreference.self) { targets in
+                let _ = observe(targets.map(\.id))
+                Color.clear
+            }
     }
 }
 #endif

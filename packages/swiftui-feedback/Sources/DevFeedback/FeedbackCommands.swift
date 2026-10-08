@@ -41,7 +41,7 @@ public struct FeedbackCommands: Commands {
             }
             .keyboardShortcut("f", modifiers: [.command, .option, .shift])
             .disabled(session == nil)
-            Button("Feedback History…") { session?.showPanel() }
+            Button("Captures for This Screen…") { session?.showCaptures() }
                 .disabled(session == nil)
         }
         #else

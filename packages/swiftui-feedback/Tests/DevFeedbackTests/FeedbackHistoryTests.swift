@@ -69,11 +69,11 @@ final class FeedbackHistoryTests: XCTestCase {
         XCTAssertThrowsError(try FeedbackHistory(url: url))
         XCTAssertEqual(try Data(contentsOf: url), future)
     }
-    func testRejectsEmptyAndOversizeNotes() throws {
+    func testAcceptsOptionalNotesAndRejectsOversizeNotes() throws {
         let history = try FeedbackHistory(url: url)
-        XCTAssertThrowsError(try history.save(record(note: " \n ")))
+        try history.save(record(note: ""))
         XCTAssertThrowsError(try history.save(record(note: String(repeating: "a", count: 16_001))))
-        XCTAssertTrue(history.records.isEmpty)
+        XCTAssertEqual(history.records.count, 1)
     }
 }
 #endif

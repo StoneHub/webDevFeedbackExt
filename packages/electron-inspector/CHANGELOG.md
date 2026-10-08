@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Detach window shortcuts from the captured webContents emitter after a BrowserWindow closes, avoiding access to Electron's destroyed window getter.
+- Keep explicit disposal idempotent and remove window, app, session-preload and IPC hooks when a registered window has already been destroyed.
+
 ## 0.2.0
 
 - Added the development-only `@flyingchangescode/dev-feedback-electron/register` entrypoint.

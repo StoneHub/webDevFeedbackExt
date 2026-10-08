@@ -1,27 +1,37 @@
-// The page sees only public targeting controls. Notes and History live in extension pages.
+// The page sees only public targeting controls. Notes live in an extension frame; the list lives in the extension menu.
+// Runs in every frame the extension can reach; the background keeps picking in sync across them.
 (function() {
   'use strict';
   if (globalThis.__DEV_FEEDBACK_CAPTURE_LOADED__) return;
   globalThis.__DEV_FEEDBACK_CAPTURE_LOADED__ = true;
+  const EDITOR_WIDTH = 300;
+  const EDITOR_HEIGHT = 150;
   let active = false;
   let busy = false;
   let highlighted = null;
   let editor = null;
   let editorSession = null;
   let previousFocus = null;
+  let toastTimer = null;
   const host = document.createElement('div');
   host.dataset.devFeedbackPicker = '';
   const shadow = host.attachShadow({ mode: 'closed' });
   shadow.innerHTML = `<style>
-    :host { all:initial; position:fixed; top:12px; right:12px; z-index:2147483647; }
+    :host { all:initial; position:fixed; inset:0; z-index:2147483647; pointer-events:none; }
     :host([hidden]) { display:none !important; }
-    section { font:14px/1.5 system-ui; color:#172139; background:#fff; padding:14px; border:2px solid #4f46e5; border-radius:12px; box-shadow:0 4px 24px #0003; max-width:300px; }
-    button { font:inherit; margin:8px 8px 0 0; padding:6px 10px; cursor:pointer; }
-    button:focus-visible { outline:3px solid #4f46e5; }
-  </style><section><strong>Pick an element</strong><div role="status">Click a page element, or focus it with Tab and press Alt+Enter. Esc stops picking.</div><button id="history">Open History</button><button id="stop">Stop</button></section>`;
+    iframe { position:absolute; pointer-events:auto; border:1px solid #a5a0dd; border-radius:12px; background:white; box-shadow:0 8px 40px #0003; }
+    [role="status"] { position:absolute; top:12px; left:50%; transform:translateX(-50%); font:13px/1.4 system-ui; color:#fff; background:#29263a; padding:8px 14px; border-radius:999px; box-shadow:0 4px 24px #0003; white-space:nowrap; }
+  </style><div role="status" hidden></div>`;
   document.documentElement.appendChild(host);
   host.hidden = true;
-  const status = shadow.querySelector('[role="status"]');
+  const toast = shadow.querySelector('[role="status"]');
+  function showToast(message) {
+    clearTimeout(toastTimer);
+    toast.textContent = message;
+    toast.hidden = false;
+    host.hidden = false;
+    toastTimer = setTimeout(() => { toast.hidden = true; if (!editor) host.hidden = true; }, 3000);
+  }
   function clearHighlight() {
     highlighted?.classList.remove('dev-feedback-highlight');
     highlighted = null;
@@ -29,30 +39,59 @@
   function setActive(value) {
     if (editor) return;
     active = Boolean(value);
-    host.hidden = !active;
-    if (active) status.textContent = 'Click a page element, or focus it with Tab and press Alt+Enter. Esc stops picking.';
     if (!active) clearHighlight();
   }
-  shadow.querySelector('#stop').addEventListener('click', event => { if (event.isTrusted) setActive(false); });
-  shadow.querySelector('#history').addEventListener('click', async event => {
-    if (event.isTrusted) await chrome.runtime.sendMessage({ action: 'open-history' });
-  });
+  function stopEverywhere() {
+    setActive(false);
+    chrome.runtime.sendMessage({ action: 'stop-picking' }).catch(() => {});
+  }
+  // A pick inside an embedded frame reports its rect in that frame; shift it into this page.
+  // Content scripts cannot map a frameId to its element, so match the frame's origin, then its size.
+  function anchorRect(anchor) {
+    if (!anchor?.rect) return null;
+    if (!anchor.frameId) return anchor.rect;
+    const sameOrigin = [...document.querySelectorAll('iframe,frame')].filter(element => {
+      try { return new URL(element.src, location.href).origin === new URL(anchor.frame.url).origin; } catch { return false; }
+    });
+    const frame = sameOrigin.find(element => element.clientWidth === anchor.frame.width && element.clientHeight === anchor.frame.height)
+      || (sameOrigin.length === 1 ? sameOrigin[0] : null);
+    if (!frame) return null;
+    const box = frame.getBoundingClientRect();
+    const dx = box.left + frame.clientLeft, dy = box.top + frame.clientTop;
+    return { left:anchor.rect.left + dx, top:anchor.rect.top + dy, right:anchor.rect.right + dx, bottom:anchor.rect.bottom + dy };
+  }
+  // Below the element if it fits, else above, else as close as the viewport allows.
+  function placeEditor(rect) {
+    const width = Math.min(EDITOR_WIDTH, innerWidth - 16);
+    const clamp = (value, max) => Math.max(8, Math.min(value, max));
+    let left = innerWidth - width - 12, top = 12;
+    if (rect) {
+      left = clamp(rect.left, innerWidth - width - 8);
+      top = rect.bottom + 8;
+      if (top + EDITOR_HEIGHT > innerHeight - 8) top = rect.top - EDITOR_HEIGHT - 8;
+      if (top < 8) top = clamp(rect.bottom + 8, innerHeight - EDITOR_HEIGHT - 8);
+    }
+    editor.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${EDITOR_HEIGHT}px;`;
+  }
   document.addEventListener('mouseover', event => {
     if (!active || host.contains(event.target) || event.target === host) return;
-    clearHighlight(); highlighted = event.target; highlighted.classList.add('dev-feedback-highlight');
+    clearHighlight();
+    // An embedded frame highlights its own elements when the extension can reach it.
+    if (event.target.tagName === 'IFRAME' || event.target.tagName === 'FRAME') return;
+    highlighted = event.target; highlighted.classList.add('dev-feedback-highlight');
   }, true);
   async function pick(target) {
     if (busy || !target || target === document.body || target === document.documentElement) return;
     busy = true;
     clearHighlight();
-    status.textContent = 'Opening private capture editor...';
     try {
       const snapshot = globalThis.DevFeedbackCollector.buildElementSnapshot(target);
-      const response = await chrome.runtime.sendMessage({ action: 'start-element-capture', snapshot });
+      const { left, top, right, bottom } = target.getBoundingClientRect();
+      const frame = { url:location.href, width:innerWidth, height:innerHeight };
+      const response = await chrome.runtime.sendMessage({ action: 'start-element-capture', snapshot, rect:{ left, top, right, bottom }, frame });
       if (!response?.ok) throw new Error(response?.reason || 'Could not open the editor.');
-      if (!editor) setActive(false);
     } catch {
-      status.textContent = 'Could not open the editor. Try picking the element again.';
+      showToast('Could not open the note. Try picking the element again.');
     } finally { busy = false; }
   }
   document.addEventListener('click', event => {
@@ -61,7 +100,7 @@
   }, true);
   document.addEventListener('keydown', event => {
     if (!event.isTrusted || !active) return;
-    if (event.key === 'Escape') { event.preventDefault(); setActive(false); }
+    if (event.key === 'Escape') { event.preventDefault(); stopEverywhere(); }
     if (event.altKey && event.key === 'Enter' && !event.composedPath().includes(host)) {
       event.preventDefault(); pick(document.activeElement);
     }
@@ -69,32 +108,26 @@
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (sender.id !== chrome.runtime.id) return;
     if (request.action === 'show-capture-overlay') {
-      if (editor) { sendResponse({ok:false,reason:'Save or cancel the open draft first.'}); return; }
-      if (!['element.html','history.html'].includes(request.page) || !/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return;
+      if (editor) { sendResponse({ok:false,reason:'Save or close the open note first.'}); return; }
+      if (!/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return;
       setActive(false);
-      editor?.remove();
       previousFocus = document.activeElement;
       editorSession = request.sessionId;
       editor = document.createElement('iframe');
       editor.allow = 'clipboard-write';
-      editor.title = request.page === 'history.html' ? 'Feedback History' : 'Write element feedback';
-      editor.src = chrome.runtime.getURL(request.page + '?session=' + encodeURIComponent(editorSession));
-      editor.style.cssText = request.page === 'history.html'
-        ? 'display:block;width:min(440px,calc(100vw - 24px));height:calc(100vh - 24px);border:1px solid #a5a0dd;border-radius:14px;background:white;box-shadow:0 8px 40px #0003;'
-        : 'display:block;width:min(380px,calc(100vw - 24px));height:min(510px,calc(100vh - 24px));border:1px solid #a5a0dd;border-radius:14px;background:white;box-shadow:0 8px 40px #0003;';
-      shadow.querySelector('section').hidden = true;
+      editor.title = 'Write element feedback';
+      editor.src = chrome.runtime.getURL('element.html?session=' + encodeURIComponent(editorSession));
+      placeEditor(anchorRect(request.anchor));
       shadow.appendChild(editor);
       host.hidden = false;
       editor.focus();
     } else if (request.action === 'close-capture-overlay') {
       if (request.sessionId !== editorSession) return;
       editor?.remove(); editor = null; editorSession = null;
-      shadow.querySelector('section').hidden = false;
-      host.hidden = true;
+      host.hidden = toast.hidden;
       if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true});
-      if (request.pickNext) { setActive(true); status.textContent = 'Saved. Pick the next element, or press Esc to stop.'; }
-    } else if (request.action === 'toggle-feedback-mode') setActive(!active);
-    else if (request.action === 'set-feedback-mode') setActive(request.enabled);
+      if (typeof request.toast === 'string' && request.toast) showToast(request.toast);
+    } else if (request.action === 'set-feedback-mode') setActive(request.enabled);
     else if (request.action !== 'get-state') return;
     sendResponse({ ok:true, editorOpen:Boolean(editor), feedbackMode:active, interactionMode:active ? 'element' : 'off' });
   });

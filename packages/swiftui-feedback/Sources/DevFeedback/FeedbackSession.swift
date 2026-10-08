@@ -14,11 +14,19 @@ final class FeedbackSession: NSObject, ObservableObject, NSWindowDelegate {
     @Published var message: String?
     @Published var showingCaptures = false
     private let appID: String
-    private var screen: String
+    @Published private(set) var screen: String
     private var history: FeedbackHistory?
     private var panel: NSPanel?
     private var runIDs: [UUID] = []
-    weak var captureView: NSView?
+    weak var captureView: NSView? {
+        didSet {
+            // A probe may temporarily detach while moving between hosting roots/windows.
+            // Keep the old close observer until a new owning window is available.
+            if let owner = captureView?.window { observeOwner(owner) }
+        }
+    }
+    private weak var observedOwner: NSWindow?
+    private var ownerCloseObserver: NSObjectProtocol?
     private let presentPanel: @MainActor (NSPanel) -> Void
     private let activateWindow: @MainActor (NSWindow) -> Void
     private let writeClipboard: (String) -> Bool
@@ -47,7 +55,40 @@ final class FeedbackSession: NSObject, ObservableObject, NSWindowDelegate {
         } catch { self.error = "Could not load captures: \(error.localizedDescription)" }
     }
 
-    func updateScreen(_ screen: String) { self.screen = screen }
+    deinit {
+        if let ownerCloseObserver { NotificationCenter.default.removeObserver(ownerCloseObserver) }
+    }
+
+    func updateScreen(_ screen: String) {
+        guard self.screen != screen else { return }
+        // Title and published list/export context change in one main-actor transaction.
+        if showingCaptures { panel?.title = "Captures · \(screen)" }
+        self.screen = screen
+    }
+
+    private func observeOwner(_ owner: NSWindow) {
+        guard observedOwner !== owner else { return }
+        if let ownerCloseObserver { NotificationCenter.default.removeObserver(ownerCloseObserver) }
+        observedOwner = owner
+        ownerCloseObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification,
+                                                                     object: owner, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tearDownOwner() }
+        }
+    }
+
+    private func tearDownOwner() {
+        if let ownerCloseObserver { NotificationCenter.default.removeObserver(ownerCloseObserver) }
+        ownerCloseObserver = nil; observedOwner = nil
+        picking = false; showingCaptures = false; discard()
+        let closingPanel = panel
+        panel = nil
+        // Removing the hosting view breaks panel → ObservedObject(session). Disable the
+        // delegate first so closing an owner cannot trigger discard-and-resume behavior.
+        closingPanel?.delegate = nil
+        closingPanel?.contentView = nil
+        closingPanel?.close()
+        captureView = nil
+    }
     var screenRecords: [FeedbackRecord] { records.filter { $0.screen == screen } }
     var runRecords: [FeedbackRecord] { runIDs.compactMap { id in records.first { $0.id == id } } }
     var hasUnsavedChanges: Bool { draft != nil && (!note.isEmpty || !acceptance.isEmpty) }

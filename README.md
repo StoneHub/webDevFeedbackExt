@@ -62,7 +62,9 @@ Electron developers can explicitly install `@flyingchangescode/dev-feedback-elec
 
 ## SwiftUI developer package (prototype)
 
-Mac developers can integrate the separate **DevFeedback** Swift package in development builds to pick tagged views, save local notes, and export selected feedback with source references. Porch Speech is the first host integration. See [package setup and testing](packages/swiftui-feedback/README.md) and the [Codex tagging plugin](plugins/swiftui-feedback/README.md).
+Mac developers can integrate the separate **DevFeedback** Swift package in development builds to pick tagged views and optionally add a note. **Save/Enter** saves locally, copies the current picking run, and resumes picking; **×/window close** discards the pending capture and resumes, while **Escape/Stop** discards it and stops. **Developer → Captures for This Screen** provides Copy all, Markdown, JSON, and deletion for that screen. Saved-note editing and acceptance entry are no longer offered; legacy records and acceptance data remain preserved. See [package setup and testing](packages/swiftui-feedback/README.md) and the [Codex tagging plugin](plugins/swiftui-feedback/README.md).
+
+The native picker exposes accessibility capture actions and hides underlying SwiftUI controls while picking; verify both accessibility and physical input in each host. It collects static developer tags, source hints, geometry, and notes, not rendered text or screenshots, and requests no Accessibility permission. Native title bars, system menus, and untagged controls are outside its scope.
 
 The package is a local/vendored prototype requiring macOS 14+; it is not in the browser ZIP or published as a standalone Swift package. Release builds omit capture. Its native JSON is readable by agents through file tools; the browser MCP importer does not yet accept that schema.
 

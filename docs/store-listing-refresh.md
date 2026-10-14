@@ -15,6 +15,7 @@ Validation: `npm test`, `npm run check`, and `git diff --check` passed. Both PNG
 - Small promotional tile: `store-assets/promo-small.png` (440×280, RGB PNG).
 - Optional marquee: `store-assets/promo-marquee.png` (1400×560, RGB PNG).
 - Editable sources: matching `.svg` files.
+- Paste-ready description: `store-assets/listing-description.txt`.
 - Retain the current browser-code extension icon. The purple speech-bubble icon in the supplied search result is obsolete; verify whether the dashboard media or the published package causes it before replacing it.
 - Keep existing runtime screenshots until current-version replacements can be captured. Do not submit artwork as screenshots.
 
@@ -47,14 +48,14 @@ Dev Feedback Capture is an independent tool from FlyingChanges Code.
 
 ## Remaining delivery
 
-1. Monroe reconnects Edge browser control, opens the publisher dashboard, and signs in as `monroe@flyingchangesfarm.net` if needed. Automated navigation initially returned `Not allowed`; the blank tab could be read. The final readback returned `Browser is not available: 1`. Browser control is now unavailable, so the account and dashboard remain unverified. This is a browser-control blocker, not a failed sign-in.
-2. Agent verifies the selected Google account, publisher, item, current public version, and existing draft/review state. Do not submit a pre-existing package change as part of this media-only request.
+1. Monroe reported “im in.” The resumed Edge inventory shows the Chrome Web Store Developer Dashboard, but binding that tab returns `The extensions gallery cannot be scripted.` Edge is connected; this protected-page restriction supersedes the earlier disconnected-browser blocker. Do not attempt another UI capture/control route around the denial. The account, publisher, version, and draft/review state remain unverified by the agent.
+2. Monroe checks the selected Google account, publisher, item, current public version, and existing draft/review state, and reports them in this chat. The agent has requested those details. Do not submit a pre-existing package change as part of this media-only request.
 
    The local checkout was fast-forwarded to current remote `main` (`dd672d4`) before backup. Its workflow has changed since the older release record: it copies the picking run after saving and uses a per-page extension-menu list. Avoid promising the retired acceptance-check editor, History panel, or AI Bundle without checking the published version.
-3. Upload the small tile and optional marquee; save the updated overview after checking it against the public package. Capture dashboard readback and the resulting review/publication state.
-4. Verify the public search/detail page after Google applies the listing update. Submission is distinct from a live listing.
+3. Monroe opens this item's Store listing section, uploads `promo-small.png` as the small promotional tile and `promo-marquee.png` as the optional marquee, and pastes `listing-description.txt` into the overview/description after the account/version check. Keep actual runtime screenshots in the screenshot slots. Save the changes and report the resulting review/submission controls to the agent before submitting if an existing package draft is included.
+4. Monroe performs the final Store submission because the dashboard cannot be scripted. The agent records the reported review/publication status and verifies the public listing through an available permitted read surface when Google applies the update. Submission is distinct from a live listing.
 
-No browser credentials, extension package, account identity, domain, or DNS changes are included in this refresh. Monroe owns the login step; the agent owns the listing update and verification once browser control is available.
+No browser credentials, extension package, account identity, domain, or DNS changes are included in this refresh. Monroe owns the protected dashboard interactions; the agent owns the prepared assets, copy, guidance, record, and public verification through a permitted surface. The original listing-refresh outcome remains pending.
 
 Cleanup: retain the source and upload assets in this repository for the pending listing update. No development server, browser test process, or temporary checkout was started. The temporary public-domain lookup file was removed.
 

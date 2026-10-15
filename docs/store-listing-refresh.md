@@ -86,3 +86,9 @@ Cleanup and retained evidence: after Store installation, the disposable download
 ## Image requirements
 
 Google specifies 440×280 promotional tiles, optional 1400×560 marquees, and actual full-bleed 1280×800 or 640×400 screenshots: https://developer.chrome.com/docs/webstore/images
+
+## Icon refinement — design review
+
+Monroe requested further icon work after the listing submission. Two vector concepts are saved under `docs/icon-refresh/`: `pick-and-note.svg` (A, feedback bubble and cursor) and `element-picker.svg` (B, selected-element corners and cursor). Each has a toolbar-specific SVG crop and rendered 128/48/16 px PNGs. `comparison.png` shows the existing icon and both candidates at actual sizes.
+
+The 128 px candidates have 16 px transparent padding; toolbar assets use a tighter optical crop. All candidate PNG dimensions and vector rendering were checked visually. No shipping icon, package, installed extension, or pending Store submission was changed. No new runtime test is needed for these unselected design assets. The agent recommends B for its more specific element-picking silhouette; Monroe owns choosing a direction or requesting another iteration before package/listing delivery. Retain these source and preview assets for that decision.

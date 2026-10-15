@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — 2026-10-15
+
+- Replace the browser-code icon with selection corners, an orange pointer, and a pencil badge. Use a tighter optical crop at toolbar sizes.
+- The Store hotfix is built from published 1.8.0 and preserves its capture, History, exports, and permissions. The unreleased workflow changes below remain on main.
+- Generate all icon sizes from one SVG source.
+
 ## Unreleased
 
 - Pick elements inside embedded frames from other sites, such as Claude artifacts, after allowing that site once.

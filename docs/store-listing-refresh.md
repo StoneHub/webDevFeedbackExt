@@ -6,7 +6,7 @@ Improve the Chrome Web Store search card and detail page for Dev Feedback Captur
 
 Prepared locally: a full-bleed 440×280 promotional tile, editable SVG source, matching 1400×560 marquee, and focused overview copy. The illustration is promotional artwork, not a runtime screenshot.
 
-Live publisher identity and published package version still require dashboard readback. The existing submission record identifies `monroe@flyingchangesfarm.net`, publisher `FlyingChanges Code`, item `hhdmfaaplpiokafjieefpgoppckijafc`. Do not use the farm Gmail account as evidence of publisher ownership.
+Submitted for Google review on October 15, 2026, using verified account `monroe@flyingchangesfarm.net`, publisher `FlyingChanges Code`, item `hhdmfaaplpiokafjieefpgoppckijafc`. Dashboard readback: Pending review. Automatic publication after approval was explicitly authorized by Monroe. The public listing still needs Google approval before the new assets appear.
 
 Validation: `npm test`, `npm run check`, and `git diff --check` passed. Both PNGs were visually inspected and their exact dimensions and three-channel RGB format verified. No extension runtime behavior was changed by this listing refresh. These checks do not establish Store delivery.
 
@@ -46,20 +46,42 @@ Element capture works on accessible webpages. Browser-internal pages and some em
 
 Dev Feedback Capture is an independent tool from FlyingChanges Code.
 
-## Remaining delivery
+## Live verification — October 15, 2026
 
-1. Monroe reported “im in.” The resumed Edge inventory shows the Chrome Web Store Developer Dashboard, but binding that tab returns `The extensions gallery cannot be scripted.` Edge is connected; this protected-page restriction supersedes the earlier disconnected-browser blocker. Do not attempt another UI capture/control route around the denial. The account, publisher, version, and draft/review state remain unverified by the agent.
-2. Monroe checks the selected Google account, publisher, item, current public version, and existing draft/review state, and reports them in this chat. The agent has requested those details. Do not submit a pre-existing package change as part of this media-only request.
+The Codex built-in browser successfully accessed the dashboard. The earlier “extensions gallery cannot be scripted” error was a limitation of the Edge extension-based browser connection, not a general requirement for Monroe to perform all dashboard edits. Account switching through the displayed Google account link reached the correct publisher without a new agreement or developer registration.
 
-   The local checkout was fast-forwarded to current remote `main` (`dd672d4`) before backup. Its workflow has changed since the older release record: it copies the picking run after saving and uses a per-page extension-menu list. Avoid promising the retired acceptance-check editor, History panel, or AI Bundle without checking the published version.
-3. Monroe opens this item's Store listing section, uploads `promo-small.png` as the small promotional tile and `promo-marquee.png` as the optional marquee, and pastes `listing-description.txt` into the overview/description after the account/version check. Keep actual runtime screenshots in the screenshot slots. Save the changes and report the resulting review/submission controls to the agent before submitting if an existing package draft is included.
-4. Monroe performs the final Store submission because the dashboard cannot be scripted. The agent records the reported review/publication status and verifies the public listing through an available permitted read surface when Google applies the update. Submission is distinct from a live listing.
+Verified live:
 
-No browser credentials, extension package, account identity, domain, or DNS changes are included in this refresh. Monroe owns the protected dashboard interactions; the agent owns the prepared assets, copy, guidance, record, and public verification through a permitted surface. The original listing-refresh outcome remains pending.
+- Google account: `monroe@flyingchangesfarm.net`.
+- Selected publisher: `FlyingChanges Code`.
+- Store item: `hhdmfaaplpiokafjieefpgoppckijafc`.
+- Store status: Published — public; published and draft packages both v1.8.0 with `storage`, `activeTab`, and `scripting`.
+- Public detail page: v1.8.0, updated September 7, 2026.
+- Latest stable GitHub release: v1.8.0, published September 9, 2026 at 10:24 p.m. America/New_York; source `e2455a4d3bcb1f5e08bbc538ae4eaa6fe3d81b2d`.
+- Release ZIP SHA-256: `248b249a6821dfcafe728726ecdb51c4f52e76e652fddb2a9f5e75a7d984f038`. The attached checksum and passing acceptance report agree. All 19 extracted file hashes match the report.
+- Published Store CRX SHA-256: `79d1646d0f478873fbd291b90b40b7651c6008e0238a9d91625524567b620e4a`. All 18 non-manifest release files match byte-for-byte. The manifest matches after removing Google's added `update_url`; Google also supplies `_metadata/verified_contents.json`.
+- The working checkout also declares 1.8.0 but differs from the released files in 14 places. Do not describe the checkout as the exact released build or upload it as this listing refresh.
+- Native Edge UI confirms an enabled unpacked v1.8.0, ID `fnmbjammjfpnjephkchgpkeehoehiell`, loaded from `/Users/monroe/Developer/GitRepos/webDevFeedbackExt`. It therefore uses the development checkout, which differs from the exact release. The Store extension ID is distinct; installing it will not migrate the development copy's local notes.
 
-Cleanup: retain the source and upload assets in this repository for the pending listing update. No development server, browser test process, or temporary checkout was started. The temporary public-domain lookup file was removed.
+Saved on the dashboard, with “Item saved.” readback:
 
-Git delivery: GitHub rejected the direct `main` push with `GH006` because the required `validate` status check is expected. Preserve this work on `codex/store-listing-refresh`; do not bypass protection. The agent owns integration through the repository's required review/check flow. The local main commit includes only this refresh; remote main still ends at `dd672d4` until integration. Retain the remote branch until its changes are integrated or explicitly abandoned.
+- New 1,073-character description from `store-assets/listing-description.txt`.
+- Small promotional tile and optional marquee.
+- Browser-code Store icon taken from the verified release ZIP, replacing the purple speech-bubble icon. Monroe explicitly approved the irreversible old-image removal.
+
+No extension package, permissions, account settings, domain/DNS, or existing runtime screenshot was changed.
+
+## Remaining delivery and owner
+
+The first final-submission attempt was rejected by automatic approval review because automatic publication needed explicit authorization. Monroe then answered yes to the exact submission/publication request. The subsequent submission succeeded: Google displayed “Your extension was submitted for review,” then the item status changed to Pending review. No submission blocker remains.
+
+Google owns review; approval triggers the authorized automatic publication. The agent owns public listing verification when review resolves. Receipt and pending-status screenshots are retained locally. No periodic monitoring has been requested or scheduled.
+
+A separate decision is pending in this chat: use the published Store release in Edge (install the verified v1.8.0 Store copy and disable but retain the unpacked copy) or keep the development copy enabled. Monroe owns that choice because the two installation IDs have separate local notes. The agent owns any approved installation and runtime verification; do not delete the development copy or its data.
+
+Git delivery: the direct main push was rejected with `GH006` because the required `validate` check was expected. The assets and earlier task record are backed up on `codex/store-listing-refresh`. The agent owns integration through the repository's required review/check flow; do not bypass protection. Retain that branch until integrated or explicitly abandoned.
+
+Cleanup and retained evidence: the agent retained the exact release ZIP, checksum, acceptance report, extracted release files, and downloaded published CRX under ignored `dist/published-v1.8.0/` for this comparison and any subsequent release-install verification. The task-created CRX was moved out of Downloads. The submission-dialog, successful-submission receipt, and pending-status screenshots are under ignored `output/store-listing-refresh-2026-10-15/`. Retain these until the listing submission and release-version question are resolved, then remove disposable copies. No test browser, dev server, or temporary checkout was started; the dashboard and latest-release browser tabs are intentionally retained for Monroe.
 
 ## Image requirements
 

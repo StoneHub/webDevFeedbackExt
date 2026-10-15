@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — 2026-10-15
+
+- Replace the browser-code icon with selection corners, an orange pointer, and a pencil badge. Use a tighter optical crop at toolbar sizes.
+- Keep the published 1.8.0 capture, History, export, and permission behavior unchanged.
+- Generate all icon sizes from one SVG source.
+
 ## 1.8.0 Element-focused candidate (unreleased)
 
 - Remove new Region/PDF capture and its screenshot/editor code. Preserve old records and exports.

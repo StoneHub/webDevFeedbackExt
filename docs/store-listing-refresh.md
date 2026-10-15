@@ -6,7 +6,7 @@ Improve the Chrome Web Store search card and detail page for Dev Feedback Captur
 
 Prepared locally: a full-bleed 440×280 promotional tile, editable SVG source, matching 1400×560 marquee, and focused overview copy. The illustration is promotional artwork, not a runtime screenshot.
 
-Submitted for Google review on October 15, 2026, using verified account `monroe@flyingchangesfarm.net`, publisher `FlyingChanges Code`, item `hhdmfaaplpiokafjieefpgoppckijafc`. Dashboard readback: Pending review. Automatic publication after approval was explicitly authorized by Monroe. The public listing still needs Google approval before the new assets appear.
+Current delivery: v1.8.1 with the selected element-picker/pencil icon is published on GitHub and submitted to Google for review. Verified account: `monroe@flyingchangesfarm.net`; publisher: `FlyingChanges Code`; item: `hhdmfaaplpiokafjieefpgoppckijafc`. Dashboard readback: Pending review. Automatic publication after approval was explicitly authorized. Store users still receive public v1.8.0 until Google approves v1.8.1.
 
 Validation: `npm test`, `npm run check`, and `git diff --check` passed. Both PNGs were visually inspected and their exact dimensions and three-channel RGB format verified. No extension runtime behavior was changed by this listing refresh. These checks do not establish Store delivery.
 
@@ -46,7 +46,7 @@ Element capture works on accessible webpages. Browser-internal pages and some em
 
 Dev Feedback Capture is an independent tool from FlyingChanges Code.
 
-## Live verification — October 15, 2026
+## Baseline verification — earlier October 15, 2026
 
 The Codex built-in browser successfully accessed the dashboard. The earlier “extensions gallery cannot be scripted” error was a limitation of the Edge extension-based browser connection, not a general requirement for Monroe to perform all dashboard edits. Account switching through the displayed Google account link reached the correct publisher without a new agreement or developer registration.
 
@@ -96,7 +96,7 @@ The 128 px candidates have 16 px transparent padding; toolbar assets use a tight
 Monroe selected B as the base and requested one additional cue for changing or removing the selected element. `element-change.svg` adds a pencil badge; `element-remove.svg` adds a minus badge, each replacing the lower-right selection corner. Matching toolbar SVGs and 128/48/16 px PNGs are included. `change-intent-comparison.png` compares both refinements with B. The agent recommends the pencil for the broader change-request workflow; the minus emphasizes removal. These refinements await design selection and do not change the already submitted Store icon or installed package.
 
 
-## Selected pencil icon release — in progress
+## Selected pencil icon release — submitted
 
 Monroe selected the middle B + Change concept and authorized updating both extension and Store listing. Build v1.8.1 from published v1.8.0, with no browser behavior or permission changes. The isolated release source is `codex/icon-release-1.8.1` at `dd07467`; its worktree is `/private/tmp/dfc-icon-release-181`. The agent owns this worktree and all its output, browser download, and npm cache directories; remove it after the tested artifacts are copied back and the source is backed up.
 
@@ -108,3 +108,16 @@ Updated promotional artwork now uses the selected pencil mark. The current Store
 Release package accepted: `dist/release-v1.8.1/dev-feedback-capture-v1.8.1.zip`, SHA-256 `72a1a50825a75f759a4cfc02526361e03327e819234ed345327e11b417fcc613`. Its checksum and digest-bound `acceptance.json` are retained alongside it. The worktree's browser and npm cache directories are disposable and owned by this task. Canonical source tests (54 tests), checks, and production audit also pass after adopting the new icon generator and assets.
 
 The agent attempted to select Cancel review so the new package and artwork could replace the pending submission. Automatic approval review rejected that action because cancellation was not explicitly authorized. No cancellation occurred. A bundled question now requests approval to cancel/restart review, replace the three image assets, upload v1.8.1, resubmit with automatic publication, and publish the exact tested GitHub release. The agent must await this answer before those dependent external changes. This is the current Store delivery blocker; the package and media are complete.
+
+
+## Final v1.8.1 delivery
+
+Monroe explicitly approved canceling the earlier review, replacing its package/icon/promotional images, resubmitting with automatic publication, and publishing GitHub v1.8.1. Those actions succeeded. Google accepted the exact tested ZIP; the package page showed draft 1.8.1 with the original three permissions and published 1.8.0. The refreshed Store icon and both promotional images were uploaded and saved. Final Google receipt: “Your extension was submitted for review”; subsequent item status: Pending review. The earlier automatic-review rejection is resolved by the explicit approval and successful resubmission.
+
+Public release: https://github.com/StoneHub/webDevFeedbackExt/releases/tag/v1.8.1 — non-draft, stable, exact source `dd07467aaf8955530fb011e4dfb0247ec4934ceb`. GitHub's uploaded ZIP digest matches `72a1a50825a75f759a4cfc02526361e03327e819234ed345327e11b417fcc613`; checksum and passing acceptance report are attached.
+
+Canonical source and artwork integrated through https://github.com/StoneHub/webDevFeedbackExt/pull/39 with a passing required validate check; default main merge `91e21ff`. The usual checkout was aligned to that merged revision after verifying identical file contents. Main retains its existing unreleased workflow; the v1.8.1 release tag preserves the icon-only hotfix baseline.
+
+Cleanup: removed `/private/tmp/dfc-icon-release-181` after verifying its clean source was backed by the public release tag and branch, and copying its tested ZIP/checksum/report to ignored `dist/release-v1.8.1/`. This also removed task-owned browser downloads, dependency tree, npm cache, and temporary test outputs. The acceptance harness closed its isolated browser/server/profile. Retain the compact release artifacts and `output/store-icon-release-1.8.1/` receipts until Google review is resolved; the agent owns removing duplicate local artifacts after public listing verification. The selected SVGs and media sources remain in Git. No user feedback was removed, and the installed Store extension was not replaced with an unpacked build.
+
+Next external owner: Google review. Approval triggers automatic Store publication, then Store-installed Edge copies receive v1.8.1 through the normal browser update cycle. Public Store publication and installed 1.8.1 runtime remain unverified. No recurring monitor was requested or created.

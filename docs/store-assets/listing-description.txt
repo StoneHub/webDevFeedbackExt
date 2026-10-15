@@ -1,0 +1,20 @@
+Turn “this needs changing” into feedback a developer can act on.
+
+Pick an element on a webpage, describe the change, and keep the request with its selector, visible text, page URL, and captured context.
+
+CAPTURE → REVIEW → HAND OFF
+
+• Pick the exact element you want to discuss.
+• Write a clear change request beside the element.
+• Keep captured feedback on your device.
+• Copy or export the context for a developer or coding agent.
+
+LOCAL STORAGE, EXPLICIT SHARING
+
+Saved feedback is stored locally in your browser. There is no cloud sync, telemetry, hosted AI connection, or always-on page monitoring. Access to the current tab starts when you activate capture.
+
+Captured webpage content and your notes may contain private information. Review them before sharing. The extension provides context for a handoff; it does not sign in to an AI account or implement changes for you.
+
+Element capture works on accessible webpages. Browser-internal pages and some embedded content cannot be captured reliably.
+
+Dev Feedback Capture is an independent tool from FlyingChanges Code.

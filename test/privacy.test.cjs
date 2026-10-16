@@ -45,8 +45,9 @@ test('clipboard text names each element, keeps notes, and strips URL secrets', (
 
 function background(options={}) {
   const local = structuredClone(options.local || {}), sessions = structuredClone(options.sessions || {});
-  let listener; let failWrite = false; let access; const windowTypes=[]; const badges=[]; const tabMessages=[];
-  const initialTab={id:1,windowId:1,url:'https://site.test/page',title:'Page',width:800,height:600};
+  let listener; let commandListener; let failWrite = false; let access; const windowTypes=[]; const badges=[]; const tabMessages=[]; const injections=[];
+  const initialTab={id:1,windowId:1,url:options.url || 'https://site.test/page',title:'Page',width:800,height:600};
+  const fileAccessSequence=[...(options.fileAccessSequence || [])];
   const tabs=new Map([[1, initialTab]]); let activeId=1;
   const area=data=>({
     async get(keys){ return keys===null ? structuredClone(data) : Object.fromEntries((Array.isArray(keys)?keys:[keys]).filter(k=>k in data).map(k=>[k,structuredClone(data[k])])); },
@@ -57,20 +58,50 @@ function background(options={}) {
   });
   const chrome={
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
+    extension:{async isAllowedFileSchemeAccess(){if(options.failFileAccess)throw new Error('File access query failed');return fileAccessSequence.length ? fileAccessSequence.shift() : options.fileAccess !== false;}},
     storage:{local:area(local),session:area(sessions)},
-    scripting:{async insertCSS(){},async executeScript(details){ if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
+    scripting:{async insertCSS(details){injections.push(details);},async executeScript(details){injections.push(details);if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}if(!details.args)return [{result:options.contentType || 'text/html'}];return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
     tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return {ok:true};},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
     action:{async setBadgeText(details){badges.push(details);},async setBadgeBackgroundColor(){}},
     permissions:{onAdded:{addListener(){}}},
-    commands:{onCommand:{addListener(){}}}
+    commands:{onCommand:{addListener(fn){commandListener=fn;}}}
   };
   const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder};
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
   const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
-  return {local,sessions,content,page,windowTypes,badges,tabMessages,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
+  return {local,sessions,content,page,windowTypes,badges,tabMessages,injections,command:()=>commandListener('toggle-feedback-mode'),get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
 }
+
+test('file access is checked before injection, run creation, or badge activation',async()=>{
+  for(const options of [{fileAccess:false},{failFileAccess:true}]) {
+    const app=background({url:'file:///PRIVATE_DIR/plan.html',...options});
+    const result=await app.send({action:'set-picking',tabId:1,enabled:true});
+    assert.equal(result.ok,false);assert.equal(result.needsFileAccess,true);
+    assert.match(result.reason,/Allow access to file URLs/);assert.doesNotMatch(result.reason,/PRIVATE_DIR/);
+    assert.equal(app.injections.length,0);assert.equal(app.badges.length,0);assert.equal(Object.keys(app.sessions).length,0);
+    app.command();await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(app.injections.length,0,'the shortcut uses the same preflight');assert.equal(app.badges.length,0);
+  }
+});
+
+test('allowed local HTML picks normally, while local and MIME-detected PDFs stay unsupported',async()=>{
+  const app=background({url:'file:///PRIVATE_DIR/plan.html'});
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true})).ok,true);
+  assert.equal(app.badges.at(-1).text,'ON');assert.ok(app.injections.length);
+  for(const options of [{url:'file:///PRIVATE_DIR/plan.pdf'},{url:'file:///PRIVATE_DIR/document',contentType:'application/pdf'}]) {
+    const pdf=background(options);const result=await pdf.send({action:'set-picking',tabId:1,enabled:true});
+    assert.equal(result.ok,false);assert.match(result.reason,/PDF/);assert.equal(pdf.badges.length,0);
+  }
+});
+
+test('revoked file access during injection returns setting guidance without starting a run',async()=>{
+  const app=background({url:'file:///PRIVATE_DIR/plan.html',denyInjection:true,fileAccessSequence:[true,false]});
+  const result=await app.send({action:'set-picking',tabId:1,enabled:true});
+  assert.equal(result.needsFileAccess,true);assert.match(result.reason,/Allow access to file URLs/);
+  assert.doesNotMatch(result.reason,/Injection is blocked/);assert.equal(app.badges.length,0);assert.equal(Object.keys(app.sessions).length,0);
+});
 
 test('broker denies content-script deletes and adds, forged extension URLs, popup subframes, and wrong editor ownership', async () => {
   const app=background({local:{'dev-feedback-https://private.test':[element('private')]}});

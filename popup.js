@@ -1,6 +1,6 @@
 (function() {
   'use strict';
-  const { buildClipboardText, canInjectIntoUrl, detectSourceKind, frameAccessPattern, makeStorageKey, prepareExportHistories, safeShareUrl, sanitizeFeedbackItems, SHORTCUT_LABEL, MAC_SHORTCUT_LABEL } = DevFeedbackShared;
+  const { buildClipboardText, canInjectIntoUrl, checkFileAccess, detectSourceKind, frameAccessPattern, makeStorageKey, prepareExportHistories, safeShareUrl, sanitizeFeedbackItems, SHORTCUT_LABEL, MAC_SHORTCUT_LABEL } = DevFeedbackShared;
   let tab;
   let state = {};
   let frameAccess = [];
@@ -8,7 +8,12 @@
   let pageItems = [];
   const pick = document.getElementById('primary-action-btn');
   const warning = document.getElementById('warning');
+  const fileSettings = document.getElementById('file-access-settings-btn');
   function showError(message) { warning.textContent = message; warning.hidden = !message; }
+  function showCaptureError(result) {
+    showError(result.reason);
+    fileSettings.hidden = !result.needsFileAccess;
+  }
   // Embedded frames from other sites (an artifact iframe, a preview pane) need the user's one-time OK.
   async function missingFrameAccess() {
     const frames = await chrome.scripting.executeScript({
@@ -67,6 +72,8 @@
       showError('Open a webpage to pick an element. PDF and browser-internal pages are not supported.');
       return;
     }
+    const fileAccess = await checkFileAccess(tab.url, chrome.extension);
+    if (fileAccess) { showCaptureError(fileAccess); return; }
     state = await chrome.tabs.sendMessage(tab.id, {action:'get-state'}, {frameId:0}).catch(()=>({}));
     frameAccess = await missingFrameAccess();
     if (frameAccess.length) {
@@ -88,9 +95,20 @@
     if (enabled && frameAccess.length) await chrome.permissions.request({origins:frameAccess}).catch(() => false);
     try {
       const result = await started;
-      if (!result?.ok) throw new Error(result?.reason || 'Could not start picking on this page.');
+      if (!result?.ok) {
+        showCaptureError(result || {reason:'Could not start picking on this page.'});
+        pick.disabled = Boolean(result?.needsFileAccess);
+        return;
+      }
       window.close();
     } catch (error) { showError(error.message); pick.disabled = false; }
+  });
+  fileSettings.addEventListener('click', async () => {
+    const scheme = /Edg\//.test(navigator.userAgent) ? 'edge' : 'chrome';
+    try {
+      await chrome.tabs.create({url:`${scheme}://extensions/?id=${chrome.runtime.id}`});
+      window.close();
+    } catch { showError('Open Chrome or Edge extensions, choose this extension’s Details, and turn on “Allow access to file URLs”.'); }
   });
   document.getElementById('copy-btn').addEventListener('click', async event => {
     const button = event.currentTarget;

@@ -41,7 +41,7 @@ const staged = fs.readdirSync(stagedDir).sort();
 
 // The project references the staged files in place, so restaging refreshes the next build. A project
 // generated before a file was added would leave it out, so regenerate it.
-if (fs.existsSync(pbxproj) && !staged.every(file => fs.readFileSync(pbxproj, 'utf8').includes(`path = ../../extension/${file};`))) {
+if (fs.existsSync(pbxproj) && !staged.every(file => [`path = ../../extension/${file};`, `path = "../../extension/${file}";`].some(reference => fs.readFileSync(pbxproj, 'utf8').includes(reference)))) {
   console.log('Staged files changed; regenerating the Safari project.');
   fs.rmSync(generatedDir, { recursive: true, force: true });
 }
@@ -52,8 +52,11 @@ if (!fs.existsSync(pbxproj)) {
 
 // Safari 27's converter capitalizes the app identifier from the app name, but the
 // embedded extension keeps the requested prefix; Xcode refuses a mismatched pair.
+// The app and extension carry the extension's version instead of the converter's 1.0 (1).
 const project = fs.readFileSync(pbxproj, 'utf8').replace(/PRODUCT_BUNDLE_IDENTIFIER = "([^"]+)";/g, (line, id) =>
-  id.toLowerCase() === APP_ID.toLowerCase() ? `PRODUCT_BUNDLE_IDENTIFIER = "${APP_ID}";` : line);
+  id.toLowerCase() === APP_ID.toLowerCase() ? `PRODUCT_BUNDLE_IDENTIFIER = "${APP_ID}";` : line)
+  .replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${manifest.version};`)
+  .replace(/CURRENT_PROJECT_VERSION = [^;]+;/g, `CURRENT_PROJECT_VERSION = ${manifest.version};`);
 fs.writeFileSync(pbxproj, project);
 const ids = [...new Set([...project.matchAll(/PRODUCT_BUNDLE_IDENTIFIER = "([^"]+)";/g)].map(match => match[1]))].sort();
 assert(JSON.stringify(ids) === JSON.stringify([APP_ID, EXTENSION_ID]), `Unexpected bundle identifiers: ${ids.join(', ')}`);
@@ -109,6 +112,10 @@ function checkBundle(app) {
   assert(plist(app).CFBundleIdentifier === APP_ID, 'App bundle identifier changed');
   assert(plist(appex).CFBundleIdentifier === EXTENSION_ID, 'Extension bundle identifier changed');
   assert(plist(appex).NSExtension?.NSExtensionPointIdentifier === 'com.apple.Safari.web-extension', 'Not a Safari web extension');
+  for (const bundle of [app, appex]) {
+    const { CFBundleShortVersionString, CFBundleVersion } = plist(bundle);
+    assert(CFBundleShortVersionString === manifest.version && CFBundleVersion === manifest.version, `${path.basename(bundle)} is ${CFBundleShortVersionString} (${CFBundleVersion}), not ${manifest.version}`);
+  }
   const resources = path.join(appex, 'Contents', 'Resources');
   for (const file of staged) {
     assert(fs.readFileSync(path.join(resources, file)).equals(fs.readFileSync(path.join(stagedDir, file))), `Packaged ${file} differs from the staged file`);

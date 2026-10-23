@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.3 — 2026-10-23
+
+- Add a Safari development preview. Safari cannot keep `storage.local` private from content scripts, so its History lives in the app extension's sandbox and its clipboard writes go through the native handler. Built and unit-tested; not yet run in Safari.
+- The extension menu lists and copies this page's feedback through the background, the same path the note uses.
+- If the reply to a save is lost and the note is edited before retrying, the retry updates that note instead of keeping the old text.
+
 ## 1.8.2 — 2026-10-23
 
 Built from main: the workflow changes that 1.8.1 left out, plus the clipboard fix.

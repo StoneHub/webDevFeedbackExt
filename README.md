@@ -2,7 +2,7 @@
 
 Pick a webpage element, describe the change, and give another developer enough context to act on it.
 
-Version 1.8.2 focuses on Element capture, the clipboard, and a per-page list in the extension menu. The Chrome Web Store may list an earlier version until 1.8.2 is published there.
+Version 1.8.3 focuses on Element capture, the clipboard, and a per-page list in the extension menu, and adds a Safari development preview. The Chrome Web Store may list an earlier version until 1.8.3 is published there.
 
 ## Capture feedback
 

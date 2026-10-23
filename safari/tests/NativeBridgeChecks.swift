@@ -56,6 +56,23 @@ struct NativeBridgeChecks {
         check(await send(["action": "history.write", "key": key + "/1", "items": "[]"]).ok, "shrinking is allowed")
         check(await send(["action": "history.read", "key": key + "/1"]).items == nil, "empty list removes the key")
 
+        // An unreadable or corrupt store fails the write instead of being replaced by one page.
+        let store = directory.appendingPathComponent("history.json")
+        let otherPage = ["action": "history.write", "key": key + "/other", "items": item]
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: store.path)
+        let unreadable = await send(otherPage)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: store.path)
+        check(unreadable == .failure("Saved notes could not be read or written."), "an unreadable store refuses writes")
+        check(await send(["action": "history.read", "key": key]).items == item, "page A survives the refused write")
+        check(await send(["action": "history.read", "key": key + "/other"]).items == nil, "page B was not written")
+        let original = try Data(contentsOf: store)
+        let corrupt = Data("{\"dev-feedback-https://site.test\":".utf8)
+        try corrupt.write(to: store)
+        check(await send(otherPage).ok == false, "a corrupt store refuses writes")
+        check(await send(["action": "history.read", "key": key]).ok == false, "a corrupt store refuses reads")
+        check(try Data(contentsOf: store) == corrupt, "the corrupt file is left untouched")
+        try original.write(to: store)
+
         // Concurrent writes to different pages all land; the actor serializes read-modify-write.
         await withTaskGroup(of: Void.self) { group in
             for index in 0..<20 {

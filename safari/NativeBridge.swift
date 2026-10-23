@@ -98,7 +98,14 @@ actor HistoryStore {
     }
 
     private func load(_ profile: UUID?) throws -> [String: String] {
-        guard let data = try? Data(contentsOf: file(profile)) else { return [:] }
+        // Only a missing file means empty History. Any other failure (unreadable, corrupt) must stop the
+        // caller, or the next write would replace every other page's notes.
+        let data: Data
+        do {
+            data = try Data(contentsOf: file(profile))
+        } catch CocoaError.fileReadNoSuchFile {
+            return [:]
+        }
         return try JSONDecoder().decode([String: String].self, from: data)
     }
 

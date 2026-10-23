@@ -73,7 +73,8 @@ The installer works like this:
 - It refuses a running app, an unsigned build, or a different team.
 - It copies to `/Applications/Dev Feedback Capture.app` and compares every file.
 - It keeps the previous copy until the new one verifies, and rolls back on failure.
-- It registers the installed extension, then removes only this build product's registration so Safari doesn't list it twice.
+- It registers the installed extension, then removes only this build product's registration so Safari doesn't list it twice. If that cleanup fails, it warns; the install itself stands.
+- After an update, Safari can keep running the previous extension code: turn the extension off and on in Safari Settings → Extensions, then reload the test page.
 - It does not enable the extension or grant website access.
 
 ## Validate in Safari

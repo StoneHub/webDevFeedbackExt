@@ -56,9 +56,14 @@ try {
     }
     throw error;
   }
+  console.log(`Installed ${destination}: ${Object.keys(expected).length} files match the build, signature valid.`);
   // Safari would otherwise list the build product too; remove only this exact build's registration.
-  run('pluginkit', ['-r', path.join(source, APPEX)]);
-  console.log(`Installed ${destination}: ${Object.keys(expected).length} files match the build, signature valid. Open it once, then enable the extension in Safari Settings > Extensions.`);
+  // The install already succeeded, so a failure here is a warning, not an install error.
+  if (spawnSync('pluginkit', ['-r', path.join(source, APPEX)], { stdio:'inherit' }).status !== 0) {
+    console.warn(`Warning: could not unregister the build product at ${path.join(source, APPEX)}; Safari may list the extension twice.`);
+  }
+  // Safari can keep running the previous extension code until the extension is turned off and on.
+  console.log('Open the app once. If the extension was already enabled, turn it off and on in Safari Settings > Extensions, then reload the test page.');
 } finally {
   if (!keepStage) fs.rmSync(stage, { recursive:true, force:true });
 }

@@ -509,3 +509,54 @@ test('note: × closes through its own frame, and says so if the page never remov
   await frame.expire();
   assert.match(frame.nodes.status.textContent,/Could not close the note\. Reload the page\./);assert.equal(frame.nodes.cancel.disabled,false);
 });
+
+// content.js in a vm with a minimal DOM: only the open note's own window, with the token from its URL, closes it.
+function pageReceiver(){
+  let onWindowMessage,onRuntimeMessage;const sent=[];const notes=[];
+  const node=()=>({style:{},dataset:{},classList:{add(){},remove(){}},remove(){this.removed=true;},focus(){},appendChild(){},contains(){return false;}});
+  const toast={hidden:true};
+  const shadow={innerHTML:'',querySelector:()=>toast,appendChild(){}};
+  const document={documentElement:{appendChild(){}},addEventListener(){},querySelectorAll:()=>[],activeElement:null,
+    createElement(tag){const element=node();element.attachShadow=()=>shadow;if(tag==='iframe'){element.contentWindow={note:notes.length};notes.push(element);}return element;}};
+  const chrome={runtime:{id:'unit',getURL:path=>'safari-web-extension://unit/'+path,onMessage:{addListener(fn){onRuntimeMessage=fn;}},
+    sendMessage(message){sent.push(message.action);return Promise.resolve({ok:true,toast:''});}}};
+  const context={document,chrome,crypto:webcrypto,innerWidth:800,innerHeight:600,setTimeout,clearTimeout,URL,
+    window:{addEventListener(type,fn){if(type==='message')onWindowMessage=fn;}}};
+  context.globalThis=context;
+  vm.runInNewContext(source('content.js'),context);
+  const ask=request=>{let reply;onRuntimeMessage(request,{id:'unit'},value=>{reply=value;});return reply;};
+  return {sent,
+    open(sessionId){ask({action:'show-capture-overlay',sessionId,anchor:null});const note=notes.at(-1);return {note,token:new URL(note.src).searchParams.get('close')};},
+    post:(source,data)=>onWindowMessage({source,data}),
+    get open_(){return ask({action:'get-state'}).editorOpen;}};
+}
+
+test('the page closes a note only for its own frame with that note\'s token',()=>{
+  const page=pageReceiver();
+  const first=page.open('s1');
+  assert.match(first.token,/^[0-9a-f]{32}$/,'a 128-bit token');
+  const pageWindow={};
+  for(const [label,source,data] of [
+    ['no token',first.note.contentWindow,{devFeedback:'close'}],
+    ['wrong token',first.note.contentWindow,{devFeedback:'close',token:'0'.repeat(32)}],
+    ['right token from the page',pageWindow,{devFeedback:'close',token:first.token}],
+    ['right token with no source',null,{devFeedback:'close',token:first.token}],
+    ['other message from the note',first.note.contentWindow,{devFeedback:'open',token:first.token}],
+    ['not an object',first.note.contentWindow,'close']
+  ]){
+    page.post(source,data);
+    assert.equal(page.open_,true,label);assert.equal(first.note.removed,undefined,label);
+  }
+  assert.deepEqual(page.sent,[],'nothing is asked of the background before a real close');
+  page.post(first.note.contentWindow,{devFeedback:'close',token:first.token});
+  assert.equal(page.open_,false);assert.equal(first.note.removed,true);
+  assert.deepEqual(page.sent,['take-note-toast'],'the toast comes from the background, not the message');
+  // A new note gets a new token; the old one no longer closes anything.
+  const second=page.open('s2');
+  assert.notEqual(second.token,first.token);
+  page.post(second.note.contentWindow,{devFeedback:'close',token:first.token});
+  page.post(first.note.contentWindow,{devFeedback:'close',token:second.token});
+  assert.equal(page.open_,true,'an old token or the old frame cannot close the new note');
+  page.post(second.note.contentWindow,{devFeedback:'close',token:second.token});
+  assert.equal(page.open_,false);
+});

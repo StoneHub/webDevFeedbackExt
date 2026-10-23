@@ -39,8 +39,8 @@
     ]).finally(() => clearTimeout(timer));
   }
   // The background forgets the session and resumes picking; then this frame asks the page's content
-  // script to remove it. Safari stopped delivering the background's close message to the page while
-  // this frame was open, so the close itself never depends on that message.
+  // script to remove it. In Safari 27.0.1 the background's close message to the page came back
+  // unanswered while this frame was open (cause unknown), so the close never depends on it.
   async function close() {
     await send({ action:'clear-capture-session', saved, copied, count }, 3000).catch(() => null);
     // The page sees this message too, so it carries nothing but the token.

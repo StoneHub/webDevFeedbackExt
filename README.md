@@ -2,13 +2,13 @@
 
 Pick a webpage element, describe the change, and give another developer enough context to act on it.
 
-The 1.8.0 candidate focuses on Element capture, the clipboard, and a per-page list in the extension menu. Published Store versions may differ until this candidate completes review.
+Version 1.8.2 focuses on Element capture, the clipboard, and a per-page list in the extension menu. The Chrome Web Store may list an earlier version until 1.8.2 is published there.
 
 ## Capture feedback
 
 1. Open the extension on a webpage and choose **Pick an element**.
 2. Click the target. A small note opens next to it. Write what should change, or leave it blank to save just the element.
-3. Press Enter or **Save**. Everything saved since you started picking is copied to your clipboard, and picking continues. **×** closes the note without saving.
+3. Press Enter or **Save**. All feedback saved on this page, oldest first, is copied to your clipboard, and picking continues. Earlier notes stay in the copy after Stop and Start or from another tab on the same page. **×** closes the note without saving.
 4. Press Escape to stop. The extension menu lists this page's captures with **Copy all**, **Markdown**, and **JSON**.
 
 Picking also works with the extension shortcut: `Ctrl+Shift+F`, or `Command+Shift+F` on macOS. If the browser has not assigned it, set it in extension shortcut settings. While picking, the toolbar icon shows **ON**; focus a target with Tab and press Alt+Enter. Shift+Enter adds a line to a note.
@@ -37,7 +37,7 @@ New Region/PDF, Visual, and Add Content capture are no longer offered. Existing 
 
 Element capture requires an accessible webpage DOM. Browser-internal pages and PDF viewers are unsupported. Content embedded from another site (an artifact or preview iframe) can be picked after you allow that site once when Chrome asks. Some page structures or site restrictions can still prevent reliable targeting. The selected element's context is a snapshot, not a persistent connection to the live site.
 
-Save failures retain the draft. Saved captures have an 8 MiB budget, a 3 MiB record limit, and a 500-record limit per site. Delete older captures from the extension menu when needed. Deleting a capture does not remove earlier downloads, clipboard copies, or imported project sidecars.
+Save failures retain the draft. If the browser refuses the copy, the note stays open, says it was saved, and offers **Copy again**; nothing is saved twice. Saved captures have an 8 MiB budget, a 3 MiB record limit, and a 500-record limit per site. Delete older captures from the extension menu when needed. Deleting a capture does not remove earlier downloads, clipboard copies, or imported project sidecars.
 
 ## Privacy and permissions
 

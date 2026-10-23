@@ -1,18 +1,21 @@
 # Changelog
 
-## 1.8.1 — 2026-10-15
+## 1.8.2 — 2026-10-23
 
-- Replace the browser-code icon with selection corners, an orange pointer, and a pencil badge. Use a tighter optical crop at toolbar sizes.
-- The Store hotfix is built from published 1.8.0 and preserves its capture, History, exports, and permissions. The unreleased workflow changes below remain on main.
-- Generate all icon sizes from one SVG source.
-
-## Unreleased
+Built from main: the workflow changes that 1.8.1 left out, plus the clipboard fix.
 
 - Pick elements inside embedded frames from other sites, such as Claude artifacts, after allowing that site once.
 - Move picking instructions into the extension menu. The page shows no panel while picking; the toolbar badge reads ON.
 - Open a one-field note next to the picked element with only Save and ×. A blank note saves just the element reference.
-- Each save copies every capture since picking started to the clipboard, shows a toast, and keeps picking.
+- Each save copies all of this page's feedback, oldest first, to the clipboard, shows a toast, and keeps picking. The copy keeps earlier notes after Stop and Start and from other tabs on the same page; other pages stay out.
+- Copy on pages that block the Clipboard API in frames. If a copy still fails, the note stays open with Copy again instead of closing.
 - Replace the History panel and its AI Bundle, HTML report, Markdown, and AI prompt exports with a per-page list in the extension menu: Copy all, Markdown, and JSON (the MCP inbox format). Saved notes are no longer edited in place.
+
+## 1.8.1 — 2026-10-15
+
+- Replace the browser-code icon with selection corners, an orange pointer, and a pencil badge. Use a tighter optical crop at toolbar sizes.
+- The Store hotfix is built from published 1.8.0 and preserves its capture, History, exports, and permissions. The workflow changes listed under 1.8.2 remained on main.
+- Generate all icon sizes from one SVG source.
 
 ## 1.8.0 Element-focused candidate (unreleased)
 

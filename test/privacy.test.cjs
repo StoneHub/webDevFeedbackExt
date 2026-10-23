@@ -157,8 +157,14 @@ test('Element editor session saves are retryable and idempotent without disclosi
   assert.equal(app.local['dev-feedback-https://site.test'].length,1);
 });
 
-test('each save copies the whole picking run, and a new run starts fresh',async()=>{
-  const app=background();
+test('each save copies all of this page\'s stored feedback, oldest first, across Stop/Start',async()=>{
+  const key='dev-feedback-https://site.test';
+  // Earlier saves on this page (another tab or run), a legacy Region record, and other pages on the same site.
+  const app=background({local:{[key]:[
+    {...element('earlier','From another tab'),selector:'#earlier'},
+    {...element('other-path','OTHER_PATH_SENTINEL'),pageUrl:'https://site.test/other'},
+    {id:'legacy',type:'region',pageUrl:'https://site.test/page?token=PRIVATE_QUERY',note:'Legacy region',screenshot:{dataUrl:PNG},annotations:[],timestamp:'2026-09-01T00:00:00Z'}
+  ],'dev-feedback-https://other.test':[element('other-site','OTHER_SITE_SENTINEL')]}});
   const popup=app.page('popup.html');
   const save=async(selector,note)=>{
     const started=await app.send({action:'start-element-capture',snapshot:{selector,tag:'button',text:selector}},app.content);
@@ -166,13 +172,25 @@ test('each save copies the whole picking run, and a new run starts fresh',async(
   };
   await app.send({action:'set-picking',tabId:1,enabled:true},popup);
   const first=await save('#one','Bigger');
-  assert.equal(first.count,1);assert.match(first.clipboard,/`#one`[\s\S]*Bigger/);
-  const second=await save('#two','');
-  assert.equal(second.count,2);assert.match(second.clipboard,/1\. `#one`[\s\S]*2\. `#two`/);
+  assert.equal(first.count,3);
+  assert.match(first.clipboard,/1\. `#earlier`[\s\S]*From another tab\n[\s\S]*2\. Region capture\n   Legacy region\n[\s\S]*3\. `#one`[\s\S]*Bigger/);
+  assert.doesNotMatch(first.clipboard,/OTHER_PATH_SENTINEL|OTHER_SITE_SENTINEL|PRIVATE_QUERY/);
+  await app.send({action:'set-picking',tabId:1,enabled:false},popup);
   await app.send({action:'set-picking',tabId:1,enabled:true},popup);
-  const third=await save('#three','Next run');
-  assert.equal(third.count,1);assert.doesNotMatch(third.clipboard,/#one|#two/);
-  assert.equal(app.local['dev-feedback-https://site.test'].length,3,'every save still lands in the page list');
+  const second=await save('#two','');
+  assert.equal(second.count,4,'Stop/Start keeps the page aggregate');
+  assert.match(second.clipboard,/3\. `#one`[\s\S]*4\. `#two` \(button "#two"\)\n\n/,'a blank note copies just the element');
+  assert.equal(second.clipboard,shared.buildClipboardText(app.local[key].filter(item=>shared.safeShareUrl(item.pageUrl)==='https://site.test/page')),'same text as Copy all');
+});
+
+test('retrying a saved note copies again without storing it twice',async()=>{
+  const app=background();
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one',tag:'button'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  const first=await app.send({action:'add-feedback-item',item:{note:'Once'}},sender);
+  const retry=await app.send({action:'add-feedback-item',item:{note:'Once'}},sender);
+  assert.equal(retry.ok,true);assert.equal(retry.count,1);assert.equal(retry.clipboard,first.clipboard);
+  assert.equal(app.local['dev-feedback-https://site.test'].length,1);
 });
 
 test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
@@ -180,11 +198,13 @@ test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
   const open=async()=>app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content)).sessionId);
   const lastToast=()=>app.tabMessages.filter(m=>m.message.action==='close-capture-overlay').at(-1).message.toast;
   await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},await open());
-  assert.equal(lastToast(),'Copied to clipboard · 2 selections');
+  assert.equal(lastToast(),"Copied this page's feedback · 2 items");
   assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
   assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
   await app.send({action:'clear-capture-session',saved:true,copied:false,count:1},await open());
   assert.equal(lastToast(),'Saved. Copy it from the extension menu.');
+  await app.send({action:'clear-capture-session',saved:true},await open());
+  assert.equal(lastToast(),'Saved. Copy it from the extension menu.','closing after a failed copy says the note was saved');
   await app.send({action:'clear-capture-session'},await open());
   assert.equal(lastToast(),'','closing without saving shows nothing');
   assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});

@@ -11,7 +11,8 @@
 - Pick elements inside embedded frames from other sites, such as Claude artifacts, after allowing that site once.
 - Move picking instructions into the extension menu. The page shows no panel while picking; the toolbar badge reads ON.
 - Open a one-field note next to the picked element with only Save and ×. A blank note saves just the element reference.
-- Each save copies every capture since picking started to the clipboard, shows a toast, and keeps picking.
+- Each save copies all of this page's feedback, oldest first, to the clipboard, shows a toast, and keeps picking. The copy keeps earlier notes after Stop and Start and from other tabs on the same page; other pages stay out.
+- Copy on pages that block the Clipboard API in frames. If a copy still fails, the note stays open with Copy again instead of closing.
 - Replace the History panel and its AI Bundle, HTML report, Markdown, and AI prompt exports with a per-page list in the extension menu: Copy all, Markdown, and JSON (the MCP inbox format). Saved notes are no longer edited in place.
 
 ## 1.8.0 Element-focused candidate (unreleased)

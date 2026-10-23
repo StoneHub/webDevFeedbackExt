@@ -27,15 +27,21 @@ assert.equal(manifest.version,version);
 const report={status:'running',sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),zip:zip.split('/').at(-1),sha256:zipHash,version,files:originalFiles,checks:[],limitations:[
  'Isolated Chrome for Testing via CDP; does not certify every Chrome/Edge version or Chrome Web Store approval.',
  'Toolbar action uses the browser Extensions.triggerAction API. Keyboard selection/cancel uses trusted browser input; OS-global shortcut dispatch is covered by manifest and command-registration checks, not the host OS hotkey dispatcher.',
- 'Synthetic legacy and capacity fixtures are seeded through the browser storage debugging API. No real user history or extension code is changed.'
+ 'Synthetic legacy and capacity fixtures are seeded through the browser storage debugging API. No real user history or extension code is changed.',
+ 'The copy-failure check makes one note frame refuse both clipboard paths at runtime; no page in this browser was found that refuses the fallback copy.'
 ]};
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(fn,label){const end=Date.now()+15000;let last;while(Date.now()<end){try{const value=await fn();if(value)return value;}catch(e){last=e;}await delay(50);}throw new Error(`Timed out: ${label}${last?' — '+last.message:''}`);}
 const html='<!doctype html><html><head><title>Release acceptance fixture</title><link rel="icon" href="data:,"></head><body style="font:20px system-ui;padding:60px"><h1>Checkout</h1><button id="save-button">Save changes</button><button id="second">Second action</button><input type="password" value="SECRET_INPUT_SENTINEL"><p id="parent-secret">PARENT_SECRET_SENTINEL</p><script>window.siteClicks=0;document.querySelector("#save-button").onclick=()=>window.siteClicks++;</script></body></html>';
-const server=createServer((req,res)=>{if(req.url==='/sample.pdf'){res.setHeader('Content-Type','application/pdf');res.end(readFileSync(join(root,'test/fixtures/sample.pdf')));return;}res.setHeader('Content-Type','text/html');res.end(html);});
+const server=createServer((req,res)=>{if(req.url==='/sample.pdf'){res.setHeader('Content-Type','application/pdf');res.end(readFileSync(join(root,'test/fixtures/sample.pdf')));return;}res.setHeader('Content-Type','text/html');
+ // A page that forbids the Clipboard API in every frame, as some sites do.
+ if(req.url==='/blocked')res.setHeader('Permissions-Policy','clipboard-read=(), clipboard-write=()');
+ res.end(req.url==='/reader'?'<title>Clipboard reader</title>':html);});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const url=`http://127.0.0.1:${server.address().port}/fixture`;
 const storageKey=`dev-feedback-${new URL(url).origin}`;
+// localhost is a different origin from 127.0.0.1, so its clipboard grant reaches neither the fixture nor the extension.
+const readerURL=`http://localhost:${server.address().port}/reader`;
 let ctx;
 try{
  ctx=await chromium.launchPersistentContext(join(temp,'profile'),{channel:'chromium',headless:true,ignoreDefaultArgs:['--disable-extensions'],args:['--enable-unsafe-extension-debugging'],viewport:{width:1280,height:900},acceptDownloads:true});
@@ -78,9 +84,9 @@ try{
  assert.equal(await badge(),'ON');assert.equal(await page.locator('[data-dev-feedback-picker]').isHidden(),true,'no in-page panel while picking');
  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'Escape cancels picker');assert.equal(await badge(),'');
  check('toolbar activation, ON badge, no page panel, and trusted keyboard cancel');
- // Read the clipboard from a separate extension-origin top-level document; embedded frames do not get clipboard-read.
- await ctx.grantPermissions(['clipboard-read','clipboard-write']);
- const clipboardReader=await ctx.newPage();await clipboardReader.goto(extURL+'/element.html');
+ // Only a separate reader origin may touch the clipboard, so every copy below runs with the browser's default permissions.
+ await ctx.grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(readerURL).origin});
+ const clipboardReader=await ctx.newPage();await clipboardReader.goto(readerURL);
  const originalClipboard=await clipboardReader.evaluate(()=>navigator.clipboard.readText());
  const clipboard=async()=>{await clipboardReader.bringToFront();const text=await clipboardReader.evaluate(()=>navigator.clipboard.readText());await page.bringToFront();return text;};
  try{
@@ -101,16 +107,16 @@ try{
   await editor.locator('#note').press('Enter');await until(async()=>(await editor.locator('#status').textContent()).includes('500 captures'),'capacity rejection');
   assert.equal(await editor.locator('#note').inputValue(),'SELECTED element spacing');assert.equal((await getStorage())[storageKey].length,500);
   await seed({[storageKey]:[]});await editor.locator('#note').press('Enter');await until(async()=>(await state()).feedbackMode,'save resumes picking');
-  await until(async()=>(await overlayText()).includes('Copied to clipboard · 1 selection'),'clipboard toast');
+  await until(async()=>(await overlayText()).includes("Copied this page's feedback · 1 item"),'clipboard toast');
   await page.screenshot({path:join(out,'saved-toast.png')});
   const saved=(await getStorage())[storageKey];assert.equal(saved.length,1);assert.equal(saved[0].note,'SELECTED element spacing');
   assert.match(await clipboard(),/^Page feedback: [^\n]+\n\n1\. `#save-button` \(button "Save changes"\)\n   SELECTED element spacing\n/);
   check('capacity failure keeps the draft; Enter saves, copies, toasts, and keeps picking');
   await page.locator('#second').click();editor=await frame('element');await editor.locator('#note').press('Enter');
-  await until(async()=>(await overlayText()).includes('Copied to clipboard · 2 selections'),'run toast');
+  await until(async()=>(await overlayText()).includes("Copied this page's feedback · 2 items"),'page toast');
   assert.equal((await getStorage())[storageKey].length,2);assert.equal(await page.evaluate(()=>window.siteClicks),0);
   const run=await clipboard();assert.match(run,/1\. `#save-button`[\s\S]*2\. `#second` \(button "Second action"\)\n\n/);assert.doesNotMatch(run,/SECRET_INPUT_SENTINEL|PARENT_SECRET_SENTINEL/);
-  check('pointer pick with a blank note appends the element to the run clipboard');
+  check('pointer pick with a blank note appends the element to the page clipboard');
   await page.locator('h1').click();editor=await frame('element');await editor.locator('#note').fill('Discard me');await editor.locator('#cancel').click();
   await until(async()=>{const s=await state();return !s.editorOpen&&s.feedbackMode;},'close keeps picking');assert.equal((await getStorage())[storageKey].length,2);
   await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop after close');
@@ -139,6 +145,45 @@ try{
   await menu.click('#capture-list li:last-child button');await until(async()=>!(await getStorage())[storageKey].some(i=>i.id==='legacy-region'),'delete one');
   assert.ok((await getStorage())[storageKey].some(i=>i.id==='other-page'));await until(()=>menu.evaluate("document.querySelectorAll('#capture-list li').length===2"),'list refresh');
   check('extension menu lists this page, copies, downloads Markdown and MCP JSON, and deletes one capture');
+  const savedOn=path=>(async()=>(await getStorage())[storageKey].filter(i=>new URL(i.pageUrl).pathname===path))();
+  await start();await page.locator('h1').click();editor=await frame('element');await editor.locator('#note').fill('AFTER RESTART');await editor.locator('#note').press('Enter');
+  await until(async()=>(await overlayText()).includes("Copied this page's feedback · 3 items"),'restart toast');
+  const restarted=await clipboard();assert.match(restarted,/1\. `#save-button`[\s\S]*2\. `#second`[\s\S]*3\. `h1`[^\n]*\n   AFTER RESTART\n/);assert.doesNotMatch(restarted,/OTHER_PAGE_SENTINEL/);
+  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop after restart');
+  check('after Stop and Start, a save copies the whole page, not just the new run');
+  const firstTab=page;page=await ctx.newPage();await page.goto(url);pageCDP=await ctx.newCDPSession(page);
+  await start();await page.locator('#second').click();editor=await frame('element');await editor.locator('#note').fill('SECOND TAB');await editor.locator('#note').press('Enter');
+  await until(async()=>(await overlayText()).includes("Copied this page's feedback · 4 items"),'second tab toast');
+  assert.match(await clipboard(),/3\. `h1`[\s\S]*4\. `#second`[^\n]*\n   SECOND TAB\n/);
+  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop in second tab');
+  await page.close();page=firstTab;pageCDP=await ctx.newCDPSession(page);
+  check('a save in another tab on the same page copies that page\'s earlier notes too');
+  await page.goto(new URL('/blocked',url).href);
+  await start();await page.locator('#save-button').click();editor=await frame('element');
+  assert.equal(await editor.evaluate(()=>navigator.clipboard.writeText('').then(()=>'written',e=>e.name)),'NotAllowedError','the page policy refuses the Clipboard API in the note');
+  await editor.locator('#note').fill('BLOCKED PAGE');await editor.locator('#note').press('Enter');
+  await until(async()=>(await overlayText()).includes("Copied this page's feedback · 1 item"),'blocked page toast');
+  const blocked=await clipboard();assert.match(blocked,/^Page feedback: [^\n]*\/blocked\n\n1\. `#save-button`[^\n]*\n   BLOCKED PAGE\n/);assert.doesNotMatch(blocked,/SECOND TAB|AFTER RESTART/);
+  check('a page that blocks the Clipboard API still gets its feedback copied, and only its own');
+  // No real page refuses both copy paths in this browser, so make this one note frame refuse them; the shipped files are untouched.
+  await page.locator('#second').click();editor=await frame('element');await editor.locator('#note').fill('RETRY ME');
+  await editor.evaluate(()=>{const {writeText}=navigator.clipboard,{execCommand}=document;navigator.clipboard.writeText=()=>Promise.reject(new DOMException('refused','NotAllowedError'));document.execCommand=()=>false;
+   globalThis.restoreCopy=()=>{navigator.clipboard.writeText=writeText;document.execCommand=execCommand;};});
+  await editor.locator('#note').press('Enter');
+  await until(async()=>(await editor.locator('#status').textContent()).includes('clipboard was blocked'),'copy failure shown');
+  assert.equal(await editor.locator('#save').textContent(),'Copy again');assert.equal(await editor.locator('#note').inputValue(),'RETRY ME');
+  assert.equal((await savedOn('/blocked')).length,2,'saved before the copy failed');assert.equal(await clipboard(),blocked,'a failed copy leaves the clipboard alone');
+  await page.screenshot({path:join(out,'copy-failed.png')});
+  await editor.evaluate(()=>globalThis.restoreCopy());await editor.locator('#save').click();
+  await until(async()=>(await overlayText()).includes("Copied this page's feedback · 2 items"),'retry toast');
+  assert.match(await clipboard(),/1\. `#save-button`[\s\S]*2\. `#second`[^\n]*\n   RETRY ME\n/);assert.equal((await savedOn('/blocked')).length,2,'retry stores nothing twice');
+  await page.locator('h1').click();editor=await frame('element');await editor.locator('#note').fill('CLOSE UNCOPIED');
+  await editor.evaluate(()=>{navigator.clipboard.writeText=()=>Promise.reject(new DOMException('refused','NotAllowedError'));document.execCommand=()=>false;});
+  await editor.locator('#note').press('Enter');await until(async()=>(await editor.locator('#save').textContent())==='Copy again','second copy failure');
+  await editor.locator('#cancel').click();await until(async()=>(await overlayText()).includes('Saved. Copy it from the extension menu.'),'saved-not-copied toast');
+  assert.ok((await savedOn('/blocked')).some(i=>i.note==='CLOSE UNCOPIED'),'× after a failed copy keeps the saved note');
+  assert.equal((await state()).feedbackMode,true);await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'stop after retry');
+  check('a failed copy keeps the saved note open with Copy again; the retry copies without duplicating; × keeps it saved');
  }finally{await clipboardReader.bringToFront();await clipboardReader.evaluate(text=>navigator.clipboard.writeText(text),originalClipboard);await clipboardReader.close();await page.bringToFront();}
  const replacement=await ctx.newPage();await replacement.goto('chrome://version/');await page.close();page=replacement;pageCDP=await ctx.newCDPSession(page);
  let menu=await popup();await until(()=>menu.evaluate("document.querySelector('#warning').textContent.length>0"),'restricted-page warning');assert.equal(await menu.evaluate("document.querySelector('#primary-action-btn').disabled"),true);

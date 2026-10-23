@@ -1,6 +1,6 @@
 # Save copies this page's feedback
 
-Status: open.
+Status: fixed on `fix/page-feedback-clipboard`.
 
 ## Problem
 
@@ -30,12 +30,12 @@ The browser acceptance gate granted `clipboard-read` and `clipboard-write` to th
 
 ## Acceptance criteria
 
-- [ ] Each save returns the page's stored feedback, oldest first, with a count of page items (unit).
-- [ ] Stop/Start does not reset the aggregate; other pages and other paths on the site are excluded; legacy records are kept (unit).
-- [ ] A blank note saves just the element and still copies the page (unit, browser).
-- [ ] Retrying a save keeps one stored record (unit, browser).
-- [ ] Browser acceptance runs the copy with no clipboard permission granted to the extension or the page; readback uses a separate origin.
-- [ ] On a page that blocks the Clipboard API, Save still copies (fallback) (browser).
-- [ ] When every write path fails, the note stays open with Copy again; the retry copies; nothing is stored twice (browser).
-- [ ] Saves in a second tab on the same page copy the earlier tab's notes too (browser).
-- [ ] Picking resumes after a successful save; × after a failed copy closes and keeps the saved record.
+- [x] Each save returns the page's stored feedback, oldest first, with a count of page items (unit).
+- [x] Stop/Start does not reset the aggregate; other pages and other paths on the site are excluded; legacy records are kept (unit).
+- [x] A blank note saves just the element and still copies the page (unit, browser).
+- [x] Retrying a save keeps one stored record (unit, browser).
+- [x] Browser acceptance runs the copy with no clipboard permission granted to the extension or the page; readback uses a separate origin.
+- [x] On a page that blocks the Clipboard API, Save still copies (fallback) (browser).
+- [x] When every write path fails, the note stays open with Copy again; the retry copies; nothing is stored twice (browser).
+- [x] Saves in a second tab on the same page copy the earlier tab's notes too (browser).
+- [x] Picking resumes after a successful save; × after a failed copy closes and keeps the saved record.

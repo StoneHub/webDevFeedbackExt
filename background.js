@@ -10,6 +10,7 @@
     buildFeedbackId,
     canInjectIntoUrl,
     makeStorageKey,
+    safeShareUrl,
     sanitizeFeedbackItems,
     detectSourceKind
   } = globalThis.DevFeedbackShared;
@@ -18,8 +19,6 @@
 
   const ELEMENT_SESSION_PREFIX = 'dev-feedback-element-session-';
   const SESSION_PREFIXES = [REGION_CAPTURE_SESSION_PREFIX, ELEMENT_SESSION_PREFIX];
-  // A picking run lasts from Pick to Stop in one tab. Each save copies the whole run to the clipboard.
-  const RUN_PREFIX = 'dev-feedback-run-';
   const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
   const MAX_ITEM_BYTES = 3 * 1024 * 1024;
   const MAX_ITEMS_PER_SITE = 500;
@@ -78,7 +77,6 @@
       if (request.enabled === true) {
         const injected = await ensureContentScript(tab.id, tab.url);
         if (!injected.ok) return injected;
-        await startRun(tab.id);
       }
       return setPicking(tab.id, request.enabled === true);
     }
@@ -93,7 +91,7 @@
         await chrome.storage.session.remove(key);
         const count = Number.isInteger(request.count) ? request.count : 0;
         const toast = request.saved !== true ? ''
-          : request.copied === true ? `Copied to clipboard · ${count} selection${count === 1 ? '' : 's'}`
+          : request.copied === true ? `Copied this page's feedback · ${count} item${count === 1 ? '' : 's'}`
           : 'Saved. Copy it from the extension menu.';
         await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, toast }, { frameId:0 }).catch(()=>{});
         await setPicking(session.tabId, true);
@@ -107,9 +105,10 @@
           position:session.snapshot.position, pageContext:session.pageContext,
           note:typeof request.item.note === 'string' ? request.item.note : '', timestamp:new Date().toISOString()
         });
+        // Each save copies every stored capture on this page, the same list and order as Copy all in the menu.
         const { items } = await addFeedbackItem(makeStorageKey(session.pageUrl), item);
-        const runItems = (await addToRun(session.tabId, item.id)).map(id => items.find(saved => saved.id === id)).filter(Boolean);
-        return { ok:true, clipboard:buildClipboardText(runItems), count:runItems.length };
+        const pageItems = items.filter(saved => safeShareUrl(saved.pageUrl) === safeShareUrl(session.pageUrl));
+        return { ok:true, clipboard:buildClipboardText(pageItems), count:pageItems.length };
       }
     }
     throw new Error('This action is not allowed from this context.');
@@ -153,18 +152,6 @@
     return opened;
   }
 
-  async function startRun(tabId) {
-    await chrome.storage.session.set({ [RUN_PREFIX + tabId]:{ ids:[] } });
-  }
-
-  async function addToRun(tabId, itemId) {
-    const key = RUN_PREFIX + tabId;
-    const run = (await chrome.storage.session.get(key))[key] || { ids:[] };
-    if (!run.ids.includes(itemId)) run.ids.push(itemId);
-    await chrome.storage.session.set({ [key]:run });
-    return run.ids;
-  }
-
   // Every frame keeps its own picker, so on/off goes to all of them at once. The badge shows it is on.
   async function setPicking(tabId, enabled) {
     await chrome.tabs.sendMessage(tabId, { action:'set-feedback-mode', enabled }).catch(() => {});
@@ -204,7 +191,6 @@
     clearRegionSessionsForEditorTab(tabId).catch((error) => {
       console.debug('Unable to clear closed region editor session:', error.message);
     });
-    chrome.storage.session.remove(RUN_PREFIX + tabId).catch(() => {});
   });
 
   sweepExpiredRegionSessions().catch((error) => {
@@ -229,7 +215,6 @@
 
       const state = await chrome.tabs.sendMessage(activeTab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
       if (!state || state.editorOpen) return;
-      if (!state.feedbackMode) await startRun(activeTab.id);
       await setPicking(activeTab.id, !state.feedbackMode);
     });
   });

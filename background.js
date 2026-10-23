@@ -17,6 +17,7 @@
   } = globalThis.DevFeedbackShared;
   const REGION_SESSION_MAX_AGE_MS = 30 * 60 * 1000;
   const mutationQueues = new Map();
+  const pendingToasts = new Map();
 
   const ELEMENT_SESSION_PREFIX = 'dev-feedback-element-session-';
   const SESSION_PREFIXES = [REGION_CAPTURE_SESSION_PREFIX, ELEMENT_SESSION_PREFIX];
@@ -72,7 +73,7 @@
   }
 
   const TRACED_ACTIONS = new Set(['add-feedback-item', 'clear-capture-session', 'copy-page-feedback', 'delete-feedback-items',
-    'get-capture-session', 'list-page-feedback', 'set-picking', 'start-element-capture', 'stop-picking']);
+    'get-capture-session', 'list-page-feedback', 'set-picking', 'start-element-capture', 'stop-picking', 'take-note-toast']);
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Only fixed labels reach the trace; anything else a sender puts in action is logged as unknown.
@@ -129,6 +130,12 @@
     if (!page && !contentSender && !frameSender) throw new Error('Untrusted request sender.');
     if (request.action === 'start-element-capture' && (contentSender || frameSender)) return startElementCapture(sender, request.snapshot, request.rect, request.frame);
     if (request.action === 'stop-picking' && (contentSender || frameSender)) return setPicking(sender.tab.id, false);
+    // The top page shows the toast for the note it just closed; the text is only ever this tab's own.
+    if (request.action === 'take-note-toast' && contentSender) {
+      const toast = pendingToasts.get(sender.tab.id) || '';
+      pendingToasts.delete(sender.tab.id);
+      return { ok:true, toast };
+    }
     if (request.action === 'set-picking' && page === 'popup.html') {
       const tab = await chrome.tabs.get(request.tabId);
       await assertCaptureTab(tab);
@@ -153,16 +160,18 @@
     if (page === 'element.html') {
       const { key, session } = await ownedSession(sender);
       if (request.action === 'get-capture-session') return { ok:true, session };
+      // The note frame removes itself through the page's content script (element.js, content.js), which
+      // resumes picking there. Other frames get the broadcast; it is not awaited, because Safari may not
+      // deliver page messages while the note frame is still open.
       if (request.action === 'clear-capture-session') {
         const count = Number.isInteger(request.count) ? request.count : 0;
-        const toast = request.saved !== true ? ''
-          : request.copied === true ? `Copied this page's feedback · ${count} item${count === 1 ? '' : 's'}`
-          : 'Saved. Copy it from the extension menu.';
-        // The session stays until the page confirms the note closed, so × can try again.
-        const closed = await messageTab(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, toast }, { frameId:0 });
-        if (!closed?.ok) return { ok:false, reason:'Could not close the note. Press × to try again.' };
+        // Escaped so the text survives Safari reading this script as Latin-1.
+        pendingToasts.set(session.tabId, request.saved !== true ? ''
+          : request.copied === true ? `Copied this page's feedback \u00b7 ${count} item${count === 1 ? '' : 's'}`
+          : 'Saved. Copy it from the extension menu.');
         await chrome.storage.session.remove(key);
-        await setPicking(session.tabId, true);
+        messageTab(session.tabId, { action:'set-feedback-mode', enabled:true });
+        await chrome.action.setBadgeText({ tabId:session.tabId, text:'ON' }).catch(() => {});
         return { ok:true };
       }
       if (request.action === 'add-feedback-item') {
@@ -232,7 +241,10 @@
     const on = state?.feedbackMode === true;
     await chrome.action.setBadgeText({ tabId, text:on ? 'ON' : '' }).catch(() => {});
     if (!enabled || on) return { ok:true };
-    return { ok:false, reason:state?.editorOpen ? 'Save or close the open note first.' : 'The page did not confirm picking. Reload the page and try again.' };
+    // Safari may not answer while a note is open, so an open note session for this tab also counts.
+    const noteOpen = state?.editorOpen || Object.values(await chrome.storage.session.get(null))
+      .some(value => value?.editorTabId === tabId && Date.now() - Date.parse(value.createdAt) <= REGION_SESSION_MAX_AGE_MS);
+    return { ok:false, reason:noteOpen ? 'Save or close the open note first.' : 'The page did not confirm picking. Reload the page and try again.' };
   }
 
   // Granting an embedded site from the popup can close the popup, so finish the job here.

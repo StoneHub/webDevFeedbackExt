@@ -209,22 +209,6 @@ test('retrying a saved note copies again without storing it twice',async()=>{
   assert.equal(app.local['dev-feedback-https://site.test'].length,1);
 });
 
-test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
-  const app=background();
-  const open=async()=>app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content)).sessionId);
-  const lastToast=()=>app.tabMessages.filter(m=>m.message.action==='close-capture-overlay').at(-1).message.toast;
-  await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},await open());
-  assert.equal(lastToast(),"Copied this page's feedback · 2 items");
-  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
-  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
-  await app.send({action:'clear-capture-session',saved:true,copied:false,count:1},await open());
-  assert.equal(lastToast(),'Saved. Copy it from the extension menu.');
-  await app.send({action:'clear-capture-session',saved:true},await open());
-  assert.equal(lastToast(),'Saved. Copy it from the extension menu.','closing after a failed copy says the note was saved');
-  await app.send({action:'clear-capture-session'},await open());
-  assert.equal(lastToast(),'','closing without saving shows nothing');
-  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
-});
 
 test('storage capacity rejection preserves the editor session and existing history',async()=>{
   const app=background({usedBytes:9*1024*1024});
@@ -404,20 +388,6 @@ test('Safari: a save whose reply was lost can be retried with an edit, which rep
   assert.deepEqual(safariItems(native).map(item=>item.note),['First','Edited','Other']);
 });
 
-test('closing a note keeps its session until the page confirms, so × can retry',async()=>{
-  let closeReply;
-  const app=background({tabReply:(message,page)=>message.action==='close-capture-overlay'?closeReply:page(message)});
-  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
-  const sender=app.page('element.html',started.sessionId);
-  const picking=()=>app.tabMessages.filter(m=>m.message.action==='set-feedback-mode').at(-1).message.enabled;
-  closeReply=undefined;
-  const refused=await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender);
-  assert.equal(refused.ok,false);assert.match(refused.reason,/Press × to try again/);
-  assert.equal(Object.keys(app.sessions).length,1,'the session survives');assert.equal(picking(),false,'picking stays off while the note is open');
-  closeReply={ok:true};
-  assert.equal((await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender)).ok,true);
-  assert.equal(Object.keys(app.sessions).length,0);assert.equal(picking(),true);
-});
 
 test('Safari Debug trace records actions and outcomes only',async()=>{
   const traces=[];const native=fakeNative();const send=native.send;
@@ -428,7 +398,7 @@ test('Safari Debug trace records actions and outcomes only',async()=>{
   await app.send({action:'add-feedback-item',item:{note:'SECRET_NOTE'}},sender);
   await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender);
   const log=traces.join('\n');
-  assert.match(log,/request add-feedback-item[\s\S]*native clipboard.write ok copied=true[\s\S]*reply add-feedback-item ok copied=true[\s\S]*tab close-capture-overlay ok/);
+  assert.match(log,/request add-feedback-item[\s\S]*native clipboard.write ok copied=true[\s\S]*reply add-feedback-item ok copied=true[\s\S]*reply clear-capture-session ok/);
   assert.doesNotMatch(log,new RegExp(['SECRET','site\\.test','Page feedback',started.sessionId].join('|')));
   await app.send({action:'https://private.test/SECRET_URL?note=SECRET_NOTE'},app.page('popup.html'));
   await app.send({action:{SECRET_OBJECT:1}},app.page('popup.html'));
@@ -448,10 +418,12 @@ function noteFrame(reply){
   nodes['capture-form'].requestSubmit=()=>nodes['capture-form'].listeners.submit({preventDefault(){}});
   nodes.cancel.click=()=>nodes.cancel.listeners.click();
   const chrome={runtime:{sendMessage(message){sent.push(structuredClone(message));const r=reply(message);if(r==='never')return new Promise(()=>{});return Promise.resolve(r);}}};
-  vm.runInNewContext(source('element.js'),{chrome,document:{getElementById:id=>nodes[id]},window:{addEventListener(){}},navigator:{},Promise,Error,
+  const posted=[];
+  vm.runInNewContext(source('element.js'),{chrome,document:{getElementById:id=>nodes[id]},window:{addEventListener(){},parent:{postMessage:(data,target)=>posted.push({data:structuredClone(data),target})}},
+    location:{search:'?session=s1&close=TOKEN'},URLSearchParams,navigator:{},Promise,Error,
     setTimeout:fn=>{timers.push(fn);return timers.length;},clearTimeout(){}});
   const settle=()=>new Promise(resolve=>setImmediate(resolve));
-  return {nodes,sent,settle,async expire(){timers.splice(0).forEach(fn=>fn());await settle();await settle();},
+  return {nodes,sent,posted,settle,async expire(){timers.splice(0).forEach(fn=>fn());await settle();await settle();},
     async submit(){nodes['capture-form'].requestSubmit();await settle();await settle();},async cancel(){nodes.cancel.click();await settle();await settle();}};
 }
 
@@ -466,20 +438,9 @@ test('note: a save whose reply never arrives becomes a retryable Save, not a stu
   addReply={ok:true,copied:true,count:1};
   await frame.submit();
   assert.deepEqual(frame.sent.map(m=>m.action),['get-capture-session','add-feedback-item','add-feedback-item','clear-capture-session']);
+  assert.deepEqual(frame.posted.map(p=>p.data),[{devFeedback:'close',token:'TOKEN'}]);
 });
 
-test('note: if closing is not confirmed it says saved and copied, and × retries the close',async()=>{
-  let clearReply='never';
-  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:m.action==='add-feedback-item'?{ok:true,copied:true,count:2}:clearReply);
-  await frame.settle();await frame.submit();await frame.expire();
-  assert.match(frame.nodes.status.textContent,/^Saved and copied\. Could not close the note\. Press × to try again\./);
-  assert.equal(frame.nodes.save.disabled,true,'nothing left to save');assert.equal(frame.nodes.cancel.disabled,false);
-  await frame.submit();assert.equal(frame.sent.filter(m=>m.action==='add-feedback-item').length,1,'Enter does not save again');
-  clearReply={ok:false,reason:'Could not close the note. Press × to try again.'};
-  await frame.cancel();assert.match(frame.nodes.status.textContent,/Could not close the note/);assert.equal(frame.nodes.cancel.disabled,false);
-  clearReply={ok:true};await frame.cancel();
-  assert.deepEqual(plain(frame.sent.filter(m=>m.action==='clear-capture-session').at(-1)),{action:'clear-capture-session',saved:true,copied:true,count:2},'the close still reports the copy for the toast');
-});
 
 test('Pick reports a page that never confirms picking, and the badge stays off',async()=>{
   const popup=app=>app.page('popup.html');
@@ -507,4 +468,44 @@ test('Pick reports an injection that never finishes instead of waiting forever',
   assert.equal(result.ok,false);assert.match(result.reason,/did not let the picker load/);
   assert.match(traces.join('\n'),/inject content-type timeout[\s\S]*inject scripts timeout/);
   assert.doesNotMatch(traces.join('\n'),/site\.test/);
+});
+
+test('closing a note forgets its session and resumes picking without messaging the page to close',async()=>{
+  const app=background({tabReply:(message,page)=>message.action==='get-state'?undefined:page(message),fastTimers:true});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  // While the note is open, Safari may not answer the page: Pick says to finish the note.
+  const pick=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
+  assert.equal(pick.ok,false);assert.match(pick.reason,/Save or close the open note first/);
+  assert.equal((await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},sender)).ok,true);
+  assert.equal(Object.keys(app.sessions).length,0);
+  // Only the top page of that tab can take the toast, once.
+  assert.equal((await app.send({action:'take-note-toast'},{...app.content,frameId:3,url:'https://frame.test/'})).ok,false);
+  assert.equal((await app.send({action:'take-note-toast'},app.page('popup.html'))).ok,false);
+  assert.equal((await app.send({action:'take-note-toast'},app.content)).toast,"Copied this page's feedback \u00b7 2 items");
+  assert.equal((await app.send({action:'take-note-toast'},app.content)).toast,'');
+  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
+  assert.equal(app.tabMessages.some(m=>m.message.action==='close-capture-overlay'),false);
+  const later=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
+  assert.match(later.reason,/did not confirm picking/,'with the note closed, an unanswered Pick is not blamed on a note');
+});
+
+test('note: Save closes through its own frame even when the background does not answer the close',async()=>{
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:m.action==='add-feedback-item'?{ok:true,copied:true,count:2}:'never');
+  await frame.settle();await frame.submit();
+  assert.deepEqual(frame.posted,[],'the background gets the first chance to forget the session');
+  await frame.expire();
+  assert.deepEqual(frame.posted.map(p=>p.data),[{devFeedback:'close',token:'TOKEN'}],'the page-visible close carries only the token');
+  assert.deepEqual(plain(frame.sent.at(-1)),{action:'clear-capture-session',saved:true,copied:true,count:2},'the toast count goes to the background, not the page');
+  await frame.submit();assert.equal(frame.sent.filter(m=>m.action==='add-feedback-item').length,1,'Enter does not save again');
+});
+
+test('note: × closes through its own frame, and says so if the page never removes it',async()=>{
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:{ok:true});
+  await frame.settle();await frame.cancel();
+  assert.deepEqual(frame.posted.map(p=>p.data),[{devFeedback:'close',token:'TOKEN'}]);
+  assert.equal(frame.nodes.cancel.disabled,true);
+  await frame.expire();
+  assert.match(frame.nodes.status.textContent,/Could not close the note\. Reload the page\./);assert.equal(frame.nodes.cancel.disabled,false);
 });

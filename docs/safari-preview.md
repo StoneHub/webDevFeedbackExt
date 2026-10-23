@@ -1,6 +1,6 @@
 # Safari development preview
 
-**Status: installed and partly observed in Safari 27.0.1. Picking and copy-on-Save are not working yet.**
+**Status: installed and partly observed in Safari 27.0.1. Closing the note after Save failed in the installed build; the change below is built but not yet observed.**
 
 A signed Debug 1.8.3 is installed in `/Applications`. After install, all 36 bundle files matched the build, the strict signature check passed, Safari had one registered copy, and the extension is enabled. Observed on the installed signed Debug builds, using a local test page and synthetic notes:
 
@@ -8,8 +8,8 @@ A signed Debug 1.8.3 is installed in `/Applications`. After install, all 36 bund
 | --- | --- |
 | History through the native handler | A saved record was still listed after a page reload |
 | Menu **Copy all** | Reported Copied; a paste matched the saved record, with the setup app closed |
-| Picking and the note | Unresolved. One early pick opened the note and saved, but the note then stayed open with its buttons disabled; later picks did not open a note |
-| Copy on Save/Enter | Unresolved |
+| Picking and the note | Picking opens the note beside the element (manual test). After Save, the note stayed open saying it could not close |
+| Copy on Save/Enter | Save stored the note and the native copy reported success; the pasted text was not checked |
 | Markdown and JSON downloads, Safari restart, embedded frames, a second tab | Not checked |
 
 Debug and Release also build unsigned. The JavaScript broker and the Swift bridge pass their tests with fakes. The remaining live checks are under [Validate in Safari](#validate-in-safari).
@@ -88,6 +88,16 @@ The installer works like this:
 - It registers the installed extension, then removes only this build product's registration so Safari doesn't list it twice. If that cleanup fails, it warns; the install itself stands.
 - After an update, Safari can keep running the previous extension code: turn the extension off and on in Safari Settings → Extensions, then reload the test page.
 - It does not enable the extension or grant website access.
+
+## Closing the note
+
+In Safari 27.0.1, messages from the background to the page stopped getting an answer once the note frame was open. Before that, the same messages worked: Pick, opening the note, and the menu's page check. The background's request to close the note came back empty in under a second, and the menu showed **Pick an element** instead of **Return to open note**. Current WebKit source targets frame 0 correctly, so the cause inside Safari is not known.
+
+The note therefore closes itself. After the background forgets the session, the note frame sends `postMessage` to the page. The message carries only a random token that the content script put in the frame's URL, which the page cannot read. The content script accepts it only from its own note frame's window with the matching token, removes the frame, and resumes picking. It then asks the background for the toast text over the extension channel, so the page never sees the item count. A page that navigates the note frame elsewhere can at most close the note, as it already could by removing the overlay. If the note is still open two seconds later, it says to reload the page.
+
+While a note is open, a **Pick an element** that the page does not confirm reports "Save or close the open note first."
+
+The error text the background builds is ASCII or escaped. Safari reads the generated background page as Latin-1, which garbled a × in an earlier error.
 
 ## Debug trace
 

@@ -69,7 +69,8 @@
       showError('Open a webpage to pick an element. PDF and browser-internal pages are not supported.');
       return;
     }
-    state = await chrome.tabs.sendMessage(tab.id, {action:'get-state'}, {frameId:0}).catch(()=>({}));
+    // No picker on the page yet: Chrome rejects, Safari resolves undefined.
+    state = await chrome.tabs.sendMessage(tab.id, {action:'get-state'}, {frameId:0}).catch(()=>null) || {};
     frameAccess = await missingFrameAccess();
     if (frameAccess.length) {
       const note = document.getElementById('frame-access');

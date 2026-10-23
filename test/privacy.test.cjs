@@ -366,3 +366,30 @@ test('menu lists and copies the page through the background; pages and note fram
   assert.equal(chromeCopy.count,1);assert.match(chromeCopy.clipboard,/Chrome note/);assert.equal(chromeCopy.copied,undefined);
   assert.equal(chromeApp.access.accessLevel,'TRUSTED_CONTEXTS');
 });
+
+test('Safari: a save whose reply was lost can be retried with an edit, which replaces that note in place',async()=>{
+  const native=fakeNative();
+  native.store['dev-feedback-https://site.test']=JSON.stringify([{...element('earlier','First'),selector:'#earlier'}]);
+  const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one',tag:'button'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  const send=native.send;let loseReply=true;
+  native.send=async(id,message)=>{const reply=await send(id,message);if(message.action==='history.write'&&loseReply){loseReply=false;throw new Error('reply lost');}return reply;};
+  const lost=await app.send({action:'add-feedback-item',item:{note:'Original'}},sender);
+  assert.equal(lost.ok,false,'the editor keeps Save and stays editable');
+  assert.equal(safariItems(native).at(-1).note,'Original','the write itself landed');
+  const timestamp=safariItems(native).at(-1).timestamp;
+  const retry=await app.send({action:'add-feedback-item',item:{note:'Edited'}},sender);
+  assert.deepEqual(plain(retry),{ok:true,copied:true,count:2});
+  assert.deepEqual(safariItems(native).map(item=>[item.id,item.note]),[['earlier','First'],[started.sessionId,'Edited']],'one record, same place');
+  assert.equal(safariItems(native).at(-1).timestamp,timestamp);
+  assert.match(native.writes.at(-1),/1\. `#earlier`[\s\S]*First[\s\S]*2\. `#one`[\s\S]*Edited/);assert.doesNotMatch(native.writes.at(-1),/Original/);
+  // Copy again with no change keeps the record exactly as it was.
+  const before=native.store['dev-feedback-https://site.test'];
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Edited'}},sender)),{ok:true,copied:true,count:2});
+  assert.equal(native.store['dev-feedback-https://site.test'],before);
+  // Another session cannot reach this record: its save is a new record.
+  const other=await app.send({action:'start-element-capture',snapshot:{selector:'#two'}},app.content);
+  await app.send({action:'add-feedback-item',item:{note:'Other'}},app.page('element.html',other.sessionId));
+  assert.deepEqual(safariItems(native).map(item=>item.note),['First','Edited','Other']);
+});

@@ -335,8 +335,12 @@
     });
   }
 
+  // The id is the editor session's, so only that note frame can reach its own record. A repeat keeps the
+  // record in place; if the reply to an earlier save was lost and the note was edited, the edit replaces it.
   async function addFeedbackItem(storageKey, item) {
-    return mutateFeedbackItems(storageKey, (items) => items.some(existing => existing.id === item.id) ? items : items.concat(item));
+    return mutateFeedbackItems(storageKey, (items) => items.some(existing => existing.id === item.id)
+      ? items.map(existing => existing.id === item.id && existing.note !== item.note ? { ...existing, note:item.note } : existing)
+      : items.concat(item));
   }
 
   function mutateFeedbackItems(storageKey, mutate) {

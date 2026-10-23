@@ -9,6 +9,7 @@
     "test:extension": "node --test test/browser-core.test.cjs test/privacy.test.cjs && node test/release.test.cjs",
     "test:electron": "node packages/electron-inspector/scripts/build.cjs && node --test test/electron-inspector.test.cjs",
     "test:mcp": "node --test test/mcp.test.mjs",
+    "test:safari": "mkdir -p .build/native-checks && xcrun swiftc -parse-as-library safari/NativeBridge.swift safari/tests/NativeBridgeChecks.swift -o .build/native-checks/checks && .build/native-checks/checks",
     "check": "node scripts/release-check.cjs",
     "package": "node scripts/package-extension.cjs",
     "verify:package": "node scripts/verify-package.cjs",

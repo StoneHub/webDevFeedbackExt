@@ -1,7 +1,8 @@
 (function() {
   'use strict';
 
-  importScripts('shared.js');
+  // Safari loads shared.js and its platform file as background page scripts; Chrome's service worker imports it.
+  if (!globalThis.DevFeedbackShared) importScripts('shared.js');
 
   const {
     FEEDBACK_STORAGE_PREFIX,
@@ -22,14 +23,32 @@
   const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
   const MAX_ITEM_BYTES = 3 * 1024 * 1024;
   const MAX_ITEMS_PER_SITE = 500;
-  // Safari 27 has setAccessLevel only on storage.session; without it content scripts could read History, so nothing runs.
-  const storageReady = Promise.resolve()
-    .then(() => chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }))
-    .catch(error => {
-      console.error('History access restriction failed:', error.message);
-      throw new Error('This browser cannot keep saved notes private to the extension, so picking is off.');
-    });
+  // Where History lives and who writes the clipboard. Safari supplies its own (safari/platform.js);
+  // Chrome keeps History in storage.local, closed to content scripts, and copies from the note frame.
+  const platform = globalThis.DevFeedbackPlatform || chromePlatform();
+  const storageReady = platform.ready;
   storageReady.catch(() => {});
+
+  function chromePlatform() {
+    const local = chrome.storage.local;
+    return {
+      ready:Promise.resolve()
+        .then(() => local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }))
+        .catch(error => {
+          console.error('History access restriction failed:', error.message);
+          throw new Error('This browser cannot keep saved notes private to the extension, so picking is off.');
+        }),
+      history:{
+        async read(storageKey) { return (await local.get([storageKey]))[storageKey]; },
+        async write(storageKey, items) { await local.set({ [storageKey]:items }); },
+        async usage(storageKey) {
+          const [total, key] = await Promise.all([local.getBytesInUse(null), local.getBytesInUse(storageKey)]);
+          return { total, key };
+        }
+      },
+      writeClipboard:null
+    };
+  }
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     respondAsync(handleRequest(request, sender), sendResponse);
@@ -86,6 +105,14 @@
       }
       return setPicking(tab.id, request.enabled === true);
     }
+    if (request.action === 'list-page-feedback' && page === 'popup.html') {
+      if (!isFeedbackStorageKey(request.storageKey)) throw new Error('Invalid feedback storage key.');
+      return { ok:true, items:normalizeStoredFeedbackItems(await platform.history.read(request.storageKey)).items };
+    }
+    if (request.action === 'copy-page-feedback' && page === 'popup.html') {
+      if (typeof request.pageUrl !== 'string') throw new Error('Invalid page.');
+      return copyPageFeedback(request.pageUrl);
+    }
     if (request.action === 'delete-feedback-items' && page === 'popup.html') {
       if (!Array.isArray(request.itemIds) || request.itemIds.length > MAX_ITEMS_PER_SITE || request.itemIds.some(id => typeof id !== 'string')) throw new Error('Invalid selection.');
       return mutateFeedbackItems(request.storageKey, items => items.filter(item => !request.itemIds.includes(item.id)));
@@ -112,9 +139,13 @@
           note:typeof request.item.note === 'string' ? request.item.note : '', timestamp:new Date().toISOString()
         });
         // Each save copies every stored capture on this page, the same list and order as Copy all in the menu.
-        const { items } = await addFeedbackItem(makeStorageKey(session.pageUrl), item);
-        const pageItems = items.filter(saved => safeShareUrl(saved.pageUrl) === safeShareUrl(session.pageUrl));
-        return { ok:true, clipboard:buildClipboardText(pageItems), count:pageItems.length };
+        const stored = await addFeedbackItem(makeStorageKey(session.pageUrl), item);
+        if (!stored.ok) return stored;
+        // Saved either way; a failed copy leaves the note open with Copy again, which repeats this idempotent save.
+        return copyPageFeedback(session.pageUrl).catch(error => {
+          console.error('Copy after save failed:', error.message);
+          return { ok:true, copied:false, count:0 };
+        });
       }
     }
     throw new Error('This action is not allowed from this context.');
@@ -285,6 +316,25 @@
     }
   }
 
+  // This page's stored feedback, oldest first. Where the browser can write the clipboard natively
+  // (Safari), it is written here and the result says whether it landed; otherwise the caller copies the text.
+  // Queued behind History writes, so the last copy holds the latest saves.
+  function copyPageFeedback(pageUrl) {
+    const storageKey = makeStorageKey(pageUrl);
+    if (!isFeedbackStorageKey(storageKey)) throw new Error('Invalid feedback storage key.');
+    return enqueueFeedbackOperation('history', async () => {
+      const page = safeShareUrl(pageUrl);
+      const pageItems = normalizeStoredFeedbackItems(await platform.history.read(storageKey)).items.filter(saved => safeShareUrl(saved.pageUrl) === page);
+      const text = buildClipboardText(pageItems);
+      if (!platform.writeClipboard) return { ok:true, clipboard:text, count:pageItems.length };
+      const copied = await platform.writeClipboard(text).catch(error => {
+        console.error('Clipboard write failed:', error.message);
+        return false;
+      });
+      return { ok:true, copied:copied === true, count:pageItems.length };
+    });
+  }
+
   async function addFeedbackItem(storageKey, item) {
     return mutateFeedbackItems(storageKey, (items) => items.some(existing => existing.id === item.id) ? items : items.concat(item));
   }
@@ -295,17 +345,16 @@
     }
 
     return enqueueFeedbackOperation('history', async () => {
-      const stored = await chrome.storage.local.get([storageKey]);
-      const { items: currentItems } = normalizeStoredFeedbackItems(stored[storageKey]);
+      const { items: currentItems } = normalizeStoredFeedbackItems(await platform.history.read(storageKey));
       const nextItems = sanitizeFeedbackItems(mutate(currentItems));
       if (nextItems.length > MAX_ITEMS_PER_SITE && nextItems.length > currentItems.length) throw new Error('This site has 500 captures. Export and delete older items before saving. Your draft is still open.');
       const encodedBytes = new TextEncoder().encode(JSON.stringify(nextItems)).length;
       const largest = Math.max(0, ...nextItems.map(item => new TextEncoder().encode(JSON.stringify(item)).length));
-      const [used, previous] = await Promise.all([chrome.storage.local.getBytesInUse(null), chrome.storage.local.getBytesInUse(storageKey)]);
+      const { total:used, key:previous } = await platform.history.usage(storageKey);
       if ((nextItems.length > currentItems.length || encodedBytes > new TextEncoder().encode(JSON.stringify(currentItems)).length) && (largest > MAX_ITEM_BYTES || used - previous + encodedBytes + storageKey.length > MAX_HISTORY_BYTES)) {
         throw new Error('History is nearly full or this capture is too large. Export and delete older items, or shorten this note. Your draft is still open.');
       }
-      await chrome.storage.local.set({ [storageKey]: nextItems });
+      await platform.history.write(storageKey, nextItems);
       return { ok: true, items: nextItems };
     });
   }

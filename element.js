@@ -39,8 +39,10 @@
       const result = await chrome.runtime.sendMessage({ action:'add-feedback-item', item:{ note:note.value.trim() } });
       if (!result?.ok) throw new Error(result?.reason || 'Could not save.');
       saved = true; note.readOnly = true;
-      // The click is still the user's gesture, so this frame can write the clipboard.
-      if (!await copy(result.clipboard)) throw new Error('Saved, but the clipboard was blocked. Press Copy again.');
+      // Safari's background writes the clipboard natively and reports it; elsewhere the click is
+      // still the user's gesture, so this frame writes it.
+      const copied = typeof result.clipboard === 'string' ? await copy(result.clipboard) : result.copied === true;
+      if (!copied) throw new Error('Saved, but the clipboard was blocked. Press Copy again.');
       await chrome.runtime.sendMessage({ action:'clear-capture-session', saved:true, copied:true, count:result.count }).catch(() => {});
     } catch (error) {
       showError(saved ? error.message : error.message + ' Your note is still here.');

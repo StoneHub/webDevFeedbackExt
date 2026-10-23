@@ -65,7 +65,13 @@ function background(options={}) {
     permissions:{onAdded:{addListener(){}}},
     commands:{onCommand:{addListener(){}}}
   };
-  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder};
+  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON};
+  if(options.native){
+    // Safari: History must never touch storage.local, which content scripts can read there.
+    chrome.storage.local=new Proxy({},{get(){throw new Error('storage.local used on Safari');}});
+    context.browser={runtime:{sendNativeMessage:(id,message)=>options.native.send(id,message)}};
+    vm.runInNewContext(source('safari/platform.js'),context);
+  }
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
   const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
@@ -127,7 +133,7 @@ test('broker fails closed when storage access cannot be restricted',async()=>{
   const app=background({denyAccess:true});assert.equal((await app.send({action:'delete-feedback-items',storageKey:'dev-feedback-https://site.test',itemIds:[]})).ok,false);
 });
 
-// Safari 27 exposes setAccessLevel only on storage.session, so History could not be kept from content scripts.
+// Without its own platform, a browser that cannot restrict storage.local (Safari 27 without safari/platform.js) refuses to save.
 test('broker explains and refuses picking when the browser cannot restrict History',async()=>{
   const app=background({noLocalAccessLevel:true});
   const picking=await app.send({action:'set-picking',tabId:1,enabled:true});
@@ -255,4 +261,108 @@ test('Element saving cannot smuggle a screenshot into a new Region record',async
   assert.equal(result.ok,true);
   const item=Object.values(app.local).flat()[0];
   assert.equal(item.type,'element');assert.equal(item.screenshot,undefined);
+});
+
+// Stands in for safari/NativeBridge.swift: the same four requests, a private store, and a fake pasteboard.
+function fakeNative(){
+  const store={},writes=[],requests=[];let copyWorks=true,reachable=true;
+  return {store,writes,requests,set copyWorks(value){copyWorks=value;},set reachable(value){reachable=value;},
+    async send(id,message){
+      requests.push(structuredClone(message));
+      if(!reachable)throw new Error('Native messaging unavailable');
+      await new Promise(resolve=>setTimeout(resolve,Math.random()*3));
+      if(message.action==='history.read')return {ok:true,...(message.key in store?{items:store[message.key]}:{})};
+      if(message.action==='history.write'){store[message.key]=message.items;return {ok:true};}
+      if(message.action==='history.usage'){const total=Object.entries(store).reduce((sum,[k,v])=>sum+k.length+v.length,0);return {ok:true,total,key:message.key in store?message.key.length+store[message.key].length:0};}
+      if(message.action==='clipboard.write'){if(copyWorks)writes.push(message.text);return {ok:true,copied:copyWorks};}
+      return {ok:false,reason:'Unsupported request.'};
+    }};
+}
+const safariItems=native=>JSON.parse(native.store['dev-feedback-https://site.test']||'[]');
+const saveNote=async(app,selector,note)=>{
+  const started=await app.send({action:'start-element-capture',snapshot:{selector,tag:'button',text:selector}},app.content);
+  return {sender:app.page('element.html',started.sessionId),result:await app.send({action:'add-feedback-item',item:{note}},app.page('element.html',started.sessionId))};
+};
+
+test('Safari: each save writes all of this page\'s feedback natively, oldest first, across Stop/Start',async()=>{
+  const native=fakeNative();
+  native.store['dev-feedback-https://site.test']=JSON.stringify([{...element('earlier','From another tab'),selector:'#earlier'},{...element('other-path','OTHER_PATH_SENTINEL'),pageUrl:'https://site.test/other'}]);
+  const app=background({native});const popup=app.page('popup.html');
+  await app.send({action:'set-picking',tabId:1,enabled:true},popup);
+  const first=(await saveNote(app,'#one','Bigger')).result;
+  assert.deepEqual(plain(first),{ok:true,copied:true,count:2},'the note frame gets no clipboard text on Safari');
+  await app.send({action:'set-picking',tabId:1,enabled:false},popup);
+  await app.send({action:'set-picking',tabId:1,enabled:true},popup);
+  const second=(await saveNote(app,'#two','')).result;
+  assert.equal(second.count,3);
+  assert.match(native.writes.at(-1),/1\. `#earlier`[\s\S]*2\. `#one`[\s\S]*Bigger[\s\S]*3\. `#two`/);
+  assert.doesNotMatch(native.writes.join('\n'),/OTHER_PATH_SENTINEL/);
+  assert.equal(native.writes.at(-1),shared.buildClipboardText(safariItems(native).filter(item=>shared.safeShareUrl(item.pageUrl)==='https://site.test/page')));
+  assert.deepEqual([...new Set(native.requests.map(r=>r.action))].sort(),['clipboard.write','history.read','history.usage','history.write']);
+});
+
+test('Safari: a refused clipboard write keeps the saved note, and the retry copies without storing twice',async()=>{
+  const native=fakeNative();const app=background({native});
+  native.copyWorks=false;
+  const {sender,result}=await saveNote(app,'#one','Once');
+  assert.deepEqual(plain(result),{ok:true,copied:false,count:1});
+  assert.equal(safariItems(native).length,1,'saved even though the copy failed');
+  native.copyWorks=true;
+  const retry=await app.send({action:'add-feedback-item',item:{note:'Once'}},sender);
+  assert.deepEqual(plain(retry),{ok:true,copied:true,count:1});
+  assert.equal(safariItems(native).length,1);assert.equal(native.writes.length,1);
+});
+
+test('Safari: when the native side is unreachable the draft stays open and nothing is claimed',async()=>{
+  const native=fakeNative();const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one'}},app.content);
+  native.reachable=false;
+  const save=await app.send({action:'add-feedback-item',item:{note:'Draft'}},app.page('element.html',started.sessionId));
+  assert.equal(save.ok,false);assert.match(save.reason,/could not reach its saved notes/);
+  assert.equal(Object.keys(app.sessions).length,1,'the editor session survives for a retry');
+});
+
+test('Safari: if reading the page back fails after the save, the note says saved and the retry copies once',async()=>{
+  const native=fakeNative();const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  const send=native.send;let writes=0;
+  native.send=async(id,message)=>{if(message.action==='history.write')writes++;if(message.action==='history.read'&&writes===1&&!native.failedOnce){native.failedOnce=true;throw new Error('gone');}return send(id,message);};
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Once'}},sender)),{ok:true,copied:false,count:0});
+  assert.equal(safariItems(native).length,1);
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Once'}},sender)),{ok:true,copied:true,count:1});
+  assert.equal(safariItems(native).length,1);
+});
+
+test('Safari: simultaneous saves on one page all land and the last copy holds every note',async()=>{
+  const native=fakeNative();const app=background({native});
+  const senders=[];
+  for(const selector of ['#a','#b','#c','#d'])senders.push(app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector,tag:'button'}},app.content)).sessionId));
+  const results=await Promise.all(senders.map((sender,i)=>app.send({action:'add-feedback-item',item:{note:'note '+i}},sender)));
+  assert.equal(results.every(r=>r.ok&&r.copied),true);
+  assert.equal(safariItems(native).length,4);
+  assert.match(native.writes.at(-1),/note 0[\s\S]*note 1[\s\S]*note 2[\s\S]*note 3/);
+  assert.equal(results.at(-1).count,4);
+});
+
+test('menu lists and copies the page through the background; pages and note frames cannot',async()=>{
+  const native=fakeNative();
+  native.store['dev-feedback-https://site.test']=JSON.stringify([element('a','PRIVATE_NOTE')]);
+  const app=background({native});
+  const list={action:'list-page-feedback',storageKey:'dev-feedback-https://site.test'};
+  const copy={action:'copy-page-feedback',pageUrl:'https://site.test/page'};
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one'}},app.content);
+  for(const sender of [app.content,{...app.content,frameId:3,url:'https://frame.test/'},app.page('element.html',started.sessionId)]){
+    for(const request of [list,copy])assert.equal((await app.send(request,sender)).ok,false,request.action);
+  }
+  assert.equal(native.writes.length,0);
+  assert.deepEqual((await app.send(list)).items.map(item=>item.note),['PRIVATE_NOTE']);
+  assert.equal((await app.send({...list,storageKey:'other-key'})).ok,false);
+  assert.deepEqual(plain(await app.send(copy)),{ok:true,copied:true,count:1});
+  assert.match(native.writes[0],/PRIVATE_NOTE/);
+  // Chrome returns the text for the menu to copy, from storage.local as before.
+  const chromeApp=background({local:{'dev-feedback-https://site.test':[element('a','Chrome note')]}});
+  const chromeCopy=await chromeApp.send(copy);
+  assert.equal(chromeCopy.count,1);assert.match(chromeCopy.clipboard,/Chrome note/);assert.equal(chromeCopy.copied,undefined);
+  assert.equal(chromeApp.access.accessLevel,'TRUSTED_CONTEXTS');
 });

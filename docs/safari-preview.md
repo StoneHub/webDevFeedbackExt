@@ -1,6 +1,6 @@
 # Safari development preview
 
-**Status: installed and partly observed in Safari 27.0.1. Closing the note after Save failed in the installed build; the change below is built but not yet observed.**
+**Status: signed 1.8.3 is installed in Safari 27.0.1. After the page-control and note-close fixes, the local tester reports that it appears to be working. This remains a development preview; the unverified paths are listed below.**
 
 A signed Debug 1.8.3 is installed in `/Applications`. After install, all 36 bundle files matched the build, the strict signature check passed, Safari had one registered copy, and the extension is enabled. Observed on the installed signed Debug builds, using a local test page and synthetic notes:
 
@@ -8,11 +8,13 @@ A signed Debug 1.8.3 is installed in `/Applications`. After install, all 36 bund
 | --- | --- |
 | History through the native handler | A saved record was still listed after a page reload |
 | Menu **Copy all** | Reported Copied; a paste matched the saved record, with the setup app closed |
-| Picking and the note | Picking opens the note beside the element (manual test). After Save, the note stayed open saying it could not close |
-| Copy on Save/Enter | Save stored the note and the native copy reported success; the pasted text was not checked |
+| Picking and the note | Earlier builds opened the note but failed to close it or confirm picking. After the fixes and extension reload, the local tester reported “I think it’s working now”; the individual steps were not independently rechecked |
+| Copy on Save/Enter | An earlier manual Save stored the note and received native copy success; paste after Save was not independently checked |
 | Markdown and JSON downloads, Safari restart, embedded frames, a second tab | Not checked |
 
-Debug and Release also build unsigned. The JavaScript broker and the Swift bridge pass their tests with fakes. The remaining live checks are under [Validate in Safari](#validate-in-safari).
+Debug and Release also build unsigned. The JavaScript broker and the Swift bridge pass their tests with fakes. All 72 JavaScript tests and the freshly packaged Chromium acceptance gate (14 checks) pass. The gate rejects stale ZIPs before starting the browser. The remaining live checks are under [Validate in Safari](#validate-in-safari).
+
+Apple’s Safari MCP reached the local fixture, but its separate automation session could not open the installed profile’s extension page. It therefore did not validate the extension flow. Both temporary tabs were closed, and **Allow remote automation and external agents** was turned off afterward.
 
 ## How Safari differs
 
@@ -115,7 +117,7 @@ A Debug native build adds `debug: true` to its replies. The background page then
 
 ## Validate in Safari
 
-Steps 1 and 4 (list and Copy all only) have been observed; the rest have not. The person testing does these steps, because they change Safari settings:
+Installation, History after page reload, and menu Copy all with paste readback were observed directly. The local tester reported the corrected main flow working after the latest reload, without enumerating each step. The checklist below records the fuller validation still needed; it is not a claim that every step passed:
 
 1. Install as above, open the app once, enable **Dev Feedback Capture** in Safari Settings → Extensions, then quit the app.
 2. On a local test page: **Pick an element**, pick, type a note, press Enter. The toast should say it copied; paste it elsewhere. The clipboard should hold this page's feedback, oldest first.

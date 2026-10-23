@@ -72,7 +72,7 @@ The package is a local/vendored prototype requiring macOS 14+; it is not in the 
 
 Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm run package`, and `npm run verify:package`. The browser ZIP excludes tests, MCP code, and Node dependencies.
 
-A Safari development preview shares the same extension files. Because Safari cannot keep `storage.local` private from content scripts, it keeps History and clipboard writes in the app extension's native handler. It is installed in Safari for testing: saved History and the menu's Copy all work there, while picking and copy-on-Save are still being fixed. See [Safari development preview](docs/safari-preview.md).
+A Safari development preview shares the same extension files. Because Safari cannot keep `storage.local` private from content scripts, it keeps History and clipboard writes in the app extension's native handler. Signed 1.8.3 is installed locally, and the tester reports the corrected capture flow working. History after page reload and Copy all with paste readback were also observed. Downloads, restart persistence, and embedded frames still need live checks. See [Safari development preview](docs/safari-preview.md).
 
 Before publishing, run the [automated exact-ZIP browser gate](docs/browser-release-acceptance.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
 

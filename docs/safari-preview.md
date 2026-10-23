@@ -1,6 +1,18 @@
 # Safari development preview
 
-**Status: built and unit-tested. Nothing has been installed or run in Safari yet.** Debug and Release build unsigned. A Debug build also signs with a local development identity. The JavaScript broker and the Swift bridge pass their tests with fakes. Everything Safari does at runtime is still unverified (see [Validate in Safari](#validate-in-safari)).
+**Status: installed and partly observed in Safari 27.0.1. Picking and copy-on-Save are not working yet.**
+
+A signed Debug 1.8.3 is installed in `/Applications`. After install, all 36 bundle files matched the build, the strict signature check passed, Safari had one registered copy, and the extension is enabled. Observed on the installed signed Debug builds, using a local test page and synthetic notes:
+
+| Area | Observed |
+| --- | --- |
+| History through the native handler | A saved record was still listed after a page reload |
+| Menu **Copy all** | Reported Copied; a paste matched the saved record, with the setup app closed |
+| Picking and the note | Unresolved. One early pick opened the note and saved, but the note then stayed open with its buttons disabled; later picks did not open a note |
+| Copy on Save/Enter | Unresolved |
+| Markdown and JSON downloads, Safari restart, embedded frames, a second tab | Not checked |
+
+Debug and Release also build unsigned. The JavaScript broker and the Swift bridge pass their tests with fakes. The remaining live checks are under [Validate in Safari](#validate-in-safari).
 
 ## How Safari differs
 
@@ -79,11 +91,11 @@ The installer works like this:
 
 ## Debug trace
 
-A Debug native build adds `debug: true` to its replies. The background page then logs one `[dev-feedback]` line per request, page message, and native call. Each line holds the action and its outcome (`ok`, `refused`, `no-reply`, `error`, `copied=true/false`) and nothing else: no notes, URLs, clipboard text, or session ids. To read it, open Develop → Web Extension Background Content → Dev Feedback Capture. A Release build never sends the flag, so it never logs. A `request` line with no matching `reply` points to the request that stalled. **Pick an element** also logs each injection step (`inject content-type`, `styles`, `scripts`), then the top frame's `get-state` confirmation. The menu shows the failing step as an error instead of closing.
+A Debug native build adds `debug: true` to its replies. The background page then logs one `[dev-feedback]` line per request, page message, and native call. Each line holds a fixed action label and its outcome (`ok`, `refused`, `no-reply`, `timeout`, `error`, `copied=true/false`) and nothing else: no notes, URLs, clipboard text, or session ids. A request whose action is not one the extension handles is logged as `unknown`, never by its content. To read it, open Develop → Web Extension Background Content → Dev Feedback Capture. A Release build never sends the flag, so it never logs. A `request` line with no matching `reply` points to the request that stalled. **Pick an element** also logs each injection step (`inject content-type`, `styles`, `scripts`), then the top frame's `get-state` confirmation. When the page does not confirm picking, or the scripts do not load in time, the menu stays open with an error instead of closing.
 
 ## Validate in Safari
 
-None of this has been observed yet. The person testing does these steps, because they change Safari settings:
+Steps 1 and 4 (list and Copy all only) have been observed; the rest have not. The person testing does these steps, because they change Safari settings:
 
 1. Install as above, open the app once, enable **Dev Feedback Capture** in Safari Settings → Extensions, then quit the app.
 2. On a local test page: **Pick an element**, pick, type a note, press Enter. The toast should say it copied; paste it elsewhere. The clipboard should hold this page's feedback, oldest first.

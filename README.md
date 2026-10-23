@@ -72,6 +72,8 @@ The package is a local/vendored prototype requiring macOS 14+; it is not in the 
 
 Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm run package`, and `npm run verify:package`. The browser ZIP excludes tests, MCP code, and Node dependencies.
 
+A Safari development preview packages the same files with Apple's converter; it is not usable in Safari 27.0.1 yet. See [Safari development preview](docs/safari-preview.md).
+
 Before publishing, run the [automated exact-ZIP browser gate](docs/browser-release-acceptance.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
 
 Core files: `popup.*`, `content.js`, `collector.js`, `element.*`, `background.js`, and `shared.js`.

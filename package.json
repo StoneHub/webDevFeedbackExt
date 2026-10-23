@@ -12,6 +12,7 @@
     "check": "node scripts/release-check.cjs",
     "package": "node scripts/package-extension.cjs",
     "verify:package": "node scripts/verify-package.cjs",
+    "safari:preview": "node scripts/safari-preview.cjs",
     "mcp": "node mcp/cli.mjs",
     "audit:dependencies": "npm audit --omit=dev --audit-level=moderate",
     "test:browser": "node test/browser/release-acceptance.mjs",

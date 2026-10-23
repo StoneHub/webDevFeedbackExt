@@ -84,7 +84,9 @@ try{
    cdp.on('Target.receivedMessageFromTarget',cb);cdp.send('Target.sendMessageToTarget',{sessionId,message:JSON.stringify({id:commandId,method,params})}).catch(reject);
   });}
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
-  async function click(selector){const box=await until(()=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)return null;const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`),'popup control '+selector);await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...box});await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...box});}
+  // Ready means a real user could hit it: enabled, laid out with a size, and the topmost element at its center.
+  // A hidden control (the list before it renders) has a 0x0 box, and a click there lands on nothing.
+  async function click(selector){const box=await until(()=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)return null;const r=e.getBoundingClientRect();if(!r.width||!r.height)return null;const x=r.x+r.width/2,y=r.y+r.height/2;return e.contains(document.elementFromPoint(x,y))?{x,y}:null;})()`),'popup control '+selector);await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...box});await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...box});}
   return {evaluate,click,send};
  }
  async function start(){const p=await popup();await until(()=>p.evaluate("!document.querySelector('#primary-action-btn').disabled"),'enabled pick');await p.click('#primary-action-btn');await until(async()=>(await state()).feedbackMode,'picker active');}
@@ -158,6 +160,8 @@ try{
   cdp.on('Browser.downloadProgress',e=>{if(e.state==='completed'&&downloads.has(e.guid))downloads.get(e.guid).done=true;});
   await cdp.send('Browser.setDownloadBehavior',{behavior:'allowAndName',downloadPath:out,eventsEnabled:true});
   menu=await popup();
+  // The reopened menu lists this page after asking the background; download only once it has.
+  await until(()=>menu.evaluate("document.querySelectorAll('#capture-list li').length===3"),'reopened page list');
   async function download(selector){const before=downloads.size;await menu.click(selector);const [guid,entry]=await until(()=>[...downloads.entries()].slice(before).find(([,d])=>d.done),'download '+selector);return {name:entry.name,text:readFileSync(join(out,guid),'utf8')};}
   const md=await download('#markdown-btn');assert.match(md.name,/^dev-feedback-127\.0\.0\.1-.*\.md$/);assert.equal(md.text,copied);
   const json=await download('#json-btn');assert.match(json.name,/\.json$/);const payload=JSON.parse(json.text);

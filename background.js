@@ -27,7 +27,7 @@
     .then(() => chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }))
     .catch(error => {
       console.error('History access restriction failed:', error.message);
-      throw new Error('This browser cannot keep saved notes private to the extension, so picking is off. Saved notes in the extension menu still work.');
+      throw new Error('This browser cannot keep saved notes private to the extension, so picking is off.');
     });
   storageReady.catch(() => {});
 

@@ -20,11 +20,24 @@ const zipHash=hash(zip);
 execFileSync('unzip',['-q',zip,'-d',extension]);
 const files=()=>Object.fromEntries(readdirSync(extension).sort().map(name=>[name,hash(join(extension,name))]));
 const originalFiles=files();
+// The report names HEAD as its source, so every packaged file must match HEAD byte for byte. A ZIP left
+// from an earlier commit fails here, before the browser starts; this never rebuilds the ZIP it was given.
+const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+const stale=Object.entries(originalFiles).filter(([name,sha])=>{
+  let committed;
+  try{committed=execFileSync('git',['show',`HEAD:${name}`],{cwd:root,maxBuffer:64*1024*1024,stdio:['ignore','pipe','ignore']});}catch{return true;}
+  return createHash('sha256').update(committed).digest('hex')!==sha;
+}).map(([name])=>name);
+if(stale.length){
+  rmSync(temp,{recursive:true,force:true});
+  console.error(`Stale release ZIP: ${zip.split('/').at(-1)} does not match ${sourceCommit.slice(0,7)} in ${stale.join(', ')}. Run npm run package (and commit any source changes) before acceptance.`);
+  process.exit(1);
+}
 const manifest=JSON.parse(readFileSync(join(extension,'manifest.json')));
 assert.deepEqual([...manifest.permissions].sort(),['activeTab','scripting','storage']);
 assert.equal(manifest.host_permissions,undefined);assert.equal(manifest.content_scripts,undefined);
 assert.equal(manifest.version,version);
-const report={status:'running',sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),zip:zip.split('/').at(-1),sha256:zipHash,version,files:originalFiles,checks:[],limitations:[
+const report={status:'running',sourceCommit,zip:zip.split('/').at(-1),sha256:zipHash,version,files:originalFiles,checks:[],limitations:[
  'Isolated Chrome for Testing via CDP; does not certify every Chrome/Edge version or Chrome Web Store approval.',
  'Toolbar action uses the browser Extensions.triggerAction API. Keyboard selection/cancel uses trusted browser input; OS-global shortcut dispatch is covered by manifest and command-registration checks, not the host OS hotkey dispatcher.',
  'Synthetic legacy and capacity fixtures are seeded through the browser storage debugging API. No real user history or extension code is changed.',

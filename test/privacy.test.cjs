@@ -57,7 +57,7 @@ function background(options={}) {
   });
   const chrome={
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
-    storage:{local:area(local),session:area(sessions)},
+    storage:{local:options.noLocalAccessLevel?{...area(local),setAccessLevel:undefined}:area(local),session:area(sessions)},
     scripting:{async insertCSS(){},async executeScript(details){ if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
     tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return {ok:true};},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
@@ -125,6 +125,15 @@ test('embedded frame access asks for the frame site, never the parent or non-web
 
 test('broker fails closed when storage access cannot be restricted',async()=>{
   const app=background({denyAccess:true});assert.equal((await app.send({action:'delete-feedback-items',storageKey:'dev-feedback-https://site.test',itemIds:[]})).ok,false);
+});
+
+// Safari 27 exposes setAccessLevel only on storage.session, so History could not be kept from content scripts.
+test('broker explains and refuses picking when the browser cannot restrict History',async()=>{
+  const app=background({noLocalAccessLevel:true});
+  const picking=await app.send({action:'set-picking',tabId:1,enabled:true});
+  assert.equal(picking.ok,false);assert.match(picking.reason,/cannot keep saved notes private/);
+  assert.equal((await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content)).ok,false);
+  assert.deepEqual(plain(app.sessions),{});assert.deepEqual(plain(app.local),{});
 });
 
 test('selected deletion preserves hidden items and serializes simultaneous operations',async()=>{

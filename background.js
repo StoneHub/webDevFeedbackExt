@@ -23,8 +23,14 @@
   const MAX_HISTORY_BYTES = 8 * 1024 * 1024;
   const MAX_ITEM_BYTES = 3 * 1024 * 1024;
   const MAX_ITEMS_PER_SITE = 500;
-  const storageReady = chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
-  storageReady.catch(error => console.error('History access restriction failed:', error.message));
+  // Safari 27 has setAccessLevel only on storage.session; without it content scripts could read History, so nothing runs.
+  const storageReady = Promise.resolve()
+    .then(() => chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }))
+    .catch(error => {
+      console.error('History access restriction failed:', error.message);
+      throw new Error('This browser cannot keep saved notes private to the extension, so picking is off. Saved notes in the extension menu still work.');
+    });
+  storageReady.catch(() => {});
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     respondAsync(handleRequest(request, sender), sendResponse);
@@ -221,6 +227,7 @@
         return;
       }
 
+      await storageReady;
       const injected = await ensureContentScript(activeTab.id, activeTab.url);
       if (!injected.ok) {
         console.debug('Unable to inject content script from command:', injected.reason);

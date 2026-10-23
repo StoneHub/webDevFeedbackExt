@@ -430,6 +430,11 @@ test('Safari Debug trace records actions and outcomes only',async()=>{
   const log=traces.join('\n');
   assert.match(log,/request add-feedback-item[\s\S]*native clipboard.write ok copied=true[\s\S]*reply add-feedback-item ok copied=true[\s\S]*tab close-capture-overlay ok/);
   assert.doesNotMatch(log,new RegExp(['SECRET','site\\.test','Page feedback',started.sessionId].join('|')));
+  await app.send({action:'https://private.test/SECRET_URL?note=SECRET_NOTE'},app.page('popup.html'));
+  await app.send({action:{SECRET_OBJECT:1}},app.page('popup.html'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(traces.join('\n'),/request unknown[\s\S]*reply unknown/,'malformed actions are logged as unknown');
+  assert.doesNotMatch(traces.join('\n'),/SECRET|private\.test/);
   const quiet=[];const plainNative=fakeNative();const app2=background({native:plainNative,traces:quiet});
   await app2.send({action:'list-page-feedback',storageKey:'dev-feedback-https://site.test'});
   assert.deepEqual(quiet,[],'Release native replies leave the trace off');
@@ -479,9 +484,9 @@ test('note: if closing is not confirmed it says saved and copied, and × retries
 test('Pick reports a page that never confirms picking, and the badge stays off',async()=>{
   const popup=app=>app.page('popup.html');
   for(const [tabReply,reason] of [
-    [(message,page)=>message.action==='get-state'?undefined:page(message),/page did not answer/],
-    [()=>undefined,/page did not answer/],
-    [()=>new Promise(()=>{}),/page did not answer/],
+    [(message,page)=>message.action==='get-state'?undefined:page(message),/page did not confirm picking/],
+    [()=>undefined,/page did not confirm picking/],
+    [()=>new Promise(()=>{}),/page did not confirm picking/],
     [(message,page)=>message.action==='get-state'?{ok:true,editorOpen:true,feedbackMode:false}:page(message),/Save or close the open note first/]
   ]){
     const app=background({tabReply,fastTimers:true});

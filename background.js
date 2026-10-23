@@ -71,8 +71,12 @@
     return reply === TIMED_OUT ? null : reply;
   }
 
+  const TRACED_ACTIONS = new Set(['add-feedback-item', 'clear-capture-session', 'copy-page-feedback', 'delete-feedback-items',
+    'get-capture-session', 'list-page-feedback', 'set-picking', 'start-element-capture', 'stop-picking']);
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    const action = typeof request?.action === 'string' ? request.action.slice(0, 40) : 'invalid';
+    // Only fixed labels reach the trace; anything else a sender puts in action is logged as unknown.
+    const action = TRACED_ACTIONS.has(request?.action) ? request.action : 'unknown';
     storageReady.finally(() => trace('request', action)).catch(() => {});
     respondAsync(handleRequest(request, sender).then(result => {
       trace('reply', action, result?.ok === false ? 'refused' : 'ok', result?.copied === undefined ? '' : `copied=${result.copied}`);
@@ -228,7 +232,7 @@
     const on = state?.feedbackMode === true;
     await chrome.action.setBadgeText({ tabId, text:on ? 'ON' : '' }).catch(() => {});
     if (!enabled || on) return { ok:true };
-    return { ok:false, reason:state?.editorOpen ? 'Save or close the open note first.' : 'The page did not answer, so picking is off. Reload the page and try again.' };
+    return { ok:false, reason:state?.editorOpen ? 'Save or close the open note first.' : 'The page did not confirm picking. Reload the page and try again.' };
   }
 
   // Granting an embedded site from the popup can close the popup, so finish the job here.

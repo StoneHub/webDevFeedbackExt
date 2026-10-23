@@ -23,7 +23,11 @@
   const platform = globalThis.DevFeedbackPlatform = {
     // One cheap request when the background page loads, so a Debug build traces from its first message.
     // A failure here is reported by the request that needs History.
-    ready:Promise.resolve().then(() => native({ action:'history.usage', key:'dev-feedback-' })).then(() => {}, () => {}),
+    // Bounded, so a native side that never answers cannot hold every request behind it.
+    ready:Promise.race([
+      Promise.resolve().then(() => native({ action:'history.usage', key:'dev-feedback-' })),
+      new Promise(resolve => setTimeout(resolve, 5000))
+    ]).then(() => {}, () => {}),
     trace:false,
     history:{
       async read(storageKey) {

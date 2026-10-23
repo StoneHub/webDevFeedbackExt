@@ -79,7 +79,7 @@ The installer works like this:
 
 ## Debug trace
 
-A Debug native build adds `debug: true` to its replies. The background page then logs one `[dev-feedback]` line per request, page message, and native call. Each line holds the action and its outcome (`ok`, `refused`, `no-reply`, `error`, `copied=true/false`) and nothing else: no notes, URLs, clipboard text, or session ids. To read it, open Develop → Web Extension Background Content → Dev Feedback Capture. A Release build never sends the flag, so it never logs. A `request` line with no matching `reply` points to the request that stalled.
+A Debug native build adds `debug: true` to its replies. The background page then logs one `[dev-feedback]` line per request, page message, and native call. Each line holds the action and its outcome (`ok`, `refused`, `no-reply`, `error`, `copied=true/false`) and nothing else: no notes, URLs, clipboard text, or session ids. To read it, open Develop → Web Extension Background Content → Dev Feedback Capture. A Release build never sends the flag, so it never logs. A `request` line with no matching `reply` points to the request that stalled. **Pick an element** also logs each injection step (`inject content-type`, `styles`, `scripts`), then the top frame's `get-state` confirmation. The menu shows the failing step as an error instead of closing.
 
 ## Validate in Safari
 

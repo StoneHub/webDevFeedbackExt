@@ -56,11 +56,19 @@
     if (platform.trace) console.info('[dev-feedback]', ...parts);
   }
 
+  // A browser call that never settles must not hang the request that waits on it.
+  function withinTime(promise, ms) {
+    let timer;
+    const timeout = new Promise(resolve => { timer = setTimeout(() => resolve(TIMED_OUT), ms); });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  }
+  const TIMED_OUT = Symbol('timed out');
+
   // Safari resolves undefined when no listener answers, where Chrome rejects; both count as no reply.
   async function messageTab(tabId, message, options) {
-    const reply = await chrome.tabs.sendMessage(tabId, message, options).catch(() => null);
-    trace('tab', message.action, reply == null ? 'no-reply' : reply.ok === false ? 'refused' : 'ok');
-    return reply;
+    const reply = await withinTime(chrome.tabs.sendMessage(tabId, message, options).catch(() => null), 5000);
+    trace('tab', message.action, reply === TIMED_OUT ? 'timeout' : reply == null ? 'no-reply' : reply.ok === false ? 'refused' : 'ok');
+    return reply === TIMED_OUT ? null : reply;
   }
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -213,10 +221,14 @@
   }
 
   // Every frame keeps its own picker, so on/off goes to all of them at once. The badge shows it is on.
+  // The badge and the reply follow what the top frame reports back, not what was asked for.
   async function setPicking(tabId, enabled) {
     await messageTab(tabId, { action:'set-feedback-mode', enabled });
-    await chrome.action.setBadgeText({ tabId, text:enabled ? 'ON' : '' }).catch(() => {});
-    return { ok:true };
+    const state = enabled ? await messageTab(tabId, { action:'get-state' }, { frameId:0 }) : null;
+    const on = state?.feedbackMode === true;
+    await chrome.action.setBadgeText({ tabId, text:on ? 'ON' : '' }).catch(() => {});
+    if (!enabled || on) return { ok:true };
+    return { ok:false, reason:state?.editorOpen ? 'Save or close the open note first.' : 'The page did not answer, so picking is off. Reload the page and try again.' };
   }
 
   // Granting an embedded site from the popup can close the popup, so finish the job here.
@@ -285,13 +297,22 @@
       return { ok: false, reason: 'Open a webpage to pick an element. PDF and browser-internal pages are not supported.' };
     }
 
+    // Each step is bounded and traced (step and outcome only) so a stalled injection shows where.
+    const step = async (name, run) => {
+      const result = await withinTime(run().then(value => ({ value }), error => ({ error })), 10000);
+      trace('inject', name, result === TIMED_OUT ? 'timeout' : result.error ? 'error' : 'ok');
+      if (result === TIMED_OUT) throw new Error('The page did not let the picker load. Reload the page and try again.');
+      if (result.error) throw result.error;
+      return result.value;
+    };
+
     try {
-      const result = await chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType});
+      const result = await step('content-type', () => chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType}));
       if (result[0]?.result === 'application/pdf') return {ok:false,reason:'PDF capture is no longer offered. Open a webpage to pick an element.'};
-      await chrome.scripting.insertCSS({
+      await step('styles', () => chrome.scripting.insertCSS({
         target: { tabId, allFrames: true },
         files: ['styles.css']
-      });
+      }));
     } catch (error) {
       if (!String(error && error.message).includes('Cannot access')) {
         console.debug('Unable to inject styles:', error.message);
@@ -300,10 +321,10 @@
 
     try {
       // Cross-origin frames are reached only once the user allows their site from the popup.
-      await chrome.scripting.executeScript({
+      await step('scripts', () => chrome.scripting.executeScript({
         target: { tabId, allFrames: true },
         files: ['shared.js', 'collector.js', 'content.js']
-      });
+      }));
       return { ok: true };
     } catch (error) {
       return { ok: false, reason: error.message || 'Unable to inject the feedback UI on this page.' };

@@ -45,8 +45,13 @@ test('clipboard text names each element, keeps notes, and strips URL secrets', (
 
 function background(options={}) {
   const local = structuredClone(options.local || {}), sessions = structuredClone(options.sessions || {});
-  // Safari resolves undefined when no content listener answers; tests can swap the reply per action.
-  const options_tabReply = message => (options.tabReply ? options.tabReply(message) : {ok:true});
+  // Answers like content.js; Safari resolves undefined when no content listener answers, and tests can swap the reply per action.
+  let pageMode=false;
+  const pageReply = message => {
+    if(message.action==='set-feedback-mode')pageMode=message.enabled===true;
+    return message.action==='get-state'?{ok:true,editorOpen:false,feedbackMode:pageMode}:{ok:true};
+  };
+  const options_tabReply = message => (options.tabReply ? options.tabReply(message, pageReply) : pageReply(message));
   let listener; let failWrite = false; let access; const windowTypes=[]; const badges=[]; const tabMessages=[];
   const initialTab={id:1,windowId:1,url:'https://site.test/page',title:'Page',width:800,height:600};
   const tabs=new Map([[1, initialTab]]); let activeId=1;
@@ -60,14 +65,14 @@ function background(options={}) {
   const chrome={
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
     storage:{local:options.noLocalAccessLevel?{...area(local),setAccessLevel:undefined}:area(local),session:area(sessions)},
-    scripting:{async insertCSS(){},async executeScript(details){ if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
+    scripting:{async insertCSS(){if(options.hangInjection)return new Promise(()=>{});},async executeScript(details){ if(options.hangInjection)return new Promise(()=>{}); if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
     tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return options_tabReply(message);},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
     action:{async setBadgeText(details){badges.push(details);},async setBadgeBackgroundColor(){}},
     permissions:{onAdded:{addListener(){}}},
     commands:{onCommand:{addListener(){}}}
   };
-  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){},info(...parts){(options.traces||[]).push(parts.join(' '));}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON};
+  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){},info(...parts){(options.traces||[]).push(parts.join(' '));}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON,setTimeout:options.fastTimers?fn=>setTimeout(fn,0):setTimeout,clearTimeout};
   if(options.native){
     // Safari: History must never touch storage.local, which content scripts can read there.
     chrome.storage.local=new Proxy({},{get(){throw new Error('storage.local used on Safari');}});
@@ -93,6 +98,8 @@ test('broker denies content-script deletes and adds, forged extension URLs, popu
 
 // Background objects come from another vm realm; compare their JSON shape.
 const plain=value=>JSON.parse(JSON.stringify(value));
+// Turning picking on is followed by a get-state check of the top frame, so look for the mode message itself.
+const lastMode=app=>app.tabMessages.filter(m=>m.message.action==='set-feedback-mode').at(-1);
 
 test('embedded frames can pick and stop picking but cannot reach saved captures',async()=>{
   const app=background({local:{'dev-feedback-https://private.test':[element('private')]}});
@@ -113,8 +120,9 @@ test('embedded frames can pick and stop picking but cannot reach saved captures'
 test('popup turns picking on in every frame and shows it on the toolbar badge',async()=>{
   const app=background();
   assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'))).ok,true);
-  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
-  assert.equal(app.tabMessages.at(-1).options,undefined,'no frameId: the message reaches every frame');
+  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
+  assert.equal(lastMode(app).options,undefined,'no frameId: the message reaches every frame');
+  assert.deepEqual(plain(app.tabMessages.at(-1)),{tabId:1,message:{action:'get-state'},options:{frameId:0}},'then the top frame confirms it');
   assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
   assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},app.content)).ok,false,'pages cannot turn picking on');
 });
@@ -207,7 +215,7 @@ test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
   const lastToast=()=>app.tabMessages.filter(m=>m.message.action==='close-capture-overlay').at(-1).message.toast;
   await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},await open());
   assert.equal(lastToast(),"Copied this page's feedback · 2 items");
-  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
+  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
   assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
   await app.send({action:'clear-capture-session',saved:true,copied:false,count:1},await open());
   assert.equal(lastToast(),'Saved. Copy it from the extension menu.');
@@ -215,7 +223,7 @@ test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
   assert.equal(lastToast(),'Saved. Copy it from the extension menu.','closing after a failed copy says the note was saved');
   await app.send({action:'clear-capture-session'},await open());
   assert.equal(lastToast(),'','closing without saving shows nothing');
-  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
+  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
 });
 
 test('storage capacity rejection preserves the editor session and existing history',async()=>{
@@ -398,7 +406,7 @@ test('Safari: a save whose reply was lost can be retried with an edit, which rep
 
 test('closing a note keeps its session until the page confirms, so × can retry',async()=>{
   let closeReply;
-  const app=background({tabReply:message=>message.action==='close-capture-overlay'?closeReply:{ok:true}});
+  const app=background({tabReply:(message,page)=>message.action==='close-capture-overlay'?closeReply:page(message)});
   const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
   const sender=app.page('element.html',started.sessionId);
   const picking=()=>app.tabMessages.filter(m=>m.message.action==='set-feedback-mode').at(-1).message.enabled;
@@ -466,4 +474,32 @@ test('note: if closing is not confirmed it says saved and copied, and × retries
   await frame.cancel();assert.match(frame.nodes.status.textContent,/Could not close the note/);assert.equal(frame.nodes.cancel.disabled,false);
   clearReply={ok:true};await frame.cancel();
   assert.deepEqual(plain(frame.sent.filter(m=>m.action==='clear-capture-session').at(-1)),{action:'clear-capture-session',saved:true,copied:true,count:2},'the close still reports the copy for the toast');
+});
+
+test('Pick reports a page that never confirms picking, and the badge stays off',async()=>{
+  const popup=app=>app.page('popup.html');
+  for(const [tabReply,reason] of [
+    [(message,page)=>message.action==='get-state'?undefined:page(message),/page did not answer/],
+    [()=>undefined,/page did not answer/],
+    [()=>new Promise(()=>{}),/page did not answer/],
+    [(message,page)=>message.action==='get-state'?{ok:true,editorOpen:true,feedbackMode:false}:page(message),/Save or close the open note first/]
+  ]){
+    const app=background({tabReply,fastTimers:true});
+    const result=await app.send({action:'set-picking',tabId:1,enabled:true},popup(app));
+    assert.equal(result.ok,false);assert.match(result.reason,reason);
+    assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:''});
+  }
+  const app=background();
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},popup(app))).ok,true);
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'},'a confirmed page turns the badge on');
+});
+
+test('Pick reports an injection that never finishes instead of waiting forever',async()=>{
+  const traces=[];const native=fakeNative();const send=native.send;
+  native.send=async(id,message)=>({...await send(id,message),debug:true});
+  const app=background({native,traces,fastTimers:true,hangInjection:true});
+  const result=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
+  assert.equal(result.ok,false);assert.match(result.reason,/did not let the picker load/);
+  assert.match(traces.join('\n'),/inject content-type timeout[\s\S]*inject scripts timeout/);
+  assert.doesNotMatch(traces.join('\n'),/site\.test/);
 });

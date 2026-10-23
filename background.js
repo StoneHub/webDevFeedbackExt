@@ -50,8 +50,29 @@
     };
   }
 
+  // Development builds only (the Safari Debug native side turns it on): one line per request and page
+  // message, with the action and outcome only, never notes, URLs, clipboard text, or session ids.
+  function trace(...parts) {
+    if (platform.trace) console.info('[dev-feedback]', ...parts);
+  }
+
+  // Safari resolves undefined when no listener answers, where Chrome rejects; both count as no reply.
+  async function messageTab(tabId, message, options) {
+    const reply = await chrome.tabs.sendMessage(tabId, message, options).catch(() => null);
+    trace('tab', message.action, reply == null ? 'no-reply' : reply.ok === false ? 'refused' : 'ok');
+    return reply;
+  }
+
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    respondAsync(handleRequest(request, sender), sendResponse);
+    const action = typeof request?.action === 'string' ? request.action.slice(0, 40) : 'invalid';
+    storageReady.finally(() => trace('request', action)).catch(() => {});
+    respondAsync(handleRequest(request, sender).then(result => {
+      trace('reply', action, result?.ok === false ? 'refused' : 'ok', result?.copied === undefined ? '' : `copied=${result.copied}`);
+      return result;
+    }, error => {
+      trace('reply', action, 'error');
+      throw error;
+    }), sendResponse);
     return true;
   });
 
@@ -121,12 +142,14 @@
       const { key, session } = await ownedSession(sender);
       if (request.action === 'get-capture-session') return { ok:true, session };
       if (request.action === 'clear-capture-session') {
-        await chrome.storage.session.remove(key);
         const count = Number.isInteger(request.count) ? request.count : 0;
         const toast = request.saved !== true ? ''
           : request.copied === true ? `Copied this page's feedback · ${count} item${count === 1 ? '' : 's'}`
           : 'Saved. Copy it from the extension menu.';
-        await chrome.tabs.sendMessage(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, toast }, { frameId:0 }).catch(()=>{});
+        // The session stays until the page confirms the note closed, so × can try again.
+        const closed = await messageTab(session.tabId, { action:'close-capture-overlay', sessionId:session.sessionId, toast }, { frameId:0 });
+        if (!closed?.ok) return { ok:false, reason:'Could not close the note. Press × to try again.' };
+        await chrome.storage.session.remove(key);
         await setPicking(session.tabId, true);
         return { ok:true };
       }
@@ -191,7 +214,7 @@
 
   // Every frame keeps its own picker, so on/off goes to all of them at once. The badge shows it is on.
   async function setPicking(tabId, enabled) {
-    await chrome.tabs.sendMessage(tabId, { action:'set-feedback-mode', enabled }).catch(() => {});
+    await messageTab(tabId, { action:'set-feedback-mode', enabled });
     await chrome.action.setBadgeText({ tabId, text:enabled ? 'ON' : '' }).catch(() => {});
     return { ok:true };
   }
@@ -200,7 +223,7 @@
   chrome.permissions.onAdded.addListener(() => {
     withActiveTab(async (tab) => {
       if (!tab?.id) return;
-      const state = await chrome.tabs.sendMessage(tab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
+      const state = await messageTab(tab.id, { action:'get-state' }, { frameId:0 });
       if (!state?.feedbackMode) return;
       const injected = await ensureContentScript(tab.id, tab.url);
       if (injected.ok) await setPicking(tab.id, true);
@@ -215,7 +238,7 @@
     if (!injected.ok) throw new Error(injected.reason);
     await chrome.storage.session.set({ [key]:{ ...session, editorTabId:session.tabId, embedded:true } });
     try {
-      const shown = await chrome.tabs.sendMessage(session.tabId, { action:'show-capture-overlay', sessionId:session.sessionId, anchor:session.anchor }, { frameId:0 });
+      const shown = await messageTab(session.tabId, { action:'show-capture-overlay', sessionId:session.sessionId, anchor:session.anchor }, { frameId:0 });
       if (!shown?.ok) throw new Error(shown?.reason || 'Could not open the note editor.');
       return { ok:true, sessionId:session.sessionId };
     } catch (error) {
@@ -251,7 +274,7 @@
         return;
       }
 
-      const state = await chrome.tabs.sendMessage(activeTab.id, { action:'get-state' }, { frameId:0 }).catch(() => null);
+      const state = await messageTab(activeTab.id, { action:'get-state' }, { frameId:0 });
       if (!state || state.editorOpen) return;
       await setPicking(activeTab.id, !state.feedbackMode);
     });

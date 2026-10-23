@@ -5,6 +5,9 @@
   let saving = false;
   // Stored but not yet on the clipboard: Save becomes Copy again, and the background ignores the repeat add.
   let saved = false;
+  // Saved and copied; only closing is left, and × tries it again.
+  let copiedCount = null;
+  const REPLY_MS = 15000;
   const form = document.getElementById('capture-form');
   const note = document.getElementById('note');
   const status = document.getElementById('status');
@@ -24,8 +27,20 @@
     scratch.remove();
     return copied;
   }
+  // A reply that never arrives must not leave the note stuck with every button disabled.
+  function send(message) {
+    let timer;
+    return Promise.race([
+      chrome.runtime.sendMessage(message),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('No reply.')), REPLY_MS); })
+    ]).finally(() => clearTimeout(timer));
+  }
+  async function close(message) {
+    const result = await send(message).catch(() => null);
+    if (!result?.ok) throw new Error(result?.reason || 'Could not close the note. Press × to try again.');
+  }
   save.disabled = true;
-  chrome.runtime.sendMessage({ action:'get-capture-session' }).then(result => {
+  send({ action:'get-capture-session' }).then(result => {
     if (!result?.ok || !result.session) throw new Error(result?.reason || 'Capture session expired.');
     session = result.session;
     save.disabled = false;
@@ -33,18 +48,27 @@
   }).catch(error => showError(error.message));
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!session || saving) return;
+    if (!session || saving || copiedCount !== null) return;
     saving = true; save.disabled = cancel.disabled = true;
     try {
-      const result = await chrome.runtime.sendMessage({ action:'add-feedback-item', item:{ note:note.value.trim() } });
+      // No reply may still mean it was stored; saving again updates that same note, never adds a second.
+      const result = await send({ action:'add-feedback-item', item:{ note:note.value.trim() } }).catch(() => {
+        throw new Error(saved ? 'Could not confirm the copy. Press Copy again.' : 'Could not confirm the save. Press Save to try again.');
+      });
       if (!result?.ok) throw new Error(result?.reason || 'Could not save.');
       saved = true; note.readOnly = true;
       // Safari's background writes the clipboard natively and reports it; elsewhere the click is
       // still the user's gesture, so this frame writes it.
       const copied = typeof result.clipboard === 'string' ? await copy(result.clipboard) : result.copied === true;
       if (!copied) throw new Error('Saved, but the clipboard was blocked. Press Copy again.');
-      await chrome.runtime.sendMessage({ action:'clear-capture-session', saved:true, copied:true, count:result.count }).catch(() => {});
+      copiedCount = result.count;
+      await close({ action:'clear-capture-session', saved:true, copied:true, count:copiedCount });
     } catch (error) {
+      if (copiedCount !== null) {
+        showError('Saved and copied. ' + error.message);
+        saving = false; cancel.disabled = false; cancel.focus();
+        return;
+      }
       showError(saved ? error.message : error.message + ' Your note is still here.');
       save.textContent = saved ? 'Copy again' : 'Save';
       saving = false; save.disabled = cancel.disabled = false;
@@ -57,8 +81,12 @@
   window.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); cancel.click(); }
   });
-  cancel.addEventListener('click', () => {
+  cancel.addEventListener('click', async () => {
     if (saving) return;
-    chrome.runtime.sendMessage({ action:'clear-capture-session', saved }).catch(() => {});
+    saving = true; cancel.disabled = true;
+    try {
+      await close({ action:'clear-capture-session', saved, copied:copiedCount !== null, count:copiedCount ?? 0 });
+    } catch (error) { showError(error.message); }
+    saving = false; cancel.disabled = false;
   });
 })();

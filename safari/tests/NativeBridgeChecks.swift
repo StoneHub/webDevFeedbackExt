@@ -90,7 +90,7 @@ struct NativeBridgeChecks {
         await MainActor.run { accept = true }
         check(await send(["action": "clipboard.write", "text": "Page feedback 2"]).copied == true, "retry copies")
         check(await MainActor.run { writes } == ["Page feedback 1", "Page feedback 2", "Page feedback 2"], "writes happen in request order")
-        check(NativeReply(items: item, copied: true).message.keys.sorted() == ["copied", "items", "ok"], "reply carries only set fields")
+        check(NativeReply(items: item, copied: true).message.keys.sorted() == ["copied", "items", "ok"], "reply carries only set fields, and no debug flag outside Debug")
         print("PASS native bridge: request allowlist, History persistence/profiles/caps/concurrency, clipboard success/failure/retry")
     }
 

@@ -48,6 +48,10 @@ struct NativeReply: Sendable, Equatable {
         if let total { result["total"] = total }
         if let key { result["key"] = key }
         if let copied { result["copied"] = copied }
+        #if DEBUG
+        // Turns on the background's metadata-only trace (safari/platform.js); never sent by Release.
+        result["debug"] = true
+        #endif
         return result
     }
 }

@@ -45,6 +45,8 @@ test('clipboard text names each element, keeps notes, and strips URL secrets', (
 
 function background(options={}) {
   const local = structuredClone(options.local || {}), sessions = structuredClone(options.sessions || {});
+  // Safari resolves undefined when no content listener answers; tests can swap the reply per action.
+  const options_tabReply = message => (options.tabReply ? options.tabReply(message) : {ok:true});
   let listener; let failWrite = false; let access; const windowTypes=[]; const badges=[]; const tabMessages=[];
   const initialTab={id:1,windowId:1,url:'https://site.test/page',title:'Page',width:800,height:600};
   const tabs=new Map([[1, initialTab]]); let activeId=1;
@@ -59,13 +61,13 @@ function background(options={}) {
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
     storage:{local:options.noLocalAccessLevel?{...area(local),setAccessLevel:undefined}:area(local),session:area(sessions)},
     scripting:{async insertCSS(){},async executeScript(details){ if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
-    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return {ok:true};},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
+    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return options_tabReply(message);},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
     action:{async setBadgeText(details){badges.push(details);},async setBadgeBackgroundColor(){}},
     permissions:{onAdded:{addListener(){}}},
     commands:{onCommand:{addListener(){}}}
   };
-  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON};
+  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){},info(...parts){(options.traces||[]).push(parts.join(' '));}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON};
   if(options.native){
     // Safari: History must never touch storage.local, which content scripts can read there.
     chrome.storage.local=new Proxy({},{get(){throw new Error('storage.local used on Safari');}});
@@ -392,4 +394,76 @@ test('Safari: a save whose reply was lost can be retried with an edit, which rep
   const other=await app.send({action:'start-element-capture',snapshot:{selector:'#two'}},app.content);
   await app.send({action:'add-feedback-item',item:{note:'Other'}},app.page('element.html',other.sessionId));
   assert.deepEqual(safariItems(native).map(item=>item.note),['First','Edited','Other']);
+});
+
+test('closing a note keeps its session until the page confirms, so × can retry',async()=>{
+  let closeReply;
+  const app=background({tabReply:message=>message.action==='close-capture-overlay'?closeReply:{ok:true}});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  const picking=()=>app.tabMessages.filter(m=>m.message.action==='set-feedback-mode').at(-1).message.enabled;
+  closeReply=undefined;
+  const refused=await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender);
+  assert.equal(refused.ok,false);assert.match(refused.reason,/Press × to try again/);
+  assert.equal(Object.keys(app.sessions).length,1,'the session survives');assert.equal(picking(),false,'picking stays off while the note is open');
+  closeReply={ok:true};
+  assert.equal((await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender)).ok,true);
+  assert.equal(Object.keys(app.sessions).length,0);assert.equal(picking(),true);
+});
+
+test('Safari Debug trace records actions and outcomes only',async()=>{
+  const traces=[];const native=fakeNative();const send=native.send;
+  native.send=async(id,message)=>({...await send(id,message),debug:true});
+  const app=background({native,traces});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#SECRET_SELECTOR'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  await app.send({action:'add-feedback-item',item:{note:'SECRET_NOTE'}},sender);
+  await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender);
+  const log=traces.join('\n');
+  assert.match(log,/request add-feedback-item[\s\S]*native clipboard.write ok copied=true[\s\S]*reply add-feedback-item ok copied=true[\s\S]*tab close-capture-overlay ok/);
+  assert.doesNotMatch(log,new RegExp(['SECRET','site\\.test','Page feedback',started.sessionId].join('|')));
+  const quiet=[];const plainNative=fakeNative();const app2=background({native:plainNative,traces:quiet});
+  await app2.send({action:'list-page-feedback',storageKey:'dev-feedback-https://site.test'});
+  assert.deepEqual(quiet,[],'Release native replies leave the trace off');
+});
+
+// The note frame in a vm with a fake DOM and timers; replies are scripted per action.
+function noteFrame(reply){
+  const el=()=>({disabled:false,readOnly:false,textContent:'Save',value:'',listeners:{},classList:{add(){}},focus(){},addEventListener(type,fn){this.listeners[type]=fn;}});
+  const nodes={'capture-form':el(),note:el(),status:el(),save:el(),cancel:el()};
+  const sent=[];const timers=[];const pending=[];
+  nodes['capture-form'].requestSubmit=()=>nodes['capture-form'].listeners.submit({preventDefault(){}});
+  nodes.cancel.click=()=>nodes.cancel.listeners.click();
+  const chrome={runtime:{sendMessage(message){sent.push(structuredClone(message));const r=reply(message);if(r==='never')return new Promise(()=>{});return Promise.resolve(r);}}};
+  vm.runInNewContext(source('element.js'),{chrome,document:{getElementById:id=>nodes[id]},window:{addEventListener(){}},navigator:{},Promise,Error,
+    setTimeout:fn=>{timers.push(fn);return timers.length;},clearTimeout(){}});
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  return {nodes,sent,settle,async expire(){timers.splice(0).forEach(fn=>fn());await settle();await settle();},
+    async submit(){nodes['capture-form'].requestSubmit();await settle();await settle();},async cancel(){nodes.cancel.click();await settle();await settle();}};
+}
+
+test('note: a save whose reply never arrives becomes a retryable Save, not a stuck note',async()=>{
+  let addReply='never';
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:m.action==='add-feedback-item'?addReply:{ok:true});
+  await frame.settle();assert.equal(frame.nodes.save.disabled,false);
+  await frame.submit();assert.equal(frame.nodes.save.disabled,true);assert.equal(frame.nodes.cancel.disabled,true);
+  await frame.expire();
+  assert.match(frame.nodes.status.textContent,/Could not confirm the save. Press Save to try again/);
+  assert.equal(frame.nodes.save.disabled,false);assert.equal(frame.nodes.cancel.disabled,false);assert.equal(frame.nodes.note.readOnly,false,'the note can still be edited');
+  addReply={ok:true,copied:true,count:1};
+  await frame.submit();
+  assert.deepEqual(frame.sent.map(m=>m.action),['get-capture-session','add-feedback-item','add-feedback-item','clear-capture-session']);
+});
+
+test('note: if closing is not confirmed it says saved and copied, and × retries the close',async()=>{
+  let clearReply='never';
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:m.action==='add-feedback-item'?{ok:true,copied:true,count:2}:clearReply);
+  await frame.settle();await frame.submit();await frame.expire();
+  assert.match(frame.nodes.status.textContent,/^Saved and copied\. Could not close the note\. Press × to try again\./);
+  assert.equal(frame.nodes.save.disabled,true,'nothing left to save');assert.equal(frame.nodes.cancel.disabled,false);
+  await frame.submit();assert.equal(frame.sent.filter(m=>m.action==='add-feedback-item').length,1,'Enter does not save again');
+  clearReply={ok:false,reason:'Could not close the note. Press × to try again.'};
+  await frame.cancel();assert.match(frame.nodes.status.textContent,/Could not close the note/);assert.equal(frame.nodes.cancel.disabled,false);
+  clearReply={ok:true};await frame.cancel();
+  assert.deepEqual(plain(frame.sent.filter(m=>m.action==='clear-capture-session').at(-1)),{action:'clear-capture-session',saved:true,copied:true,count:2},'the close still reports the copy for the toast');
 });

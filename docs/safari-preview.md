@@ -77,6 +77,10 @@ The installer works like this:
 - After an update, Safari can keep running the previous extension code: turn the extension off and on in Safari Settings → Extensions, then reload the test page.
 - It does not enable the extension or grant website access.
 
+## Debug trace
+
+A Debug native build adds `debug: true` to its replies. The background page then logs one `[dev-feedback]` line per request, page message, and native call. Each line holds the action and its outcome (`ok`, `refused`, `no-reply`, `error`, `copied=true/false`) and nothing else: no notes, URLs, clipboard text, or session ids. To read it, open Develop → Web Extension Background Content → Dev Feedback Capture. A Release build never sends the flag, so it never logs. A `request` line with no matching `reply` points to the request that stalled.
+
 ## Validate in Safari
 
 None of this has been observed yet. The person testing does these steps, because they change Safari settings:

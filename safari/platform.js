@@ -13,12 +13,18 @@
       console.error('Native request failed:', error.message);
       throw new Error('Dev Feedback Capture could not reach its saved notes. Quit and reopen Safari, then try again.');
     }
+    // Only a Debug native build says so; it turns on the background's metadata trace.
+    platform.trace = response?.debug === true;
+    if (platform.trace) console.info('[dev-feedback]', 'native', request.action, response?.ok ? 'ok' : 'refused', response?.copied === undefined ? '' : `copied=${response.copied}`);
     if (!response?.ok) throw new Error(response?.reason || 'Saved notes are unavailable.');
     return response;
   }
 
-  globalThis.DevFeedbackPlatform = {
-    ready:Promise.resolve(),
+  const platform = globalThis.DevFeedbackPlatform = {
+    // One cheap request when the background page loads, so a Debug build traces from its first message.
+    // A failure here is reported by the request that needs History.
+    ready:Promise.resolve().then(() => native({ action:'history.usage', key:'dev-feedback-' })).then(() => {}, () => {}),
+    trace:false,
     history:{
       async read(storageKey) {
         const { items } = await native({ action:'history.read', key:storageKey });

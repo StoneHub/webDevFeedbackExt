@@ -45,6 +45,13 @@ test('clipboard text names each element, keeps notes, and strips URL secrets', (
 
 function background(options={}) {
   const local = structuredClone(options.local || {}), sessions = structuredClone(options.sessions || {});
+  // Answers like content.js; Safari resolves undefined when no content listener answers, and tests can swap the reply per action.
+  let pageMode=false;
+  const pageReply = message => {
+    if(message.action==='set-feedback-mode')pageMode=message.enabled===true;
+    return message.action==='get-state'?{ok:true,editorOpen:false,feedbackMode:pageMode}:{ok:true};
+  };
+  const options_tabReply = message => (options.tabReply ? options.tabReply(message, pageReply) : pageReply(message));
   let listener; let failWrite = false; let access; const windowTypes=[]; const badges=[]; const tabMessages=[];
   const initialTab={id:1,windowId:1,url:'https://site.test/page',title:'Page',width:800,height:600};
   const tabs=new Map([[1, initialTab]]); let activeId=1;
@@ -57,19 +64,35 @@ function background(options={}) {
   });
   const chrome={
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
-    storage:{local:area(local),session:area(sessions)},
-    scripting:{async insertCSS(){},async executeScript(details){ if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
-    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return {ok:true};},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
+    storage:{local:options.noLocalAccessLevel?{...area(local),setAccessLevel:undefined}:area(local),session:area(sessions)},
+    scripting:{async insertCSS(){if(options.hangInjection)return new Promise(()=>{});},async executeScript(details){ if(options.hangInjection)return new Promise(()=>{});
+      if(world){
+        if(options.denyInjection)throw new Error('Injection is blocked');
+        if(details.files){if(details.files.includes('content.js'))world.load();return details.files.map(()=>({frameId:0,result:null}));}
+        executed.push(details);
+        return [{frameId:0,result:world.run(details.func,details.args||[])}];
+      }
+      if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
+    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return world?undefined:options_tabReply(message);},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
     action:{async setBadgeText(details){badges.push(details);},async setBadgeBackgroundColor(){}},
     permissions:{onAdded:{addListener(){}}},
     commands:{onCommand:{addListener(){}}}
   };
-  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder};
+  // Safari runs page controls through the real content.js; its replies to tabs.sendMessage never arrive.
+  const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
+  const executed=[];
+  const world=options.native?pageWorld({url:initialTab.url,send:message=>new Promise(resolve=>listener(message,content,resolve))}):null;
+  const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){},info(...parts){(options.traces||[]).push(parts.join(' '));}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON,setTimeout:options.fastTimers?fn=>setTimeout(fn,0):setTimeout,clearTimeout};
+  if(options.native){
+    // Safari: History must never touch storage.local, which content scripts can read there.
+    chrome.storage.local=new Proxy({},{get(){throw new Error('storage.local used on Safari');}});
+    context.browser={runtime:{sendNativeMessage:(id,message)=>options.native.send(id,message)}};
+    vm.runInNewContext(source('safari/platform.js'),context);
+  }
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
-  const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
-  return {local,sessions,content,page,windowTypes,badges,tabMessages,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
+  return {local,sessions,content,page,windowTypes,badges,tabMessages,world,executed,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
 }
 
 test('broker denies content-script deletes and adds, forged extension URLs, popup subframes, and wrong editor ownership', async () => {
@@ -85,6 +108,8 @@ test('broker denies content-script deletes and adds, forged extension URLs, popu
 
 // Background objects come from another vm realm; compare their JSON shape.
 const plain=value=>JSON.parse(JSON.stringify(value));
+// Turning picking on is followed by a get-state check of the top frame, so look for the mode message itself.
+const lastMode=app=>app.tabMessages.filter(m=>m.message.action==='set-feedback-mode').at(-1);
 
 test('embedded frames can pick and stop picking but cannot reach saved captures',async()=>{
   const app=background({local:{'dev-feedback-https://private.test':[element('private')]}});
@@ -105,8 +130,9 @@ test('embedded frames can pick and stop picking but cannot reach saved captures'
 test('popup turns picking on in every frame and shows it on the toolbar badge',async()=>{
   const app=background();
   assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'))).ok,true);
-  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
-  assert.equal(app.tabMessages.at(-1).options,undefined,'no frameId: the message reaches every frame');
+  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
+  assert.equal(lastMode(app).options,undefined,'no frameId: the message reaches every frame');
+  assert.deepEqual(plain(app.tabMessages.at(-1)),{tabId:1,message:{action:'get-state'},options:{frameId:0}},'then the top frame confirms it');
   assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
   assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},app.content)).ok,false,'pages cannot turn picking on');
 });
@@ -125,6 +151,15 @@ test('embedded frame access asks for the frame site, never the parent or non-web
 
 test('broker fails closed when storage access cannot be restricted',async()=>{
   const app=background({denyAccess:true});assert.equal((await app.send({action:'delete-feedback-items',storageKey:'dev-feedback-https://site.test',itemIds:[]})).ok,false);
+});
+
+// Without its own platform, a browser that cannot restrict storage.local (Safari 27 without safari/platform.js) refuses to save.
+test('broker explains and refuses picking when the browser cannot restrict History',async()=>{
+  const app=background({noLocalAccessLevel:true});
+  const picking=await app.send({action:'set-picking',tabId:1,enabled:true});
+  assert.equal(picking.ok,false);assert.match(picking.reason,/cannot keep saved notes private/);
+  assert.equal((await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content)).ok,false);
+  assert.deepEqual(plain(app.sessions),{});assert.deepEqual(plain(app.local),{});
 });
 
 test('selected deletion preserves hidden items and serializes simultaneous operations',async()=>{
@@ -184,22 +219,6 @@ test('retrying a saved note copies again without storing it twice',async()=>{
   assert.equal(app.local['dev-feedback-https://site.test'].length,1);
 });
 
-test('closing a note keeps picking; a save shows the clipboard toast',async()=>{
-  const app=background();
-  const open=async()=>app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content)).sessionId);
-  const lastToast=()=>app.tabMessages.filter(m=>m.message.action==='close-capture-overlay').at(-1).message.toast;
-  await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},await open());
-  assert.equal(lastToast(),"Copied this page's feedback · 2 items");
-  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
-  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
-  await app.send({action:'clear-capture-session',saved:true,copied:false,count:1},await open());
-  assert.equal(lastToast(),'Saved. Copy it from the extension menu.');
-  await app.send({action:'clear-capture-session',saved:true},await open());
-  assert.equal(lastToast(),'Saved. Copy it from the extension menu.','closing after a failed copy says the note was saved');
-  await app.send({action:'clear-capture-session'},await open());
-  assert.equal(lastToast(),'','closing without saving shows nothing');
-  assert.deepEqual(plain(app.tabMessages.at(-1).message),{action:'set-feedback-mode',enabled:true});
-});
 
 test('storage capacity rejection preserves the editor session and existing history',async()=>{
   const app=background({usedBytes:9*1024*1024});
@@ -246,4 +265,373 @@ test('Element saving cannot smuggle a screenshot into a new Region record',async
   assert.equal(result.ok,true);
   const item=Object.values(app.local).flat()[0];
   assert.equal(item.type,'element');assert.equal(item.screenshot,undefined);
+});
+
+// Stands in for safari/NativeBridge.swift: the same four requests, a private store, and a fake pasteboard.
+function fakeNative(){
+  const store={},writes=[],requests=[];let copyWorks=true,reachable=true;
+  return {store,writes,requests,set copyWorks(value){copyWorks=value;},set reachable(value){reachable=value;},
+    async send(id,message){
+      requests.push(structuredClone(message));
+      if(!reachable)throw new Error('Native messaging unavailable');
+      await new Promise(resolve=>setTimeout(resolve,Math.random()*3));
+      if(message.action==='history.read')return {ok:true,...(message.key in store?{items:store[message.key]}:{})};
+      if(message.action==='history.write'){store[message.key]=message.items;return {ok:true};}
+      if(message.action==='history.usage'){const total=Object.entries(store).reduce((sum,[k,v])=>sum+k.length+v.length,0);return {ok:true,total,key:message.key in store?message.key.length+store[message.key].length:0};}
+      if(message.action==='clipboard.write'){if(copyWorks)writes.push(message.text);return {ok:true,copied:copyWorks};}
+      return {ok:false,reason:'Unsupported request.'};
+    }};
+}
+const safariItems=native=>JSON.parse(native.store['dev-feedback-https://site.test']||'[]');
+// The note frame's own close: the frame posts its token to the page, as element.js does after Save or ×.
+const closeNote=world=>{const note=world.notes.at(-1);world.post(note.contentWindow,{devFeedback:'close',token:new URL(note.src).searchParams.get('close')});};
+const saveNote=async(app,selector,note)=>{
+  const started=await app.send({action:'start-element-capture',snapshot:{selector,tag:'button',text:selector}},app.content);
+  const result=await app.send({action:'add-feedback-item',item:{note}},app.page('element.html',started.sessionId));
+  if(app.world)closeNote(app.world);
+  return {sender:app.page('element.html',started.sessionId),result};
+};
+
+test('Safari: each save writes all of this page\'s feedback natively, oldest first, across Stop/Start',async()=>{
+  const native=fakeNative();
+  native.store['dev-feedback-https://site.test']=JSON.stringify([{...element('earlier','From another tab'),selector:'#earlier'},{...element('other-path','OTHER_PATH_SENTINEL'),pageUrl:'https://site.test/other'}]);
+  const app=background({native});const popup=app.page('popup.html');
+  await app.send({action:'set-picking',tabId:1,enabled:true},popup);
+  const first=(await saveNote(app,'#one','Bigger')).result;
+  assert.deepEqual(plain(first),{ok:true,copied:true,count:2},'the note frame gets no clipboard text on Safari');
+  await app.send({action:'set-picking',tabId:1,enabled:false},popup);
+  await app.send({action:'set-picking',tabId:1,enabled:true},popup);
+  const second=(await saveNote(app,'#two','')).result;
+  assert.equal(second.count,3);
+  assert.match(native.writes.at(-1),/1\. `#earlier`[\s\S]*2\. `#one`[\s\S]*Bigger[\s\S]*3\. `#two`/);
+  assert.doesNotMatch(native.writes.join('\n'),/OTHER_PATH_SENTINEL/);
+  assert.equal(native.writes.at(-1),shared.buildClipboardText(safariItems(native).filter(item=>shared.safeShareUrl(item.pageUrl)==='https://site.test/page')));
+  assert.deepEqual([...new Set(native.requests.map(r=>r.action))].sort(),['clipboard.write','history.read','history.usage','history.write']);
+});
+
+test('Safari: a refused clipboard write keeps the saved note, and the retry copies without storing twice',async()=>{
+  const native=fakeNative();const app=background({native});
+  native.copyWorks=false;
+  const {sender,result}=await saveNote(app,'#one','Once');
+  assert.deepEqual(plain(result),{ok:true,copied:false,count:1});
+  assert.equal(safariItems(native).length,1,'saved even though the copy failed');
+  native.copyWorks=true;
+  const retry=await app.send({action:'add-feedback-item',item:{note:'Once'}},sender);
+  assert.deepEqual(plain(retry),{ok:true,copied:true,count:1});
+  assert.equal(safariItems(native).length,1);assert.equal(native.writes.length,1);
+});
+
+test('Safari: when the native side is unreachable the draft stays open and nothing is claimed',async()=>{
+  const native=fakeNative();const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one'}},app.content);
+  native.reachable=false;
+  const save=await app.send({action:'add-feedback-item',item:{note:'Draft'}},app.page('element.html',started.sessionId));
+  assert.equal(save.ok,false);assert.match(save.reason,/could not reach its saved notes/);
+  assert.equal(Object.keys(app.sessions).length,1,'the editor session survives for a retry');
+});
+
+test('Safari: if reading the page back fails after the save, the note says saved and the retry copies once',async()=>{
+  const native=fakeNative();const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  const send=native.send;let writes=0;
+  native.send=async(id,message)=>{if(message.action==='history.write')writes++;if(message.action==='history.read'&&writes===1&&!native.failedOnce){native.failedOnce=true;throw new Error('gone');}return send(id,message);};
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Once'}},sender)),{ok:true,copied:false,count:0});
+  assert.equal(safariItems(native).length,1);
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Once'}},sender)),{ok:true,copied:true,count:1});
+  assert.equal(safariItems(native).length,1);
+});
+
+test('Safari: simultaneous saves on one page all land and the last copy holds every note',async()=>{
+  const native=fakeNative();const app=background({native});
+  const senders=[];
+  // One note is open at a time; each closes in the page while its session stays valid for the save.
+  for(const selector of ['#a','#b','#c','#d']){senders.push(app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector,tag:'button'}},app.content)).sessionId));closeNote(app.world);}
+  const results=await Promise.all(senders.map((sender,i)=>app.send({action:'add-feedback-item',item:{note:'note '+i}},sender)));
+  assert.equal(results.every(r=>r.ok&&r.copied),true);
+  assert.equal(safariItems(native).length,4);
+  assert.match(native.writes.at(-1),/note 0[\s\S]*note 1[\s\S]*note 2[\s\S]*note 3/);
+  assert.equal(results.at(-1).count,4);
+});
+
+test('menu lists and copies the page through the background; pages and note frames cannot',async()=>{
+  const native=fakeNative();
+  native.store['dev-feedback-https://site.test']=JSON.stringify([element('a','PRIVATE_NOTE')]);
+  const app=background({native});
+  const list={action:'list-page-feedback',storageKey:'dev-feedback-https://site.test'};
+  const copy={action:'copy-page-feedback',pageUrl:'https://site.test/page'};
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one'}},app.content);
+  for(const sender of [app.content,{...app.content,frameId:3,url:'https://frame.test/'},app.page('element.html',started.sessionId)]){
+    for(const request of [list,copy])assert.equal((await app.send(request,sender)).ok,false,request.action);
+  }
+  assert.equal(native.writes.length,0);
+  assert.deepEqual((await app.send(list)).items.map(item=>item.note),['PRIVATE_NOTE']);
+  assert.equal((await app.send({...list,storageKey:'other-key'})).ok,false);
+  assert.deepEqual(plain(await app.send(copy)),{ok:true,copied:true,count:1});
+  assert.match(native.writes[0],/PRIVATE_NOTE/);
+  // Chrome returns the text for the menu to copy, from storage.local as before.
+  const chromeApp=background({local:{'dev-feedback-https://site.test':[element('a','Chrome note')]}});
+  const chromeCopy=await chromeApp.send(copy);
+  assert.equal(chromeCopy.count,1);assert.match(chromeCopy.clipboard,/Chrome note/);assert.equal(chromeCopy.copied,undefined);
+  assert.equal(chromeApp.access.accessLevel,'TRUSTED_CONTEXTS');
+});
+
+test('Safari: a save whose reply was lost can be retried with an edit, which replaces that note in place',async()=>{
+  const native=fakeNative();
+  native.store['dev-feedback-https://site.test']=JSON.stringify([{...element('earlier','First'),selector:'#earlier'}]);
+  const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one',tag:'button'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  const send=native.send;let loseReply=true;
+  native.send=async(id,message)=>{const reply=await send(id,message);if(message.action==='history.write'&&loseReply){loseReply=false;throw new Error('reply lost');}return reply;};
+  const lost=await app.send({action:'add-feedback-item',item:{note:'Original'}},sender);
+  assert.equal(lost.ok,false,'the editor keeps Save and stays editable');
+  assert.equal(safariItems(native).at(-1).note,'Original','the write itself landed');
+  const timestamp=safariItems(native).at(-1).timestamp;
+  const retry=await app.send({action:'add-feedback-item',item:{note:'Edited'}},sender);
+  assert.deepEqual(plain(retry),{ok:true,copied:true,count:2});
+  assert.deepEqual(safariItems(native).map(item=>[item.id,item.note]),[['earlier','First'],[started.sessionId,'Edited']],'one record, same place');
+  assert.equal(safariItems(native).at(-1).timestamp,timestamp);
+  assert.match(native.writes.at(-1),/1\. `#earlier`[\s\S]*First[\s\S]*2\. `#one`[\s\S]*Edited/);assert.doesNotMatch(native.writes.at(-1),/Original/);
+  // Copy again with no change keeps the record exactly as it was.
+  const before=native.store['dev-feedback-https://site.test'];
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Edited'}},sender)),{ok:true,copied:true,count:2});
+  assert.equal(native.store['dev-feedback-https://site.test'],before);
+  // Another session cannot reach this record: its save is a new record.
+  closeNote(app.world);
+  const other=await app.send({action:'start-element-capture',snapshot:{selector:'#two'}},app.content);
+  await app.send({action:'add-feedback-item',item:{note:'Other'}},app.page('element.html',other.sessionId));
+  assert.deepEqual(safariItems(native).map(item=>item.note),['First','Edited','Other']);
+});
+
+
+test('Safari Debug trace records actions and outcomes only',async()=>{
+  const traces=[];const native=fakeNative();const send=native.send;
+  native.send=async(id,message)=>({...await send(id,message),debug:true});
+  const app=background({native,traces});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#SECRET_SELECTOR'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  await app.send({action:'add-feedback-item',item:{note:'SECRET_NOTE'}},sender);
+  await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender);
+  const log=traces.join('\n');
+  assert.match(log,/request add-feedback-item[\s\S]*native clipboard.write ok copied=true[\s\S]*reply add-feedback-item ok copied=true[\s\S]*reply clear-capture-session ok/);
+  assert.doesNotMatch(log,new RegExp(['SECRET','site\\.test','Page feedback',started.sessionId].join('|')));
+  await app.send({action:'https://private.test/SECRET_URL?note=SECRET_NOTE'},app.page('popup.html'));
+  await app.send({action:{SECRET_OBJECT:1}},app.page('popup.html'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.match(traces.join('\n'),/request unknown[\s\S]*reply unknown/,'malformed actions are logged as unknown');
+  assert.doesNotMatch(traces.join('\n'),/SECRET|private\.test/);
+  const quiet=[];const plainNative=fakeNative();const app2=background({native:plainNative,traces:quiet});
+  await app2.send({action:'list-page-feedback',storageKey:'dev-feedback-https://site.test'});
+  assert.deepEqual(quiet,[],'Release native replies leave the trace off');
+});
+
+// The note frame in a vm with a fake DOM and timers; replies are scripted per action.
+function noteFrame(reply){
+  const el=()=>({disabled:false,readOnly:false,textContent:'Save',value:'',listeners:{},classList:{add(){}},focus(){},addEventListener(type,fn){this.listeners[type]=fn;}});
+  const nodes={'capture-form':el(),note:el(),status:el(),save:el(),cancel:el()};
+  const sent=[];const timers=[];const pending=[];
+  nodes['capture-form'].requestSubmit=()=>nodes['capture-form'].listeners.submit({preventDefault(){}});
+  nodes.cancel.click=()=>nodes.cancel.listeners.click();
+  const chrome={runtime:{sendMessage(message){sent.push(structuredClone(message));const r=reply(message);if(r==='never')return new Promise(()=>{});return Promise.resolve(r);}}};
+  const posted=[];
+  vm.runInNewContext(source('element.js'),{chrome,document:{getElementById:id=>nodes[id]},window:{addEventListener(){},parent:{postMessage:(data,target)=>posted.push({data:structuredClone(data),target})}},
+    location:{search:'?session=s1&close=TOKEN'},URLSearchParams,navigator:{},Promise,Error,
+    setTimeout:fn=>{timers.push(fn);return timers.length;},clearTimeout(){}});
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  return {nodes,sent,posted,settle,async expire(){timers.splice(0).forEach(fn=>fn());await settle();await settle();},
+    async submit(){nodes['capture-form'].requestSubmit();await settle();await settle();},async cancel(){nodes.cancel.click();await settle();await settle();}};
+}
+
+test('note: a save whose reply never arrives becomes a retryable Save, not a stuck note',async()=>{
+  let addReply='never';
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:m.action==='add-feedback-item'?addReply:{ok:true});
+  await frame.settle();assert.equal(frame.nodes.save.disabled,false);
+  await frame.submit();assert.equal(frame.nodes.save.disabled,true);assert.equal(frame.nodes.cancel.disabled,true);
+  await frame.expire();
+  assert.match(frame.nodes.status.textContent,/Could not confirm the save. Press Save to try again/);
+  assert.equal(frame.nodes.save.disabled,false);assert.equal(frame.nodes.cancel.disabled,false);assert.equal(frame.nodes.note.readOnly,false,'the note can still be edited');
+  addReply={ok:true,copied:true,count:1};
+  await frame.submit();
+  assert.deepEqual(frame.sent.map(m=>m.action),['get-capture-session','add-feedback-item','add-feedback-item','clear-capture-session']);
+  assert.deepEqual(frame.posted.map(p=>p.data),[{devFeedback:'close',token:'TOKEN'}]);
+});
+
+
+test('Pick reports a page that never confirms picking, and the badge stays off',async()=>{
+  const popup=app=>app.page('popup.html');
+  for(const [tabReply,reason] of [
+    [(message,page)=>message.action==='get-state'?undefined:page(message),/page did not confirm picking/],
+    [()=>undefined,/page did not confirm picking/],
+    [()=>new Promise(()=>{}),/page did not confirm picking/],
+    [(message,page)=>message.action==='get-state'?{ok:true,editorOpen:true,feedbackMode:false}:page(message),/Save or close the open note first/]
+  ]){
+    const app=background({tabReply,fastTimers:true});
+    const result=await app.send({action:'set-picking',tabId:1,enabled:true},popup(app));
+    assert.equal(result.ok,false);assert.match(result.reason,reason);
+    assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:''});
+  }
+  const app=background();
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},popup(app))).ok,true);
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'},'a confirmed page turns the badge on');
+});
+
+test('Pick reports an injection that never finishes instead of waiting forever',async()=>{
+  const traces=[];const native=fakeNative();const send=native.send;
+  native.send=async(id,message)=>({...await send(id,message),debug:true});
+  const app=background({native,traces,fastTimers:true,hangInjection:true});
+  const result=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
+  assert.equal(result.ok,false);assert.match(result.reason,/did not let the picker load/);
+  assert.match(traces.join('\n'),/inject content-type timeout[\s\S]*inject scripts timeout/);
+  assert.doesNotMatch(traces.join('\n'),/site\.test/);
+});
+
+test('closing a note forgets its session and resumes picking without messaging the page to close',async()=>{
+  const app=background({tabReply:(message,page)=>message.action==='get-state'?undefined:page(message),fastTimers:true});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
+  const sender=app.page('element.html',started.sessionId);
+  // While the note is open, Safari may not answer the page: Pick says to finish the note.
+  const pick=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
+  assert.equal(pick.ok,false);assert.match(pick.reason,/Save or close the open note first/);
+  assert.equal((await app.send({action:'clear-capture-session',saved:true,copied:true,count:2},sender)).ok,true);
+  assert.equal(Object.keys(app.sessions).length,0);
+  // Only the top page of that tab can take the toast, once.
+  assert.equal((await app.send({action:'take-note-toast'},{...app.content,frameId:3,url:'https://frame.test/'})).ok,false);
+  assert.equal((await app.send({action:'take-note-toast'},app.page('popup.html'))).ok,false);
+  assert.equal((await app.send({action:'take-note-toast'},app.content)).toast,"Copied this page's feedback \u00b7 2 items");
+  assert.equal((await app.send({action:'take-note-toast'},app.content)).toast,'');
+  assert.deepEqual(plain(lastMode(app).message),{action:'set-feedback-mode',enabled:true});
+  assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
+  assert.equal(app.tabMessages.some(m=>m.message.action==='close-capture-overlay'),false);
+  const later=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
+  assert.match(later.reason,/did not confirm picking/,'with the note closed, an unanswered Pick is not blamed on a note');
+});
+
+test('note: Save closes through its own frame even when the background does not answer the close',async()=>{
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:m.action==='add-feedback-item'?{ok:true,copied:true,count:2}:'never');
+  await frame.settle();await frame.submit();
+  assert.deepEqual(frame.posted,[],'the background gets the first chance to forget the session');
+  await frame.expire();
+  assert.deepEqual(frame.posted.map(p=>p.data),[{devFeedback:'close',token:'TOKEN'}],'the page-visible close carries only the token');
+  assert.deepEqual(plain(frame.sent.at(-1)),{action:'clear-capture-session',saved:true,copied:true,count:2},'the toast count goes to the background, not the page');
+  await frame.submit();assert.equal(frame.sent.filter(m=>m.action==='add-feedback-item').length,1,'Enter does not save again');
+});
+
+test('note: × closes through its own frame, and says so if the page never removes it',async()=>{
+  const frame=noteFrame(m=>m.action==='get-capture-session'?{ok:true,session:{}}:{ok:true});
+  await frame.settle();await frame.cancel();
+  assert.deepEqual(frame.posted.map(p=>p.data),[{devFeedback:'close',token:'TOKEN'}]);
+  assert.equal(frame.nodes.cancel.disabled,true);
+  await frame.expire();
+  assert.match(frame.nodes.status.textContent,/Could not close the note\. Reload the page\./);assert.equal(frame.nodes.cancel.disabled,false);
+});
+
+// content.js in its own vm with a minimal DOM, standing in for the content-script world of the top frame.
+// run() executes an injected function the way scripting.executeScript does: serialized, inside that world.
+function pageWorld({url='https://site.test/page',send=async()=>({ok:true,toast:''})}={}){
+  let onWindowMessage,onRuntimeMessage;const sent=[];const notes=[];const toasts=[];
+  const node=()=>({style:{},dataset:{},classList:{add(){},remove(){}},remove(){this.removed=true;},focus(){},appendChild(){},contains(){return false;}});
+  const toast={hidden:true,set textContent(value){toasts.push(value);}};
+  const shadow={innerHTML:'',querySelector:()=>toast,appendChild(){}};
+  const document={contentType:'text/html',documentElement:{appendChild(){}},addEventListener(){},querySelectorAll:()=>[],activeElement:null,
+    createElement(tag){const element=node();element.attachShadow=()=>shadow;if(tag==='iframe'){element.contentWindow={note:notes.length};notes.push(element);}return element;}};
+  const chrome={runtime:{id:'unit',getURL:path=>'safari-web-extension://unit/'+path,onMessage:{addListener(fn){onRuntimeMessage=fn;}},
+    sendMessage(message){sent.push(message.action);return send(message);}}};
+  const context=vm.createContext({document,chrome,crypto:webcrypto,innerWidth:800,innerHeight:600,setTimeout,clearTimeout,URL,location:{href:url},
+    window:{addEventListener(type,fn){if(type==='message')onWindowMessage=fn;}},
+    DevFeedbackCollector:{buildPageContext:()=>({url,viewport:{width:800,height:600}})}});
+  vm.runInContext('globalThis.window.globalThis=globalThis',context);
+  const world={sent,notes,toasts,
+    load(){vm.runInContext(source('content.js'),context);},
+    run:(func,args)=>vm.runInContext(`(${func})(...${JSON.stringify(args)})`,context),
+    ask(request){let reply;onRuntimeMessage(request,{id:'unit'},value=>{reply=value;});return reply;},
+    post:(sourceWindow,data)=>onWindowMessage({source:sourceWindow,data}),
+    get state(){return world.run(()=>globalThis.DevFeedbackPage.control({action:'get-state'}),[]);}};
+  return world;
+}
+
+function pageReceiver(){
+  const world=pageWorld();world.load();
+  return {sent:world.sent,
+    open(sessionId){world.ask({action:'show-capture-overlay',sessionId,anchor:null});const note=world.notes.at(-1);return {note,token:new URL(note.src).searchParams.get('close')};},
+    post:world.post,
+    get open_(){return world.ask({action:'get-state'}).editorOpen;}};
+}
+
+test('the page closes a note only for its own frame with that note\'s token',()=>{
+  const page=pageReceiver();
+  const first=page.open('s1');
+  assert.match(first.token,/^[0-9a-f]{32}$/,'a 128-bit token');
+  const pageWindow={};
+  for(const [label,source,data] of [
+    ['no token',first.note.contentWindow,{devFeedback:'close'}],
+    ['wrong token',first.note.contentWindow,{devFeedback:'close',token:'0'.repeat(32)}],
+    ['right token from the page',pageWindow,{devFeedback:'close',token:first.token}],
+    ['right token with no source',null,{devFeedback:'close',token:first.token}],
+    ['other message from the note',first.note.contentWindow,{devFeedback:'open',token:first.token}],
+    ['not an object',first.note.contentWindow,'close']
+  ]){
+    page.post(source,data);
+    assert.equal(page.open_,true,label);assert.equal(first.note.removed,undefined,label);
+  }
+  assert.deepEqual(page.sent,[],'nothing is asked of the background before a real close');
+  page.post(first.note.contentWindow,{devFeedback:'close',token:first.token});
+  assert.equal(page.open_,false);assert.equal(first.note.removed,true);
+  assert.deepEqual(page.sent,['take-note-toast'],'the toast comes from the background, not the message');
+  // A new note gets a new token; the old one no longer closes anything.
+  const second=page.open('s2');
+  assert.notEqual(second.token,first.token);
+  page.post(second.note.contentWindow,{devFeedback:'close',token:first.token});
+  page.post(first.note.contentWindow,{devFeedback:'close',token:second.token});
+  assert.equal(page.open_,true,'an old token or the old frame cannot close the new note');
+  page.post(second.note.contentWindow,{devFeedback:'close',token:second.token});
+  assert.equal(page.open_,false);
+});
+
+test('Safari: with tabs.sendMessage never answering, the page controller runs Pick, the note, the menu, and Stop/Start',async()=>{
+  const native=fakeNative();const app=background({native});const popup=app.page('popup.html');const world=app.world;
+  const menu=async()=>plain(await app.send({action:'get-page-state',tabId:1},popup));
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(await menu(),{ok:true,editorOpen:false,feedbackMode:false},'before Pick the page has no picker');
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},popup)).ok,true);
+  assert.equal(world.state.feedbackMode,true);assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
+  assert.deepEqual(await menu(),{ok:true,editorOpen:false,feedbackMode:true},'the menu offers Stop picking');
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one',tag:'button'}},app.content);
+  assert.equal(started.ok,true);assert.equal(world.notes.length,1);
+  assert.deepEqual(await menu(),{ok:true,editorOpen:true,feedbackMode:false},'the menu offers Return to open note');
+  assert.match((await app.send({action:'set-picking',tabId:1,enabled:true},popup)).reason,/Save or close the open note first/);
+  const sender=app.page('element.html',started.sessionId);
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Works'}},sender)),{ok:true,copied:true,count:1});
+  assert.equal((await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender)).ok,true);
+  closeNote(world);await settle();
+  assert.deepEqual(plain(world.state),{ok:true,editorOpen:false,feedbackMode:true,interactionMode:'element'},'the note closed and picking resumed');
+  assert.deepEqual(world.toasts.filter(Boolean),["Copied this page's feedback · 1 item"]);
+  assert.deepEqual(await menu(),{ok:true,editorOpen:false,feedbackMode:true});
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:false},popup)).ok,true);
+  assert.equal(world.state.feedbackMode,false);assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:''});
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},popup)).ok,true);
+  assert.equal(world.state.feedbackMode,true);
+  assert.equal(app.tabMessages.length,0,'Safari never uses tabs.sendMessage for the page');
+  const targets=app.executed.filter(d=>d.args?.[0]?.action).map(d=>[d.args[0].action,d.target.allFrames===true]);
+  assert.ok(targets.every(([action,all])=>all===(action==='set-feedback-mode')),'state and the note go to the top frame only; mode changes reach every frame');
+});
+
+test('Safari page controller: fixed actions only, and only the menu can ask for page state',async()=>{
+  const world=pageWorld();world.load();
+  const control=request=>world.run(r=>globalThis.DevFeedbackPage.control(r),[request]);
+  for(const request of [{action:'take-note-toast'},{action:'list-page-feedback'},{action:'show-capture-overlay',sessionId:'../x'},{action:'show-capture-overlay',sessionId:{}},null,'get-state'])
+    assert.equal(control(request),undefined,JSON.stringify(request));
+  assert.equal(world.notes.length,0);
+  assert.equal(control({action:'set-feedback-mode',enabled:'yes'}).feedbackMode,false,'only true turns picking on');
+  world.run(()=>{globalThis.DevFeedbackPage=null;try{globalThis.DevFeedbackPage.control=null;}catch{}},[]);
+  assert.equal(control({action:'get-state'}).ok,true,'the controller cannot be replaced');
+  const native=fakeNative();const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
+  for(const sender of [app.content,{...app.content,frameId:3,url:'https://frame.test/'},app.page('element.html',started.sessionId)])
+    assert.equal((await app.send({action:'get-page-state',tabId:1},sender)).ok,false);
+  // Chrome keeps tabs.sendMessage for the same question.
+  const chromeApp=background();
+  await chromeApp.send({action:'set-picking',tabId:1,enabled:true},chromeApp.page('popup.html'));
+  assert.deepEqual(plain(await chromeApp.send({action:'get-page-state',tabId:1},chromeApp.page('popup.html'))),{ok:true,editorOpen:false,feedbackMode:true});
+  assert.ok(chromeApp.tabMessages.some(m=>m.message.action==='get-state'));
 });

@@ -20,11 +20,24 @@ const zipHash=hash(zip);
 execFileSync('unzip',['-q',zip,'-d',extension]);
 const files=()=>Object.fromEntries(readdirSync(extension).sort().map(name=>[name,hash(join(extension,name))]));
 const originalFiles=files();
+// The report names HEAD as its source, so every packaged file must match HEAD byte for byte. A ZIP left
+// from an earlier commit fails here, before the browser starts; this never rebuilds the ZIP it was given.
+const sourceCommit=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();
+const stale=Object.entries(originalFiles).filter(([name,sha])=>{
+  let committed;
+  try{committed=execFileSync('git',['show',`HEAD:${name}`],{cwd:root,maxBuffer:64*1024*1024,stdio:['ignore','pipe','ignore']});}catch{return true;}
+  return createHash('sha256').update(committed).digest('hex')!==sha;
+}).map(([name])=>name);
+if(stale.length){
+  rmSync(temp,{recursive:true,force:true});
+  console.error(`Stale release ZIP: ${zip.split('/').at(-1)} does not match ${sourceCommit.slice(0,7)} in ${stale.join(', ')}. Run npm run package (and commit any source changes) before acceptance.`);
+  process.exit(1);
+}
 const manifest=JSON.parse(readFileSync(join(extension,'manifest.json')));
 assert.deepEqual([...manifest.permissions].sort(),['activeTab','scripting','storage']);
 assert.equal(manifest.host_permissions,undefined);assert.equal(manifest.content_scripts,undefined);
 assert.equal(manifest.version,version);
-const report={status:'running',sourceCommit:execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim(),zip:zip.split('/').at(-1),sha256:zipHash,version,files:originalFiles,checks:[],limitations:[
+const report={status:'running',sourceCommit,zip:zip.split('/').at(-1),sha256:zipHash,version,files:originalFiles,checks:[],limitations:[
  'Isolated Chrome for Testing via CDP; does not certify every Chrome/Edge version or Chrome Web Store approval.',
  'Toolbar action uses the browser Extensions.triggerAction API. Keyboard selection/cancel uses trusted browser input; OS-global shortcut dispatch is covered by manifest and command-registration checks, not the host OS hotkey dispatcher.',
  'Synthetic legacy and capacity fixtures are seeded through the browser storage debugging API. No real user history or extension code is changed.',
@@ -71,7 +84,9 @@ try{
    cdp.on('Target.receivedMessageFromTarget',cb);cdp.send('Target.sendMessageToTarget',{sessionId,message:JSON.stringify({id:commandId,method,params})}).catch(reject);
   });}
   const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(r.exceptionDetails)throw new Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value;};
-  async function click(selector){const box=await until(()=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)return null;const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`),'popup control '+selector);await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...box});await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...box});}
+  // Ready means a real user could hit it: enabled, laid out with a size, and the topmost element at its center.
+  // A hidden control (the list before it renders) has a 0x0 box, and a click there lands on nothing.
+  async function click(selector){const box=await until(()=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e||e.disabled)return null;const r=e.getBoundingClientRect();if(!r.width||!r.height)return null;const x=r.x+r.width/2,y=r.y+r.height/2;return e.contains(document.elementFromPoint(x,y))?{x,y}:null;})()`),'popup control '+selector);await send('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...box});await send('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...box});}
   return {evaluate,click,send};
  }
  async function start(){const p=await popup();await until(()=>p.evaluate("!document.querySelector('#primary-action-btn').disabled"),'enabled pick');await p.click('#primary-action-btn');await until(async()=>(await state()).feedbackMode,'picker active');}
@@ -84,6 +99,14 @@ try{
  assert.equal(await badge(),'ON');assert.equal(await page.locator('[data-dev-feedback-picker]').isHidden(),true,'no in-page panel while picking');
  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'Escape cancels picker');assert.equal(await badge(),'');
  check('toolbar activation, ON badge, no page panel, and trusted keyboard cancel');
+ // Safari reaches the page through this controller with scripting.executeScript. Here it is Chromium's isolated
+ // world: the page's own scripts cannot see it, and an injected function can. Safari itself is checked live.
+ assert.equal(await page.evaluate(()=>typeof globalThis.DevFeedbackPage),'undefined','page scripts cannot reach the controller');
+ const controlled=await worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+  const call=async request=>(await chrome.scripting.executeScript({target:{tabId:tab.id},func:r=>globalThis.DevFeedbackPage?.control(r)??null,args:[request]}))[0].result;
+  return [await call({action:'set-feedback-mode',enabled:true}),await call({action:'take-note-toast'}),await call({action:'set-feedback-mode',enabled:false})];});
+ assert.deepEqual(controlled,[{ok:true,editorOpen:false,feedbackMode:true,interactionMode:'element'},null,{ok:true,editorOpen:false,feedbackMode:false,interactionMode:'off'}]);
+ check('the page controller answers injected calls in the content-script world and is hidden from page scripts');
  // Only a separate reader origin may touch the clipboard, so every copy below runs with the browser's default permissions.
  await ctx.grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(readerURL).origin});
  const clipboardReader=await ctx.newPage();await clipboardReader.goto(readerURL);
@@ -137,6 +160,8 @@ try{
   cdp.on('Browser.downloadProgress',e=>{if(e.state==='completed'&&downloads.has(e.guid))downloads.get(e.guid).done=true;});
   await cdp.send('Browser.setDownloadBehavior',{behavior:'allowAndName',downloadPath:out,eventsEnabled:true});
   menu=await popup();
+  // The reopened menu lists this page after asking the background; download only once it has.
+  await until(()=>menu.evaluate("document.querySelectorAll('#capture-list li').length===3"),'reopened page list');
   async function download(selector){const before=downloads.size;await menu.click(selector);const [guid,entry]=await until(()=>[...downloads.entries()].slice(before).find(([,d])=>d.done),'download '+selector);return {name:entry.name,text:readFileSync(join(out,guid),'utf8')};}
   const md=await download('#markdown-btn');assert.match(md.name,/^dev-feedback-127\.0\.0\.1-.*\.md$/);assert.equal(md.text,copied);
   const json=await download('#json-btn');assert.match(json.name,/\.json$/);const payload=JSON.parse(json.text);

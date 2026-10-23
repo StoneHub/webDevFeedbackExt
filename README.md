@@ -2,7 +2,7 @@
 
 Pick a webpage element, describe the change, and give another developer enough context to act on it.
 
-Version 1.8.2 focuses on Element capture, the clipboard, and a per-page list in the extension menu. The Chrome Web Store may list an earlier version until 1.8.2 is published there.
+Version 1.8.3 focuses on Element capture, the clipboard, and a per-page list in the extension menu, and adds a Safari development preview. The Chrome Web Store may list an earlier version until 1.8.3 is published there.
 
 ## Capture feedback
 
@@ -71,6 +71,8 @@ The package is a local/vendored prototype requiring macOS 14+; it is not in the 
 ## Development and release
 
 Run `npm ci`, `npm test`, `npm run check`, `npm run audit:dependencies`, `npm run package`, and `npm run verify:package`. The browser ZIP excludes tests, MCP code, and Node dependencies.
+
+A Safari development preview shares the same extension files. Because Safari cannot keep `storage.local` private from content scripts, it keeps History and clipboard writes in the app extension's native handler. Signed 1.8.3 is installed locally, and the tester reports the corrected capture flow working. History after page reload and Copy all with paste readback were also observed. Downloads, restart persistence, and embedded frames still need live checks. See [Safari development preview](docs/safari-preview.md).
 
 Before publishing, run the [automated exact-ZIP browser gate](docs/browser-release-acceptance.md). Tagged GitHub releases are created as drafts; Store submission and Google approval are separate steps.
 

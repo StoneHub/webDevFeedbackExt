@@ -67,13 +67,14 @@
 
   // Safari resolves undefined when no listener answers, where Chrome rejects; both count as no reply.
   async function messageTab(tabId, message, options) {
-    const reply = await withinTime(chrome.tabs.sendMessage(tabId, message, options).catch(() => null), 5000);
+    const send = platform.messageTab || ((...args) => chrome.tabs.sendMessage(...args));
+    const reply = await withinTime(Promise.resolve().then(() => send(tabId, message, options)).catch(() => null), 5000);
     trace('tab', message.action, reply === TIMED_OUT ? 'timeout' : reply == null ? 'no-reply' : reply.ok === false ? 'refused' : 'ok');
     return reply === TIMED_OUT ? null : reply;
   }
 
   const TRACED_ACTIONS = new Set(['add-feedback-item', 'clear-capture-session', 'copy-page-feedback', 'delete-feedback-items',
-    'get-capture-session', 'list-page-feedback', 'set-picking', 'start-element-capture', 'stop-picking', 'take-note-toast']);
+    'get-capture-session', 'get-page-state', 'list-page-feedback', 'set-picking', 'start-element-capture', 'stop-picking', 'take-note-toast']);
 
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Only fixed labels reach the trace; anything else a sender puts in action is logged as unknown.
@@ -144,6 +145,12 @@
         if (!injected.ok) return injected;
       }
       return setPicking(tab.id, request.enabled === true);
+    }
+    // The menu's view of the page: picking on, or a note open. Only this frame state, never History.
+    if (request.action === 'get-page-state' && page === 'popup.html') {
+      const tab = await assertCaptureTab(await chrome.tabs.get(request.tabId));
+      const state = await messageTab(tab.id, { action:'get-state' }, { frameId:0 });
+      return { ok:true, editorOpen:state?.editorOpen === true, feedbackMode:state?.feedbackMode === true };
     }
     if (request.action === 'list-page-feedback' && page === 'popup.html') {
       if (!isFeedbackStorageKey(request.storageKey)) throw new Error('Invalid feedback storage key.');

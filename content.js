@@ -117,11 +117,13 @@
     setActive(true);
     chrome.runtime.sendMessage({ action:'take-note-toast' }).then(reply => { if (reply?.toast) showToast(reply.toast); }).catch(() => {});
   });
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (sender.id !== chrome.runtime.id) return;
-    if (request.action === 'show-capture-overlay') {
-      if (editor) { sendResponse({ok:false,reason:'Save or close the open note first.'}); return; }
-      if (!/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return;
+  // The page controls the background may use, and their only answer: this frame's state. Nothing here
+  // reads History or notes. Chrome reaches it through runtime.onMessage below; Safari's background calls
+  // it with scripting.executeScript in this content-script world, which page scripts cannot see.
+  function control(request) {
+    if (request?.action === 'show-capture-overlay') {
+      if (editor) return {ok:false,reason:'Save or close the open note first.'};
+      if (typeof request.sessionId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return undefined;
       setActive(false);
       previousFocus = document.activeElement;
       // getRandomValues, unlike randomUUID, also works on plain-http pages.
@@ -134,8 +136,14 @@
       shadow.appendChild(editor);
       host.hidden = false;
       editor.focus();
-    } else if (request.action === 'set-feedback-mode') setActive(request.enabled);
-    else if (request.action !== 'get-state') return;
-    sendResponse({ ok:true, editorOpen:Boolean(editor), feedbackMode:active, interactionMode:active ? 'element' : 'off' });
+    } else if (request?.action === 'set-feedback-mode') setActive(request.enabled === true);
+    else if (request?.action !== 'get-state') return undefined;
+    return { ok:true, editorOpen:Boolean(editor), feedbackMode:active, interactionMode:active ? 'element' : 'off' };
+  }
+  Object.defineProperty(globalThis, 'DevFeedbackPage', { value:Object.freeze({ control }) });
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id) return;
+    const reply = control(request);
+    if (reply) sendResponse(reply);
   });
 })();

@@ -84,6 +84,14 @@ try{
  assert.equal(await badge(),'ON');assert.equal(await page.locator('[data-dev-feedback-picker]').isHidden(),true,'no in-page panel while picking');
  await page.keyboard.press('Escape');await until(async()=>!(await state()).feedbackMode,'Escape cancels picker');assert.equal(await badge(),'');
  check('toolbar activation, ON badge, no page panel, and trusted keyboard cancel');
+ // Safari reaches the page through this controller with scripting.executeScript. Here it is Chromium's isolated
+ // world: the page's own scripts cannot see it, and an injected function can. Safari itself is checked live.
+ assert.equal(await page.evaluate(()=>typeof globalThis.DevFeedbackPage),'undefined','page scripts cannot reach the controller');
+ const controlled=await worker.evaluate(async()=>{const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+  const call=async request=>(await chrome.scripting.executeScript({target:{tabId:tab.id},func:r=>globalThis.DevFeedbackPage?.control(r)??null,args:[request]}))[0].result;
+  return [await call({action:'set-feedback-mode',enabled:true}),await call({action:'take-note-toast'}),await call({action:'set-feedback-mode',enabled:false})];});
+ assert.deepEqual(controlled,[{ok:true,editorOpen:false,feedbackMode:true,interactionMode:'element'},null,{ok:true,editorOpen:false,feedbackMode:false,interactionMode:'off'}]);
+ check('the page controller answers injected calls in the content-script world and is hidden from page scripts');
  // Only a separate reader origin may touch the clipboard, so every copy below runs with the browser's default permissions.
  await ctx.grantPermissions(['clipboard-read','clipboard-write'],{origin:new URL(readerURL).origin});
  const clipboardReader=await ctx.newPage();await clipboardReader.goto(readerURL);

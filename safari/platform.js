@@ -42,6 +42,19 @@
         return { total, key };
       }
     },
+    // Page controls go through scripting.executeScript into the content-script world, calling the fixed
+    // controller content.js defines there (the pattern the background already uses for the collector).
+    // In Safari 27.0.1, tabs.sendMessage replies came back empty once the note frame was open.
+    // A frameId of 0 targets the top frame only; no frameId reaches every frame, answered by the top one.
+    async messageTab(tabId, message, options) {
+      if (options && options.frameId !== 0) throw new Error('Unsupported page target.');
+      const results = await chrome.scripting.executeScript({
+        target:options ? { tabId } : { tabId, allFrames:true },
+        func:request => globalThis.DevFeedbackPage?.control(request) ?? null,
+        args:[message]
+      });
+      return (options ? results[0] : results.find(result => result.frameId === 0) || results[0])?.result ?? undefined;
+    },
     // Resolves true only when the system pasteboard accepted the text.
     async writeClipboard(text) {
       return (await native({ action:'clipboard.write', text })).copied === true;

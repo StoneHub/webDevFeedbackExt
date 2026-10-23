@@ -65,13 +65,24 @@ function background(options={}) {
   const chrome={
     runtime:{id:'unit',onMessage:{addListener(fn){listener=fn;}},getURL:value=>'chrome-extension://unit/'+value},
     storage:{local:options.noLocalAccessLevel?{...area(local),setAccessLevel:undefined}:area(local),session:area(sessions)},
-    scripting:{async insertCSS(){if(options.hangInjection)return new Promise(()=>{});},async executeScript(details){ if(options.hangInjection)return new Promise(()=>{}); if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
-    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return options_tabReply(message);},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
+    scripting:{async insertCSS(){if(options.hangInjection)return new Promise(()=>{});},async executeScript(details){ if(options.hangInjection)return new Promise(()=>{});
+      if(world){
+        if(options.denyInjection)throw new Error('Injection is blocked');
+        if(details.files){if(details.files.includes('content.js'))world.load();return details.files.map(()=>({frameId:0,result:null}));}
+        executed.push(details);
+        return [{frameId:0,result:world.run(details.func,details.args||[])}];
+      }
+      if(details.files){if(options.denyInjection)throw new Error('Injection is blocked');return [];}return [{result:details.args[0]==='getViewportMetrics'?{width:800,height:600,scrollX:0,scrollY:0,devicePixelRatio:1}:{url:initialTab.url,viewport:{width:800,height:600}}}];}},
+    tabs:{async sendMessage(tabId,message,options){tabMessages.push({tabId,message,options});return world?undefined:options_tabReply(message);},onRemoved:{addListener(){}},async get(id){return {...tabs.get(id)};},async query(){return [{...tabs.get(activeId)}];},async getZoom(){return 1;},async captureVisibleTab(){if(options.switchDuringCapture){activeId=2;tabs.set(2,{...initialTab,id:2,url:'https://other.test/'});}return PNG;},async create(details){const tab={id:10,windowId:1,url:details.url};tabs.set(10,tab);return tab;},async update(id,details){Object.assign(tabs.get(id),details);return tabs.get(id);},async remove(id){tabs.delete(id);}},
     windows:{async create(details){windowTypes.push(details.type);const tab=await chrome.tabs.create(details);return {tabs:[tab]};}},
     action:{async setBadgeText(details){badges.push(details);},async setBadgeBackgroundColor(){}},
     permissions:{onAdded:{addListener(){}}},
     commands:{onCommand:{addListener(){}}}
   };
+  // Safari runs page controls through the real content.js; its replies to tabs.sendMessage never arrive.
+  const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
+  const executed=[];
+  const world=options.native?pageWorld({url:initialTab.url,send:message=>new Promise(resolve=>listener(message,content,resolve))}):null;
   const context={chrome,DevFeedbackShared:shared,importScripts(){},console:{debug(){},error(){},info(...parts){(options.traces||[]).push(parts.join(' '));}},navigator:{userAgent:'test',language:'en'},URL,Date,Map,Promise,TextEncoder,JSON,setTimeout:options.fastTimers?fn=>setTimeout(fn,0):setTimeout,clearTimeout};
   if(options.native){
     // Safari: History must never touch storage.local, which content scripts can read there.
@@ -81,8 +92,7 @@ function background(options={}) {
   }
   vm.runInNewContext(source('background.js'),context);
   const page=(name, session)=>({id:'unit',frameId:session?2:0,documentId:'editor-document',url:chrome.runtime.getURL(name+(session?'?session='+session:'')),tab:{id:session?1:10}});
-  const content={id:'unit',frameId:0,url:initialTab.url,tab:initialTab};
-  return {local,sessions,content,page,windowTypes,badges,tabMessages,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
+  return {local,sessions,content,page,windowTypes,badges,tabMessages,world,executed,get tabCount(){return tabs.size;},get access(){return access;},set failWrite(value){failWrite=value;},send:(request,sender=page('popup.html'))=>new Promise(resolve=>listener(request,sender,resolve))};
 }
 
 test('broker denies content-script deletes and adds, forged extension URLs, popup subframes, and wrong editor ownership', async () => {
@@ -273,9 +283,13 @@ function fakeNative(){
     }};
 }
 const safariItems=native=>JSON.parse(native.store['dev-feedback-https://site.test']||'[]');
+// The note frame's own close: the frame posts its token to the page, as element.js does after Save or ×.
+const closeNote=world=>{const note=world.notes.at(-1);world.post(note.contentWindow,{devFeedback:'close',token:new URL(note.src).searchParams.get('close')});};
 const saveNote=async(app,selector,note)=>{
   const started=await app.send({action:'start-element-capture',snapshot:{selector,tag:'button',text:selector}},app.content);
-  return {sender:app.page('element.html',started.sessionId),result:await app.send({action:'add-feedback-item',item:{note}},app.page('element.html',started.sessionId))};
+  const result=await app.send({action:'add-feedback-item',item:{note}},app.page('element.html',started.sessionId));
+  if(app.world)closeNote(app.world);
+  return {sender:app.page('element.html',started.sessionId),result};
 };
 
 test('Safari: each save writes all of this page\'s feedback natively, oldest first, across Stop/Start',async()=>{
@@ -331,7 +345,8 @@ test('Safari: if reading the page back fails after the save, the note says saved
 test('Safari: simultaneous saves on one page all land and the last copy holds every note',async()=>{
   const native=fakeNative();const app=background({native});
   const senders=[];
-  for(const selector of ['#a','#b','#c','#d'])senders.push(app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector,tag:'button'}},app.content)).sessionId));
+  // One note is open at a time; each closes in the page while its session stays valid for the save.
+  for(const selector of ['#a','#b','#c','#d']){senders.push(app.page('element.html',(await app.send({action:'start-element-capture',snapshot:{selector,tag:'button'}},app.content)).sessionId));closeNote(app.world);}
   const results=await Promise.all(senders.map((sender,i)=>app.send({action:'add-feedback-item',item:{note:'note '+i}},sender)));
   assert.equal(results.every(r=>r.ok&&r.copied),true);
   assert.equal(safariItems(native).length,4);
@@ -383,6 +398,7 @@ test('Safari: a save whose reply was lost can be retried with an edit, which rep
   assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Edited'}},sender)),{ok:true,copied:true,count:2});
   assert.equal(native.store['dev-feedback-https://site.test'],before);
   // Another session cannot reach this record: its save is a new record.
+  closeNote(app.world);
   const other=await app.send({action:'start-element-capture',snapshot:{selector:'#two'}},app.content);
   await app.send({action:'add-feedback-item',item:{note:'Other'}},app.page('element.html',other.sessionId));
   assert.deepEqual(safariItems(native).map(item=>item.note),['First','Edited','Other']);
@@ -510,25 +526,36 @@ test('note: × closes through its own frame, and says so if the page never remov
   assert.match(frame.nodes.status.textContent,/Could not close the note\. Reload the page\./);assert.equal(frame.nodes.cancel.disabled,false);
 });
 
-// content.js in a vm with a minimal DOM: only the open note's own window, with the token from its URL, closes it.
-function pageReceiver(){
-  let onWindowMessage,onRuntimeMessage;const sent=[];const notes=[];
+// content.js in its own vm with a minimal DOM, standing in for the content-script world of the top frame.
+// run() executes an injected function the way scripting.executeScript does: serialized, inside that world.
+function pageWorld({url='https://site.test/page',send=async()=>({ok:true,toast:''})}={}){
+  let onWindowMessage,onRuntimeMessage;const sent=[];const notes=[];const toasts=[];
   const node=()=>({style:{},dataset:{},classList:{add(){},remove(){}},remove(){this.removed=true;},focus(){},appendChild(){},contains(){return false;}});
-  const toast={hidden:true};
+  const toast={hidden:true,set textContent(value){toasts.push(value);}};
   const shadow={innerHTML:'',querySelector:()=>toast,appendChild(){}};
-  const document={documentElement:{appendChild(){}},addEventListener(){},querySelectorAll:()=>[],activeElement:null,
+  const document={contentType:'text/html',documentElement:{appendChild(){}},addEventListener(){},querySelectorAll:()=>[],activeElement:null,
     createElement(tag){const element=node();element.attachShadow=()=>shadow;if(tag==='iframe'){element.contentWindow={note:notes.length};notes.push(element);}return element;}};
   const chrome={runtime:{id:'unit',getURL:path=>'safari-web-extension://unit/'+path,onMessage:{addListener(fn){onRuntimeMessage=fn;}},
-    sendMessage(message){sent.push(message.action);return Promise.resolve({ok:true,toast:''});}}};
-  const context={document,chrome,crypto:webcrypto,innerWidth:800,innerHeight:600,setTimeout,clearTimeout,URL,
-    window:{addEventListener(type,fn){if(type==='message')onWindowMessage=fn;}}};
-  context.globalThis=context;
-  vm.runInNewContext(source('content.js'),context);
-  const ask=request=>{let reply;onRuntimeMessage(request,{id:'unit'},value=>{reply=value;});return reply;};
-  return {sent,
-    open(sessionId){ask({action:'show-capture-overlay',sessionId,anchor:null});const note=notes.at(-1);return {note,token:new URL(note.src).searchParams.get('close')};},
-    post:(source,data)=>onWindowMessage({source,data}),
-    get open_(){return ask({action:'get-state'}).editorOpen;}};
+    sendMessage(message){sent.push(message.action);return send(message);}}};
+  const context=vm.createContext({document,chrome,crypto:webcrypto,innerWidth:800,innerHeight:600,setTimeout,clearTimeout,URL,location:{href:url},
+    window:{addEventListener(type,fn){if(type==='message')onWindowMessage=fn;}},
+    DevFeedbackCollector:{buildPageContext:()=>({url,viewport:{width:800,height:600}})}});
+  vm.runInContext('globalThis.window.globalThis=globalThis',context);
+  const world={sent,notes,toasts,
+    load(){vm.runInContext(source('content.js'),context);},
+    run:(func,args)=>vm.runInContext(`(${func})(...${JSON.stringify(args)})`,context),
+    ask(request){let reply;onRuntimeMessage(request,{id:'unit'},value=>{reply=value;});return reply;},
+    post:(sourceWindow,data)=>onWindowMessage({source:sourceWindow,data}),
+    get state(){return world.run(()=>globalThis.DevFeedbackPage.control({action:'get-state'}),[]);}};
+  return world;
+}
+
+function pageReceiver(){
+  const world=pageWorld();world.load();
+  return {sent:world.sent,
+    open(sessionId){world.ask({action:'show-capture-overlay',sessionId,anchor:null});const note=world.notes.at(-1);return {note,token:new URL(note.src).searchParams.get('close')};},
+    post:world.post,
+    get open_(){return world.ask({action:'get-state'}).editorOpen;}};
 }
 
 test('the page closes a note only for its own frame with that note\'s token',()=>{
@@ -559,4 +586,52 @@ test('the page closes a note only for its own frame with that note\'s token',()=
   assert.equal(page.open_,true,'an old token or the old frame cannot close the new note');
   page.post(second.note.contentWindow,{devFeedback:'close',token:second.token});
   assert.equal(page.open_,false);
+});
+
+test('Safari: with tabs.sendMessage never answering, the page controller runs Pick, the note, the menu, and Stop/Start',async()=>{
+  const native=fakeNative();const app=background({native});const popup=app.page('popup.html');const world=app.world;
+  const menu=async()=>plain(await app.send({action:'get-page-state',tabId:1},popup));
+  const settle=()=>new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(await menu(),{ok:true,editorOpen:false,feedbackMode:false},'before Pick the page has no picker');
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},popup)).ok,true);
+  assert.equal(world.state.feedbackMode,true);assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:'ON'});
+  assert.deepEqual(await menu(),{ok:true,editorOpen:false,feedbackMode:true},'the menu offers Stop picking');
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#one',tag:'button'}},app.content);
+  assert.equal(started.ok,true);assert.equal(world.notes.length,1);
+  assert.deepEqual(await menu(),{ok:true,editorOpen:true,feedbackMode:false},'the menu offers Return to open note');
+  assert.match((await app.send({action:'set-picking',tabId:1,enabled:true},popup)).reason,/Save or close the open note first/);
+  const sender=app.page('element.html',started.sessionId);
+  assert.deepEqual(plain(await app.send({action:'add-feedback-item',item:{note:'Works'}},sender)),{ok:true,copied:true,count:1});
+  assert.equal((await app.send({action:'clear-capture-session',saved:true,copied:true,count:1},sender)).ok,true);
+  closeNote(world);await settle();
+  assert.deepEqual(plain(world.state),{ok:true,editorOpen:false,feedbackMode:true,interactionMode:'element'},'the note closed and picking resumed');
+  assert.deepEqual(world.toasts.filter(Boolean),["Copied this page's feedback · 1 item"]);
+  assert.deepEqual(await menu(),{ok:true,editorOpen:false,feedbackMode:true});
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:false},popup)).ok,true);
+  assert.equal(world.state.feedbackMode,false);assert.deepEqual(plain(app.badges.at(-1)),{tabId:1,text:''});
+  assert.equal((await app.send({action:'set-picking',tabId:1,enabled:true},popup)).ok,true);
+  assert.equal(world.state.feedbackMode,true);
+  assert.equal(app.tabMessages.length,0,'Safari never uses tabs.sendMessage for the page');
+  const targets=app.executed.filter(d=>d.args?.[0]?.action).map(d=>[d.args[0].action,d.target.allFrames===true]);
+  assert.ok(targets.every(([action,all])=>all===(action==='set-feedback-mode')),'state and the note go to the top frame only; mode changes reach every frame');
+});
+
+test('Safari page controller: fixed actions only, and only the menu can ask for page state',async()=>{
+  const world=pageWorld();world.load();
+  const control=request=>world.run(r=>globalThis.DevFeedbackPage.control(r),[request]);
+  for(const request of [{action:'take-note-toast'},{action:'list-page-feedback'},{action:'show-capture-overlay',sessionId:'../x'},{action:'show-capture-overlay',sessionId:{}},null,'get-state'])
+    assert.equal(control(request),undefined,JSON.stringify(request));
+  assert.equal(world.notes.length,0);
+  assert.equal(control({action:'set-feedback-mode',enabled:'yes'}).feedbackMode,false,'only true turns picking on');
+  world.run(()=>{globalThis.DevFeedbackPage=null;try{globalThis.DevFeedbackPage.control=null;}catch{}},[]);
+  assert.equal(control({action:'get-state'}).ok,true,'the controller cannot be replaced');
+  const native=fakeNative();const app=background({native});
+  const started=await app.send({action:'start-element-capture',snapshot:{selector:'#a'}},app.content);
+  for(const sender of [app.content,{...app.content,frameId:3,url:'https://frame.test/'},app.page('element.html',started.sessionId)])
+    assert.equal((await app.send({action:'get-page-state',tabId:1},sender)).ok,false);
+  // Chrome keeps tabs.sendMessage for the same question.
+  const chromeApp=background();
+  await chromeApp.send({action:'set-picking',tabId:1,enabled:true},chromeApp.page('popup.html'));
+  assert.deepEqual(plain(await chromeApp.send({action:'get-page-state',tabId:1},chromeApp.page('popup.html'))),{ok:true,editorOpen:false,feedbackMode:true});
+  assert.ok(chromeApp.tabMessages.some(m=>m.message.action==='get-state'));
 });

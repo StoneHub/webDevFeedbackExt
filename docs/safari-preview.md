@@ -23,6 +23,8 @@ Safari 27.0.1 cannot close `storage.local` to content scripts: `setAccessLevel` 
 | History | `storage.local`, restricted with `setAccessLevel('TRUSTED_CONTEXTS')`; picking refuses if that fails | `safari/platform.js` → `browser.runtime.sendNativeMessage` → `safari/NativeBridge.swift`, one JSON file per Safari profile under the app extension's Application Support |
 | Clipboard after Save/Enter | Background returns the page's text; the note frame writes it (Clipboard API, then `execCommand('copy')`) | Background asks the native side to write the same text to `NSPasteboard`; the reply says whether the pasteboard accepted it |
 | Copy all in the menu | Background returns the text; the menu writes it | Same native write as Save |
+| Page controls (pick on/off, open the note, page state) | `tabs.sendMessage` to `content.js` | `scripting.executeScript` calling the fixed controller `content.js` defines in the content-script world; `frameId` 0 calls go to the top frame only |
+| Menu page state | Background asks the page | Same, through the executeScript controller |
 | Background | Service worker | Nonpersistent background page loading `shared.js`, `safari-platform.js`, `background.js` |
 | Manifest | Unchanged | Adds `nativeMessaging` only; no host permissions or content scripts |
 
@@ -96,6 +98,14 @@ In Safari 27.0.1, messages from the background to the page stopped getting an an
 The note therefore closes itself. After the background forgets the session, the note frame sends `postMessage` to the page. The message carries only a random token that the content script put in the frame's URL, which the page cannot read. The content script accepts it only from its own note frame's window with the matching token, removes the frame, and resumes picking. It then asks the background for the toast text over the extension channel, so the page never sees the item count. A page that navigates the note frame elsewhere can at most close the note, as it already could by removing the overlay. If the note is still open two seconds later, it says to reload the page.
 
 While a note is open, a **Pick an element** that the page does not confirm reports "Save or close the open note first."
+
+## Page controls in Safari
+
+On 3608b0d, after a clean refresh, **Pick an element** reported "The page did not confirm picking." The confirmation asked the page with `tabs.sendMessage`, and the answer never arrived. So Safari no longer uses `tabs.sendMessage` for page controls. `content.js` defines a controller in its content-script world, `DevFeedbackPage.control`. It accepts only `get-state`, `set-feedback-mode` and `show-capture-overlay`, and returns only that frame's picking and note state, never History or notes. Safari's background calls it with `scripting.executeScript` and a function argument. That is the pattern the background already used successfully to run the collector. Pick confirmation, opening the note, and the menu's page state go to the top frame only; on/off goes to every frame. Page scripts can't see the controller.
+
+The menu now gets the page state from the background (`get-page-state`, menu only). Chrome keeps `tabs.sendMessage`.
+
+Tests run the real `content.js` controller behind a simulated `executeScript` while `tabs.sendMessage` never answers. The Chromium exact-ZIP gate also checks that the controller answers an injected call and is hidden from page scripts. Neither proves Safari's behavior; that needs the live checks.
 
 The error text the background builds is ASCII or escaped. Safari reads the generated background page as Latin-1, which garbled a × in an earlier error.
 

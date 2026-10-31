@@ -97,7 +97,7 @@ assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared
 assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');
 assert.equal(productJson.distribution.latestReleaseApi, 'https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest');
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
-assert.equal(packageJson.dependencies['@modelcontextprotocol/sdk'], '1.32.1');
+assert.equal(packageJson.dependencies['@modelcontextprotocol/sdk'], '1.32.2');
 assert.equal(packageJson.dependencies.zod, '4.6.5');
 assert.equal(packageJson.scripts['test:mcp'], 'node --test test/mcp.test.mjs');
 assert.equal(packageJson.scripts.mcp, 'node mcp/cli.mjs');

@@ -29,6 +29,7 @@ Coverage includes:
 - A page that sends `Permissions-Policy: clipboard-write=()` still gets its feedback copied. When the note frame is made to refuse both copy paths, the note stays open with Copy again, the retry copies, nothing is stored twice, and × keeps the saved note.
 - The extension menu's per-page list including a synthetic legacy Region record, Copy all, the Markdown and JSON downloads, and single-item deletion.
 - Restricted pages and the real PDF viewer disable picking.
+- A real local HTML file with Chrome's file-access toggle enabled supports picking, a private note, saving, the per-file list, Escape, and directory-redacted clipboard output. Unit regressions separately verify disabled/unreadable/revoked access fails closed before injection and the settings link targets this extension only.
 
 Evidence is written to `output/browser-acceptance/`: a JSON report tied to the ZIP SHA-256, browser trace, synthetic screenshots, and export artifacts. Temporary profiles, server, and browsers are closed at completion. CI retains evidence even when the test fails. Do not treat partial output or an old passing report as acceptance of a different digest.
 

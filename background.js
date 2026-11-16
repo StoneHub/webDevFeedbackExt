@@ -10,6 +10,7 @@
     buildClipboardText,
     buildFeedbackId,
     canInjectIntoUrl,
+    checkFileAccess,
     makeStorageKey,
     safeShareUrl,
     sanitizeFeedbackItems,
@@ -316,6 +317,10 @@
   });
 
   async function ensureContentScript(tabId, rawUrl) {
+    if (tabId && !rawUrl) {
+      const hidden = await checkFileAccess(rawUrl, chrome.extension);
+      if (hidden) return hidden;
+    }
     if (!tabId || (!canInjectIntoUrl(rawUrl) || detectSourceKind(rawUrl) === 'pdf')) {
       return { ok: false, reason: 'Open a webpage to pick an element. PDF and browser-internal pages are not supported.' };
     }
@@ -328,6 +333,9 @@
       if (result.error) throw result.error;
       return result.value;
     };
+
+    const fileAccess = await checkFileAccess(rawUrl, chrome.extension);
+    if (fileAccess) return fileAccess;
 
     try {
       const result = await step('content-type', () => chrome.scripting.executeScript({target:{tabId},func:()=>document.contentType}));
@@ -350,6 +358,9 @@
       }));
       return { ok: true };
     } catch (error) {
+      // Access may have been revoked since the popup's preflight.
+      const fileAccess = await checkFileAccess(rawUrl, chrome.extension);
+      if (fileAccess) return fileAccess;
       return { ok: false, reason: error.message || 'Unable to inject the feedback UI on this page.' };
     }
   }

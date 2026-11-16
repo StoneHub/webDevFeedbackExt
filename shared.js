@@ -75,6 +75,40 @@
     }
   }
 
+  const LOCAL_FILE_ACCESS_GUIDANCE = 'Open this extension’s Details in Chrome or Edge extensions, turn on “Allow access to file URLs”, then return to the local HTML page and reopen this menu.';
+
+  // Safari, by user agent. WebKit browsers that run Chrome extensions with a Safari-like UA count as Safari and skip the check.
+  function isSafariBrowser(userAgent = globalThis.navigator?.userAgent || '') {
+    return /Safari\//.test(userAgent) && !/(Chrome|Chromium|CriOS|Edg)\//.test(userAgent);
+  }
+
+  // Chrome hides both browser pages and (with the toggle off) file:// pages from activeTab, so this cannot tell
+  // them apart: it explains both. It fails open, because most hidden pages are browser pages.
+  async function hiddenPageFileAccess(extensionApi) {
+    if (isSafariBrowser() || typeof extensionApi?.isAllowedFileSchemeAccess !== 'function') return null;
+    try { if (await extensionApi.isAllowedFileSchemeAccess() !== false) return null; }
+    catch { return null; }
+    return { ok:false, needsFileAccess:true, reason:'Open a webpage to pick an element. Browser pages such as the new tab page are not supported. If this is a local HTML file: ' + LOCAL_FILE_ACCESS_GUIDANCE };
+  }
+
+  // This is the browser's user-controlled toggle, not an optional host grant.
+  // Check only file pages, and fail closed if the setting cannot be read.
+  async function checkFileAccess(rawUrl, extensionApi) {
+    // With the toggle off, Chrome hides a file:// tab's URL from the extension, so a missing URL may be a local file.
+    if (!rawUrl) return hiddenPageFileAccess(extensionApi);
+    try { if (new URL(rawUrl).protocol !== 'file:') return null; }
+    catch { return null; }
+    // Only Chrome and Edge have the per-extension file-access toggle. Safari exposes the API but always
+    // answers false, so detect Safari itself rather than the API.
+    if (isSafariBrowser() || typeof extensionApi?.isAllowedFileSchemeAccess !== 'function') return null;
+    try {
+      if (await extensionApi.isAllowedFileSchemeAccess() === true) return null;
+      return { ok:false, needsFileAccess:true, reason:'Local HTML capture needs file access. ' + LOCAL_FILE_ACCESS_GUIDANCE };
+    } catch {
+      return { ok:false, needsFileAccess:true, reason:'Could not check local-file access. ' + LOCAL_FILE_ACCESS_GUIDANCE };
+    }
+  }
+
   // The host permission an embedded frame needs before its elements can be picked, or '' if none.
   // Deep hosts such as <id>.frame.example.com change their first label per embed, so cover the siblings.
   function frameAccessPattern(frameSrc, parentUrl) {
@@ -1035,6 +1069,8 @@
     buildFeedbackId,
     buildMarkdownExport,
     canInjectIntoUrl,
+    checkFileAccess,
+    isSafariBrowser,
     frameAccessPattern,
     createCaptureRecord,
     createElementRecord,

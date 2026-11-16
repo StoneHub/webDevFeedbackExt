@@ -7,7 +7,7 @@ const shared = require('../shared.js');
 test('file preflight reads the real browser toggle and leaves web/invalid URLs alone',async()=>{
   let reads=0;
   const api={async isAllowedFileSchemeAccess(){reads++;return false;}};
-  for(const url of ['https://site.test','http://localhost:5173','chrome://version','invalid',undefined])assert.equal(await shared.checkFileAccess(url,api),null);
+  for(const url of ['https://site.test','http://localhost:5173','chrome://version','invalid'])assert.equal(await shared.checkFileAccess(url,api),null);
   assert.equal(reads,0);
   for(const url of ['file:///home/private/plan.html','file:///C:/Private/plan.html']) {
     const result=await shared.checkFileAccess(url,api);
@@ -17,6 +17,11 @@ test('file preflight reads the real browser toggle and leaves web/invalid URLs a
   assert.equal(reads,2);
   assert.equal(await shared.checkFileAccess('file:///plan.html',{async isAllowedFileSchemeAccess(){return true;}}),null);
   assert.equal(await shared.checkFileAccess('file:///plan.html',{}),null,'no API, nothing to preflight');
+  // Chrome hides a file:// tab's URL while the toggle is off.
+  const hidden=await shared.checkFileAccess(undefined,{async isAllowedFileSchemeAccess(){return false;}});
+  assert.equal(hidden.needsFileAccess,true);assert.match(hidden.reason,/hidden from the extension[\s\S]*Allow access to file URLs/);
+  assert.equal(await shared.checkFileAccess(undefined,{async isAllowedFileSchemeAccess(){return true;}}),null,'access on: a hidden URL is a restricted page');
+  assert.equal(await shared.checkFileAccess(undefined,{async isAllowedFileSchemeAccess(){throw new Error('x');}}),null);
   const safari='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
   const chromeUa='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36';
   assert.equal(shared.isSafariBrowser(safari),true);assert.equal(shared.isSafariBrowser(chromeUa),false);assert.equal(shared.isSafariBrowser(chromeUa+' Edg/153.0.0.0'),false);
@@ -34,7 +39,7 @@ async function popup(options={}) {
     return elements.get(id);
   };
   let created=0;let closed=false;let reads=0;let fileChecks=0;let messages=0;let destination;
-  const url=options.url || 'file:///PRIVATE_DIR/plan.html';
+  const url='url' in options ? options.url : 'file:///PRIVATE_DIR/plan.html';
   const item={id:'saved',type:'element',selector:'#saved',pageUrl:url,note:'Existing local note',timestamp:'2026-10-02T00:00:00Z'};
   const chrome={
     runtime:{id:'unit',async sendMessage(message){
@@ -84,4 +89,12 @@ test('local PDFs are rejected before querying file access and internal pages sta
     const app=await popup({url,fileAccess:false});assert.equal(app.element('primary-action-btn').disabled,true);
     assert.equal(app.fileChecks,0);assert.equal(app.element('file-access-settings-btn').hidden,true);assert.match(app.element('warning').textContent,/PDF and browser-internal/);
   }
+});
+
+test('a tab whose URL Chrome hides gets file-access guidance only while access is off',async()=>{
+  const off=await popup({url:undefined,fileAccess:false});
+  assert.equal(off.element('primary-action-btn').disabled,true);assert.equal(off.element('file-access-settings-btn').hidden,false);
+  assert.match(off.element('warning').textContent,/If it is a local HTML file/);assert.equal(off.reads,0);
+  const on=await popup({url:undefined});
+  assert.equal(on.element('file-access-settings-btn').hidden,true);assert.match(on.element('warning').textContent,/PDF and browser-internal/);
 });

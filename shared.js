@@ -83,7 +83,16 @@
     return /Safari\//.test(userAgent) && !/(Chrome|Chromium|CriOS|Edg)\//.test(userAgent);
   }
 
+  async function hiddenPageFileAccess(extensionApi) {
+    if (isSafariBrowser() || typeof extensionApi?.isAllowedFileSchemeAccess !== 'function') return null;
+    try { if (await extensionApi.isAllowedFileSchemeAccess() !== false) return null; }
+    catch { return null; }
+    return { ok:false, needsFileAccess:true, reason:'This page is hidden from the extension. If it is a local HTML file: ' + LOCAL_FILE_ACCESS_GUIDANCE };
+  }
+
   async function checkFileAccess(rawUrl, extensionApi) {
+    // With the toggle off, Chrome hides a file:// tab's URL from the extension, so a missing URL may be a local file.
+    if (!rawUrl) return hiddenPageFileAccess(extensionApi);
     try { if (new URL(rawUrl).protocol !== 'file:') return null; }
     catch { return null; }
     // Only Chrome and Edge have the per-extension file-access toggle. Safari exposes the API but always

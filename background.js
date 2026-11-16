@@ -317,6 +317,10 @@
   });
 
   async function ensureContentScript(tabId, rawUrl) {
+    if (tabId && !rawUrl) {
+      const hidden = await checkFileAccess(rawUrl, chrome.extension);
+      if (hidden) return hidden;
+    }
     if (!tabId || (!canInjectIntoUrl(rawUrl) || detectSourceKind(rawUrl) === 'pdf')) {
       return { ok: false, reason: 'Open a webpage to pick an element. PDF and browser-internal pages are not supported.' };
     }

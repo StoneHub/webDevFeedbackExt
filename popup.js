@@ -70,6 +70,10 @@
       if (!stored?.ok) throw new Error(stored?.reason || 'Could not read saved feedback.');
       renderList(stored.items);
     }
+    if (tab?.id && !tab.url) {
+      const hidden = await checkFileAccess(tab.url, chrome.extension);
+      if (hidden) { showCaptureError(hidden); return; }
+    }
     if (!tab?.id || !canInjectIntoUrl(tab.url) || detectSourceKind(tab.url) === 'pdf') {
       showError('Open a webpage to pick an element. PDF and browser-internal pages are not supported.');
       return;

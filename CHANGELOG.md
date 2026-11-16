@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Chrome and Edge: check local HTML file access before picking and link to the browser's user-controlled file URL setting when access is off. Safari is unchanged.
+
 ## 1.8.3 — 2026-10-23
 
 - Add a Safari development preview. Safari cannot keep `storage.local` private from content scripts, so its History lives in the app extension's sandbox and its clipboard writes go through the native handler. Page controls use the isolated content-script world, and the note closes through a token bound to its frame. The installed build received a positive manual report; downloads, restart persistence, and embedded frames remain unverified.
@@ -9,8 +13,6 @@
 ## 1.8.2 — 2026-10-23
 
 Built from main: the workflow changes that 1.8.1 left out, plus the clipboard fix.
-
-- Check local HTML file access before picking and link to the browser's user-controlled file URL setting when access is off.
 
 - Pick elements inside embedded frames from other sites, such as Claude artifacts, after allowing that site once.
 - Move picking instructions into the extension menu. The page shows no panel while picking; the toolbar badge reads ON.

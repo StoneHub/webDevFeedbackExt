@@ -16,7 +16,14 @@ test('file preflight reads the real browser toggle and leaves web/invalid URLs a
   }
   assert.equal(reads,2);
   assert.equal(await shared.checkFileAccess('file:///plan.html',{async isAllowedFileSchemeAccess(){return true;}}),null);
-  assert.equal(await shared.checkFileAccess('file:///plan.html',{}),null,'Safari has no file-access toggle to preflight');
+  assert.equal(await shared.checkFileAccess('file:///plan.html',{}),null,'no API, nothing to preflight');
+  const safari='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
+  const chromeUa='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36';
+  assert.equal(shared.isSafariBrowser(safari),true);assert.equal(shared.isSafariBrowser(chromeUa),false);assert.equal(shared.isSafariBrowser(chromeUa+' Edg/153.0.0.0'),false);
+  const ua=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+  Object.defineProperty(globalThis,'navigator',{value:{userAgent:safari},configurable:true});
+  try { assert.equal(await shared.checkFileAccess('file:///plan.html',api),null,'Safari answers false but has no toggle to turn on'); }
+  finally { Object.defineProperty(globalThis,'navigator',ua); }
   assert.match((await shared.checkFileAccess('file:///plan.html',{async isAllowedFileSchemeAccess(){throw new Error('denied');}})).reason,/Could not check/);
 });
 

@@ -79,11 +79,16 @@
 
   // This is the browser's user-controlled toggle, not an optional host grant.
   // Check only file pages, and fail closed if the setting cannot be read.
+  function isSafariBrowser(userAgent = globalThis.navigator?.userAgent || '') {
+    return /Safari\//.test(userAgent) && !/(Chrome|Chromium|CriOS|Edg)\//.test(userAgent);
+  }
+
   async function checkFileAccess(rawUrl, extensionApi) {
     try { if (new URL(rawUrl).protocol !== 'file:') return null; }
     catch { return null; }
-    // Safari has no per-extension file-access toggle, so there is nothing to preflight there.
-    if (typeof extensionApi?.isAllowedFileSchemeAccess !== 'function') return null;
+    // Only Chrome and Edge have the per-extension file-access toggle. Safari exposes the API but always
+    // answers false, so detect Safari itself rather than the API.
+    if (isSafariBrowser() || typeof extensionApi?.isAllowedFileSchemeAccess !== 'function') return null;
     try {
       if (await extensionApi.isAllowedFileSchemeAccess() === true) return null;
       return { ok:false, needsFileAccess:true, reason:'Local HTML capture needs file access. ' + LOCAL_FILE_ACCESS_GUIDANCE };
@@ -1053,6 +1058,7 @@
     buildMarkdownExport,
     canInjectIntoUrl,
     checkFileAccess,
+    isSafariBrowser,
     frameAccessPattern,
     createCaptureRecord,
     createElementRecord,

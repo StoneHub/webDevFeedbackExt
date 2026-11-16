@@ -62,7 +62,9 @@ function registerElectronInspector() {
     });
 
     function attachWindow(window) {
-      if (disposed || !window?.webContents || registeredWindows.has(window)) return;
+      if (disposed || !window || window.isDestroyed?.() || registeredWindows.has(window)) return;
+      const webContents = window.webContents;
+      if (!webContents) return;
       registeredWindows.add(window);
       const handleInput = (event, input = {}) => {
         if (disposed) return;
@@ -77,15 +79,17 @@ function registerElectronInspector() {
         inspector.inspect(window);
       };
       const handleClosed = () => detachWindow(window);
-      windowListeners.set(window, { handleInput, handleClosed });
-      window.webContents.on('before-input-event', handleInput);
+      windowListeners.set(window, { webContents, handleInput, handleClosed });
+      webContents.on('before-input-event', handleInput);
       window.once?.('closed', handleClosed);
     }
 
     function detachWindow(window) {
       const listeners = windowListeners.get(window);
       if (!listeners) return;
-      window.webContents?.removeListener?.('before-input-event', listeners.handleInput);
+      // Electron invalidates BrowserWindow.webContents before emitting 'closed'.
+      // The captured emitter still owns our JavaScript listener after destruction.
+      listeners.webContents.removeListener('before-input-event', listeners.handleInput);
       window.removeListener?.('closed', listeners.handleClosed);
       windowListeners.delete(window);
       registeredWindows.delete(window);

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#4338ca"/><stop offset="1" stop-color="#272068"/></linearGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="160%"><feDropShadow dy="8" stdDeviation="10" flood-color="#171246" flood-opacity=".3"/></filter>
+  </defs>
+  <rect width="440" height="280" fill="url(#bg)"/>
+  <circle cx="423" cy="41" r="127" fill="#818cf8" opacity=".1"/>
+  <circle cx="33" cy="283" r="126" fill="#818cf8" opacity=".09"/>
+  <g transform="translate(28 26)"><svg width="38" height="38" viewBox="12 12 104 104">
+  <rect x="16" y="16" width="96" height="96" rx="25" fill="#4338ca"/>
+  <path d="M47 35H35v12m46-12h12v12M35 76v12h12" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m54 49 31 28-17 2-7 16Z" fill="#f97346" stroke="#4338ca" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="91" cy="90" r="17" fill="#fff" stroke="#4338ca" stroke-width="4"/>
+  <path d="m82 93 13-13a3 3 0 0 1 4 4L86 97l-6 2Z" fill="#4338ca"/>
+  <path d="m92 83 4 4" stroke="#fff" stroke-width="2"/>
+</svg></g>
+  <text x="77" y="40" fill="#fff" font-family="Helvetica,Arial,sans-serif" font-size="17" font-weight="700">Dev Feedback</text>
+  <text x="77" y="59" fill="#c7d2fe" font-family="Helvetica,Arial,sans-serif" font-size="17">Capture</text>
+  <text x="28" y="115" fill="#fff" font-family="Helvetica,Arial,sans-serif" font-size="33" font-weight="700" letter-spacing="-.9">Feedback,</text>
+  <text x="28" y="153" fill="#fff" font-family="Helvetica,Arial,sans-serif" font-size="33" font-weight="700" letter-spacing="-.9">ready to build.</text>
+  <g transform="translate(274 93) rotate(4 64 62)" filter="url(#shadow)">
+    <rect width="137" height="122" rx="10" fill="#fff"/>
+    <path d="M0 24h137" stroke="#e8eaf3"/>
+    <circle cx="12" cy="12" r="3" fill="#f05a28"/><circle cx="23" cy="12" r="3" fill="#f5b942"/><circle cx="34" cy="12" r="3" fill="#cbd5e1"/>
+    <rect x="13" y="36" width="111" height="57" rx="5" fill="#eef2ff" stroke="#6366f1" stroke-width="2"/>
+    <rect x="24" y="48" width="59" height="5" rx="2.5" fill="#4338ca"/>
+    <rect x="24" y="59" width="84" height="4" rx="2" fill="#b2b9df"/>
+    <rect x="24" y="69" width="68" height="4" rx="2" fill="#b2b9df"/>
+    <rect x="24" y="79" width="35" height="6" rx="3" fill="#f05a28"/>
+    <path d="m101 77 4 27 7-8 10-1z" fill="#4338ca" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="13" y="103" width="71" height="4" rx="2" fill="#dce0ed"/>
+  </g>
+  <g transform="translate(238 180)" filter="url(#shadow)">
+    <rect width="119" height="49" rx="9" fill="#ffefe5"/>
+    <path d="m14 25 5 5 10-11" stroke="#d94a21" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="41" y="17" width="62" height="5" rx="2.5" fill="#94391e"/>
+    <rect x="41" y="28" width="45" height="4" rx="2" fill="#dbab96"/>
+  </g>
+  <text x="28" y="222" fill="#c7d2fe" font-family="Helvetica,Arial,sans-serif" font-size="13">Pick. Describe. Export.</text>
+  <circle cx="32" cy="249" r="3" fill="#a5b4fc"/>
+  <text x="42" y="253" fill="#c7d2fe" font-family="Helvetica,Arial,sans-serif" font-size="11">Saved locally. Shared by you.</text>
+</svg>

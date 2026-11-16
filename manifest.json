@@ -1,12 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Dev Feedback Capture: AI UI Review & Prompts",
-  "version": "1.8.0",
+  "version": "1.8.3",
   "description": "Pick webpage elements, write clear change requests, and export selected feedback for developers and coding agents.",
   "permissions": [
     "storage",
     "activeTab",
     "scripting"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -36,8 +40,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "element.html",
-        "history.html"
+        "element.html"
       ],
       "matches": [
         "<all_urls>"

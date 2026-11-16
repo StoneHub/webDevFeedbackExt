@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="12 12 104 104" role="img" aria-label="Pick an element and request its removal">
+  <rect x="16" y="16" width="96" height="96" rx="25" fill="#4338ca"/>
+  <path d="M47 35H35v12m46-12h12v12M35 76v12h12" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m54 49 31 28-17 2-7 16Z" fill="#f97346" stroke="#4338ca" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="91" cy="90" r="17" fill="#fff" stroke="#4338ca" stroke-width="4"/>
+  <path d="M82 90h18" stroke="#4338ca" stroke-width="5" stroke-linecap="round"/>
+</svg>

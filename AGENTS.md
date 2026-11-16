@@ -46,5 +46,5 @@ See `docs/agents/domain.md`.
 ## Verification
 
 - Run `npm test` and `npm run check` before claiming behavior is ready.
-- For UI behavior changes, manually load the unpacked extension in Chromium/Edge and test Element picking, private note entry, Save & pick next, History editing, and selected exports. Verify legacy Region/PDF History remains readable; do not restore Region capture to satisfy old checklists.
+- For UI behavior changes, manually load the unpacked extension in Chromium/Edge and test Element picking, the note beside the element, the clipboard after each save, and the extension menu's list and downloads. Verify legacy Region/PDF records remain listed on their page; do not restore Region capture to satisfy old checklists.
 - Run `git diff --check` before committing.

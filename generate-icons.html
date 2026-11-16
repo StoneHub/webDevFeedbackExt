@@ -1,182 +1,22 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Generate Extension Icons</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 800px;
-      margin: 50px auto;
-      padding: 20px;
-      text-align: center;
-    }
-    h1 {
-      color: #4338ca;
-    }
-    .icons {
-      display: flex;
-      justify-content: center;
-      gap: 30px;
-      margin: 40px 0;
-    }
-    .icon-container {
-      text-align: center;
-    }
-    canvas {
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      display: block;
-      margin: 10px auto;
-    }
-    button {
-      background: #4338ca;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      margin: 5px;
-    }
-    button:hover {
-      background: #f05a28;
-    }
-    .instructions {
-      background: #f5f5f5;
-      padding: 20px;
-      border-radius: 8px;
-      text-align: left;
-      margin-top: 30px;
-    }
-    .instructions h3 {
-      margin-top: 0;
-      color: #4338ca;
-    }
-    .instructions ol {
-      line-height: 1.8;
-    }
-  </style>
-</head>
-<body>
-  <h1>Dev Feedback Capture - Icon Generator</h1>
-  <p>Generate icon files for your Chrome extension</p>
-  <p>The repo already includes the generated PNGs. This page is handy if you want to refresh them.</p>
-
-  <div class="icons">
-    <div class="icon-container">
-      <h3>16x16</h3>
-      <canvas id="icon16" width="16" height="16"></canvas>
-      <button onclick="downloadIcon('icon16', 16)">Download</button>
-    </div>
-    <div class="icon-container">
-      <h3>48x48</h3>
-      <canvas id="icon48" width="48" height="48"></canvas>
-      <button onclick="downloadIcon('icon48', 48)">Download</button>
-    </div>
-    <div class="icon-container">
-      <h3>128x128</h3>
-      <canvas id="icon128" width="128" height="128"></canvas>
-      <button onclick="downloadIcon('icon128', 128)">Download</button>
-    </div>
-  </div>
-
-  <button onclick="downloadAllIcons()" style="background: #4CAF50; font-size: 16px; padding: 16px 32px;">
-    Download All Icons
-  </button>
-
-  <div class="instructions">
-    <h3>Instructions:</h3>
-    <ol>
-      <li>Click "Download All Icons" above (or download individually)</li>
-      <li>Save each icon with its correct filename:
-        <ul>
-          <li><code>icon16.png</code></li>
-          <li><code>icon48.png</code></li>
-          <li><code>icon128.png</code></li>
-        </ul>
-      </li>
-      <li>Place all three icon files in the <code>webDevFeedbackExt</code> folder</li>
-      <li>Reload the extension in Chrome</li>
-    </ol>
-    <p><strong>Note:</strong> If you prefer the terminal, you can also run <code>scripts/generate-icons.ps1</code> to regenerate all three files.</p>
-  </div>
-
-  <script>
-    // Draw icons on canvases
-    function drawIcon(canvasId, size) {
-      const canvas = document.getElementById(canvasId);
-      const ctx = canvas.getContext('2d');
-
-      const scale = size / 128;
-
-      // Indigo extension tile.
-      ctx.fillStyle = '#4338ca';
-      ctx.beginPath();
-      ctx.roundRect(3 * scale, 3 * scale, 122 * scale, 122 * scale, 27 * scale);
-      ctx.fill();
-
-      // White browser window.
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.roundRect(20 * scale, 26 * scale, 88 * scale, 76 * scale, 12 * scale);
-      ctx.fill();
-
-      ctx.strokeStyle = '#dfe1ee';
-      ctx.lineWidth = 6 * scale;
-      ctx.beginPath();
-      ctx.moveTo(20 * scale, 41 * scale);
-      ctx.lineTo(108 * scale, 41 * scale);
-      ctx.stroke();
-
-      ctx.fillStyle = '#f05a28';
-      ctx.beginPath();
-      ctx.arc(31 * scale, 34 * scale, 3 * scale, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#f5b942';
-      ctx.beginPath();
-      ctx.arc(41 * scale, 34 * scale, 3 * scale, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Orange </> markup mark.
-      ctx.strokeStyle = '#f05a28';
-      ctx.lineWidth = 7 * scale;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(53 * scale, 57 * scale);
-      ctx.lineTo(41 * scale, 68 * scale);
-      ctx.lineTo(53 * scale, 79 * scale);
-      ctx.moveTo(75 * scale, 57 * scale);
-      ctx.lineTo(87 * scale, 68 * scale);
-      ctx.lineTo(75 * scale, 79 * scale);
-      ctx.moveTo(68 * scale, 52 * scale);
-      ctx.lineTo(59 * scale, 84 * scale);
-      ctx.stroke();
-    }
-
-    // Download a single icon
-    function downloadIcon(canvasId, size) {
-      const canvas = document.getElementById(canvasId);
-      const link = document.createElement('a');
-      link.download = `icon${size}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    }
-
-    // Download all icons
-    function downloadAllIcons() {
-      setTimeout(() => downloadIcon('icon16', 16), 0);
-      setTimeout(() => downloadIcon('icon48', 48), 200);
-      setTimeout(() => downloadIcon('icon128', 128), 400);
-    }
-
-    // Initialize
-    drawIcon('icon16', 16);
-    drawIcon('icon48', 48);
-    drawIcon('icon128', 128);
-  </script>
-</body>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Feedback Capture icons</title>
+<style>
+  body { max-width: 720px; margin: 64px auto; padding: 24px; font: 16px/1.6 system-ui; color: #252541; background: #f6f7fb; }
+  .icons { display: flex; gap: 40px; align-items: center; margin: 40px 0; }
+  a { color: #4338ca; }
+  figure { margin: 0; }
+  figcaption { margin-top: 16px; }
+  code { background: #e9e9f4; padding: 3px 6px; border-radius: 4px; }
+</style>
+<h1>Dev Feedback Capture icons</h1>
+<p>Selection corners, a pointer, and a pencil badge: pick an element and request a change.</p>
+<div class="icons">
+  <figure><img src="icon16.png" width="16" height="16" alt="16 pixel toolbar icon"><figcaption><a href="icon16.png" download>16 px PNG</a></figcaption></figure>
+  <figure><img src="icon48.png" width="48" height="48" alt="48 pixel extension icon"><figcaption><a href="icon48.png" download>48 px PNG</a></figcaption></figure>
+  <figure><img src="icon128.png" width="128" height="128" alt="128 pixel Store icon"><figcaption><a href="icon128.png" download>128 px PNG</a></figcaption></figure>
+</div>
+<p>Edit <a href="icon-source.svg">icon-source.svg</a>, then run <code>npm run generate:icons</code> after <code>npm ci</code>. All PNGs come from that source; toolbar sizes use a tighter optical crop.</p>
 </html>

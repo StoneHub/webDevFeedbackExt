@@ -61,13 +61,16 @@
     // Browser-internal pages hide their URL from the extension, so there is no list to show.
     if (tab?.url) {
       storageKey = makeStorageKey(tab.url);
-      renderList((await chrome.storage.local.get(storageKey))[storageKey] || []);
+      const stored = await chrome.runtime.sendMessage({action:'list-page-feedback', storageKey});
+      if (!stored?.ok) throw new Error(stored?.reason || 'Could not read saved feedback.');
+      renderList(stored.items);
     }
     if (!tab?.id || !canInjectIntoUrl(tab.url) || detectSourceKind(tab.url) === 'pdf') {
       showError('Open a webpage to pick an element. PDF and browser-internal pages are not supported.');
       return;
     }
-    state = await chrome.tabs.sendMessage(tab.id, {action:'get-state'}, {frameId:0}).catch(()=>({}));
+    // Asked through the background, which reaches the page the way this browser supports.
+    state = await chrome.runtime.sendMessage({action:'get-page-state', tabId:tab.id}).catch(()=>null) || {};
     frameAccess = await missingFrameAccess();
     if (frameAccess.length) {
       const note = document.getElementById('frame-access');
@@ -94,7 +97,13 @@
   });
   document.getElementById('copy-btn').addEventListener('click', async event => {
     const button = event.currentTarget;
-    await navigator.clipboard.writeText(buildClipboardText(pageItems));
+    showError('');
+    // The background builds the same text the note copies on save, and writes it itself where it can.
+    const result = await chrome.runtime.sendMessage({action:'copy-page-feedback', pageUrl:tab.url});
+    const copied = result?.ok && (typeof result.clipboard === 'string'
+      ? await navigator.clipboard.writeText(result.clipboard).then(() => true, () => false)
+      : result.copied === true);
+    if (!copied) { showError(result?.reason || 'Could not copy. Try again.'); return; }
     button.textContent = 'Copied';
     setTimeout(() => { button.textContent = 'Copy all'; }, 1500);
   });

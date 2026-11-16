@@ -24,7 +24,9 @@ Coverage includes:
 
 - Toolbar activation, the ON badge, no in-page panel while picking, keyboard and pointer selection, and Escape.
 - A one-field note placed just below the picked element, refusal to replace an open draft, a real 500-record capacity rejection, and a successful retry.
-- Enter saves, the clipboard holds every capture of the picking run (actual readback), the toast appears, and picking continues; × discards and keeps picking.
+- Enter saves, the clipboard holds every capture on this page, oldest first (actual readback), the toast appears, and picking continues; × discards and keeps picking.
+- The page copy survives Stop and Start and includes saves from a second tab on the same page; other pages stay out.
+- A page that sends `Permissions-Policy: clipboard-write=()` still gets its feedback copied. When the note frame is made to refuse both copy paths, the note stays open with Copy again, the retry copies, nothing is stored twice, and × keeps the saved note.
 - The extension menu's per-page list including a synthetic legacy Region record, Copy all, the Markdown and JSON downloads, and single-item deletion.
 - Restricted pages and the real PDF viewer disable picking.
 
@@ -34,6 +36,6 @@ Evidence is written to `output/browser-acceptance/`: a JSON report tied to the Z
 
 This gate exercises isolated Chrome for Testing, not every installed Chrome/Edge version. CDP toolbar activation uses the browser's real action path but does not exercise the operating system's global shortcut dispatcher; manifest/command registration and trusted in-page keyboard selection provide separate evidence. A user-customized or OS-conflicting shortcut may still need adjustment.
 
-Legacy/capacity data is seeded through Chrome's storage debugging API. Clipboard read permission is granted only to the temporary browser context so tests can read back exports; the shipping manifest remains `storage`, `activeTab`, and `scripting`. Clipboard text is restored after readback. Screenshot and DOM assertions supplement exported-byte and persisted-record assertions; they do not certify every screen size or assistive technology.
+Legacy/capacity data is seeded through Chrome's storage debugging API. Clipboard permission is granted only to a separate reader origin (`localhost`, while the fixture is served from `127.0.0.1`) so tests can read back copies. The extension and the fixture page keep the browser's default permissions, so every copy runs as it would for an ordinary user; the shipping manifest remains `storage`, `activeTab`, and `scripting`. The copy-failure check replaces the clipboard calls inside one note frame at runtime, since no page in this browser was found that refuses the fallback copy; the shipped files are not changed. Clipboard text is restored after readback. Screenshot and DOM assertions supplement exported-byte and persisted-record assertions; they do not certify every screen size or assistive technology.
 
 The browser ZIP does not include the separate Electron package, local MCP companion, or unmerged SwiftUI prototype. MCP tests validate the separate companion contract; end-to-end implementation in a consumer's project and that consumer's Downloads configuration are not prerequisites for the browser ZIP's GitHub publication.

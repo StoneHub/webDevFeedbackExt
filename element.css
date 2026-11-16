@@ -3,7 +3,7 @@ html, body { height:100%; }
 body { margin:0; padding:10px 12px; font:13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#faf9fd; color:#29263a; }
 form { display:flex; flex-direction:column; gap:6px; height:100%; }
 header { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:600; }
-button { padding:6px 14px; border:1px solid #5b55c5; border-radius:7px; cursor:pointer; font:inherit; font-weight:600; background:#5b55c5; color:white; }
+button { padding:6px 14px; border:1px solid #5b55c5; border-radius:7px; cursor:pointer; font:inherit; font-weight:600; background:#5b55c5; color:white; white-space:nowrap; }
 #cancel { border:0; background:transparent; font-size:20px; line-height:1; padding:0 4px; color:#6f6a7d; }
 textarea { flex:1; width:100%; padding:8px; resize:none; border:1px solid #aaa5ba; border-radius:7px; background:white; color:inherit; font:inherit; }
 textarea:focus, button:focus-visible { outline:2px solid #8179db; outline-offset:1px; }

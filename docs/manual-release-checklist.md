@@ -36,7 +36,7 @@ The product was narrowed after hands-on review. New Region/PDF capture is remove
 - When replacing an unpacked build in an existing test profile, enable Developer mode and use Chrome’s extension Reload control. Restarting Chrome alone can leave the old service-worker behavior active; a new manifest or files on disk is insufficient proof.
 - Open the production popup at its native size and start Element picking through the toolbar.
 - Pick by mouse and keyboard; verify Escape stops picking.
-- Save a note and a blank note; verify each save copies the whole picking run, shows the toast, and keeps picking. Close another note with × and verify nothing is saved.
+- Save a note and a blank note; verify each save copies all of this page's feedback, shows the toast, and keeps picking. Stop, start again, and save once more; the copy still includes the earlier notes. Close another note with × and verify nothing is saved.
 - Confirm a new capture cannot replace an open draft and save errors preserve entered text.
 - Close the source tab, reopen the page, and verify the extension menu still lists its captures.
 - Confirm Copy all, Markdown, and JSON contain only this page's captures.

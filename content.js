@@ -10,7 +10,7 @@
   let busy = false;
   let highlighted = null;
   let editor = null;
-  let editorSession = null;
+  let closeToken = null;
   let previousFocus = null;
   let toastTimer = null;
   const host = document.createElement('div');
@@ -105,30 +105,45 @@
       event.preventDefault(); pick(document.activeElement);
     }
   }, true);
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (sender.id !== chrome.runtime.id) return;
-    if (request.action === 'show-capture-overlay') {
-      if (editor) { sendResponse({ok:false,reason:'Save or close the open note first.'}); return; }
-      if (!/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return;
+  // The note closes itself with a message from its own frame, carrying the token from its URL, which the
+  // page cannot read. A page that navigates that frame can only close the note, never read it.
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (!editor || event.source !== editor.contentWindow || data?.devFeedback !== 'close' || data.token !== closeToken) return;
+    editor.remove(); editor = null; closeToken = null;
+    host.hidden = toast.hidden;
+    if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true});
+    // Picking resumes after every note, saved or not.
+    setActive(true);
+    chrome.runtime.sendMessage({ action:'take-note-toast' }).then(reply => { if (reply?.toast) showToast(reply.toast); }).catch(() => {});
+  });
+  // The page controls the background may use, and their only answer: this frame's state. Nothing here
+  // reads History or notes. Chrome reaches it through runtime.onMessage below; Safari's background calls
+  // it with scripting.executeScript in this content-script world, which page scripts cannot see.
+  function control(request) {
+    if (request?.action === 'show-capture-overlay') {
+      if (editor) return {ok:false,reason:'Save or close the open note first.'};
+      if (typeof request.sessionId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(request.sessionId)) return undefined;
       setActive(false);
       previousFocus = document.activeElement;
-      editorSession = request.sessionId;
+      // getRandomValues, unlike randomUUID, also works on plain-http pages.
+      closeToken = [...crypto.getRandomValues(new Uint8Array(16))].map(byte => byte.toString(16).padStart(2, '0')).join('');
       editor = document.createElement('iframe');
       editor.allow = 'clipboard-write';
       editor.title = 'Write element feedback';
-      editor.src = chrome.runtime.getURL('element.html?session=' + encodeURIComponent(editorSession));
+      editor.src = chrome.runtime.getURL('element.html?session=' + encodeURIComponent(request.sessionId) + '&close=' + closeToken);
       placeEditor(anchorRect(request.anchor));
       shadow.appendChild(editor);
       host.hidden = false;
       editor.focus();
-    } else if (request.action === 'close-capture-overlay') {
-      if (request.sessionId !== editorSession) return;
-      editor?.remove(); editor = null; editorSession = null;
-      host.hidden = toast.hidden;
-      if (previousFocus?.isConnected) previousFocus.focus({preventScroll:true});
-      if (typeof request.toast === 'string' && request.toast) showToast(request.toast);
-    } else if (request.action === 'set-feedback-mode') setActive(request.enabled);
-    else if (request.action !== 'get-state') return;
-    sendResponse({ ok:true, editorOpen:Boolean(editor), feedbackMode:active, interactionMode:active ? 'element' : 'off' });
+    } else if (request?.action === 'set-feedback-mode') setActive(request.enabled === true);
+    else if (request?.action !== 'get-state') return undefined;
+    return { ok:true, editorOpen:Boolean(editor), feedbackMode:active, interactionMode:active ? 'element' : 'off' };
+  }
+  Object.defineProperty(globalThis, 'DevFeedbackPage', { value:Object.freeze({ control }) });
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (sender.id !== chrome.runtime.id) return;
+    const reply = control(request);
+    if (reply) sendResponse(reply);
   });
 })();

@@ -3,7 +3,7 @@
 1. Install Dev Feedback Capture from the Chrome Web Store, or load the unpacked extension folder in Chrome/Edge Developer Mode.
 2. Open a webpage, click the extension icon, and choose **Pick an element**.
 3. Click the element. Write what should change, or leave the note blank to save just the element.
-4. Press Enter. Everything saved since you started picking is now on your clipboard; keep clicking to add more.
+4. Press Enter. Everything saved on this page is now on your clipboard; keep clicking to add more.
 5. Press Escape to stop. Open the extension menu to copy, download, or delete this page's captures.
 
 While picking, Tab to a target and press Alt+Enter. Shift+Enter adds a line to a note; **×** closes it without saving.

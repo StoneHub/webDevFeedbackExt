@@ -480,6 +480,8 @@ test('Pick reports an injection that never finishes instead of waiting forever',
   const traces=[];const native=fakeNative();const send=native.send;
   native.send=async(id,message)=>({...await send(id,message),debug:true});
   const app=background({native,traces,fastTimers:true,hangInjection:true});
+  // With fast timers the startup probe's 5 s bound fires at once, so wait for the native reply that turns tracing on.
+  while(!traces.some(line=>line.includes('native history.usage')))await new Promise(resolve=>setImmediate(resolve));
   const result=await app.send({action:'set-picking',tabId:1,enabled:true},app.page('popup.html'));
   assert.equal(result.ok,false);assert.match(result.reason,/did not let the picker load/);
   assert.match(traces.join('\n'),/inject content-type timeout[\s\S]*inject scripts timeout/);

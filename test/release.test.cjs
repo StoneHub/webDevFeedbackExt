@@ -4,14 +4,11 @@ const path = require('node:path');
 
 const shared = require('../shared.js');
 globalThis.DevFeedbackShared = shared;
-const bundleBuilder = require('../ai-bundle.js');
 const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'manifest.json'), 'utf8'));
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
 const productJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'product.json'), 'utf8'));
 const ciWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
 const releaseWorkflow = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'release.yml'), 'utf8');
-const historyMarkup = fs.readFileSync(path.join(__dirname, '..', 'history.html'), 'utf8');
-const historySource = fs.readFileSync(path.join(__dirname, '..', 'history.js'), 'utf8');
 const contentSource = fs.readFileSync(path.join(__dirname, '..', 'content.js'), 'utf8');
 const stylesSource = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
@@ -484,73 +481,6 @@ assert.equal(aiPrompt.includes('Page URL: https://example.com/page'), true);
 assert.equal(aiPrompt.includes('Requested change: Move this annotation'), true);
 assert.equal(aiPrompt.includes('Acceptance: Button aligns with the total'), true);
 
-const aiBundle = bundleBuilder.buildAiBundle([{ storageKey: 'dev-feedback-https://example.com', items: migratedItems }], {
-  exportedAt: '2026-07-17T20:00:00.000Z'
-});
-assert.equal(aiBundle.filename, 'dev-feedback-ai-bundle-2026-07-17T20-00-00Z.zip');
-assert.deepEqual(aiBundle.entryNames, [
-  'prompt.md',
-  'feedback.json',
-  'page-context.json',
-  'report.html',
-  '02-before.png',
-  '02-annotated.png'
-]);
-assert.equal(Buffer.from(aiBundle.bytes).readUInt32LE(0), 0x04034b50);
-assert.equal(Buffer.from(aiBundle.bytes).includes(Buffer.from('Source: file:///C:/Docs/sample.pdf')), true);
-
-const visualBundle = bundleBuilder.buildAiBundle([{ storageKey: 'dev-feedback-https://example.com', items: [normalizedVisualEdit] }], {
-  exportedAt: '2026-07-18T12:00:00.000Z'
-});
-assert.deepEqual(visualBundle.entryNames, [
-  'prompt.md',
-  'feedback.json',
-  'page-context.json',
-  'report.html',
-  '01-before.png',
-  '01-proposed.png'
-]);
-const visualBundleBytes = Buffer.from(visualBundle.bytes);
-assert.equal(visualBundleBytes.includes(Buffer.from('"schemaVersion": 3')), true);
-assert.equal(visualBundleBytes.includes(Buffer.from('"schemaVersion": 2')), true);
-assert.equal(visualBundleBytes.includes(Buffer.from('Requested mutation')), true);
-assert.equal(visualBundleBytes.includes(Buffer.from('Acceptance criteria (unverified)')), true);
-assert.equal(visualBundleBytes.includes(Buffer.from('data:image/png;base64,')), false);
-assert.throws(() => bundleBuilder.createZipArchive([{ name: '../escape.txt', data: 'nope' }]), /Invalid ZIP entry name/);
-assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'bad', items: [{
-  ...migratedItems[1],
-  screenshot: { mimeType: 'image/png', dataUrl: 'data:image/png;base64,YmFkLWltYWdl' }
-}] }]), /Invalid before image data/);
-assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'truncated-png', items: [{
-  ...migratedItems[1],
-  screenshot: { mimeType: 'image/png', dataUrl: 'data:image/png;base64,iVBORw0KGgo=' }
-}] }]), /Invalid before image data/);
-assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'truncated-jpeg', items: [{
-  ...migratedItems[1],
-  screenshot: { mimeType: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,/9j/' }
-}] }]), /Invalid before image data/);
-const validPngBytes = Buffer.from(migratedItems[1].screenshot.dataUrl.split(',')[1], 'base64');
-const pngWithoutIdat = Buffer.concat([
-  validPngBytes.subarray(0, 33),
-  validPngBytes.subarray(validPngBytes.length - 12)
-]);
-assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'png-without-idat', items: [{
-  ...migratedItems[1],
-  screenshot: { mimeType: 'image/png', dataUrl: `data:image/png;base64,${pngWithoutIdat.toString('base64')}` }
-}] }]), /Invalid before image data/);
-assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'jpeg-markers-only', items: [{
-  ...migratedItems[1],
-  screenshot: { mimeType: 'image/jpeg', dataUrl: 'data:image/jpeg;base64,/9j/2Q==' }
-}] }]), /Invalid before image data/);
-const emptyWebp = Buffer.alloc(20);
-emptyWebp.write('RIFF', 0, 'ascii');
-emptyWebp.writeUInt32LE(12, 4);
-emptyWebp.write('WEBPVP8 ', 8, 'ascii');
-assert.throws(() => bundleBuilder.buildAiBundle([{ storageKey: 'empty-webp', items: [{
-  ...migratedItems[1],
-  screenshot: { mimeType: 'image/webp', dataUrl: `data:image/webp;base64,${emptyWebp.toString('base64')}` }
-}] }]), /Invalid before image data/);
-
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(manifest.name, 'Dev Feedback Capture: AI UI Review & Prompts');
 assert.equal(manifest.name.length, 44);
@@ -565,23 +495,17 @@ assert.equal(
   shared.MAC_SHORTCUT_LABEL
 );
 assert.equal(packageJson.version, manifest.version);
-assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','history.html'], matches:['<all_urls>'] }]);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html'], matches:['<all_urls>'] }]);
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
 assert.equal(packageJson.scripts['verify:package'], 'node scripts/verify-package.cjs');
 assert.match(ciWorkflow, /pull_request:/);
 assert.match(ciWorkflow, /npm run verify:package/);
 assert.match(releaseWorkflow, /\$ZIP_PATH\.sha256/);
 assert.match(releaseWorkflow, /--generate-notes/);
-assert.match(historySource, /schemaVersion: 1/);
-assert.match(historyMarkup, /id="download-json">Send to Codex</);
-assert.match(historySource, /dev-feedback-codex-inbox-/);
-assert.match(historySource, /newest valid capture/);
-assert.match(historySource, /function redactEvidenceRect/);
-assert.match(historySource, /annotatedImages\.get\(item\.id\)/);
 assert.match(backgroundSource, /files:/);
 assert.doesNotMatch(popupSource, /capture-mode|Capture Region/);
 assert.doesNotMatch(backgroundSource, /captureVisibleTab|windows\.create/);
-assert.match(popupScriptSource, /History|history/i);
+assert.match(popupScriptSource, /schemaVersion:1/, 'the JSON download keeps the MCP inbox format');
 assert.doesNotMatch(stylesSource, /dev-feedback-visual-|dev-feedback-content-preview|visual-active|content-active/);
 
 console.log('Test assertions passed.');

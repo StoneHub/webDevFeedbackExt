@@ -13,15 +13,10 @@ const shared = require(path.join(rootDir, 'shared.js'));
 const requiredFiles = [
   'element.html',
   'element.css',
-  'ai-bundle.js',
   'background.js',
   'content.js',
   'collector.js',
   'element.js',
-  'editor-dialog.js',
-  'history.css',
-  'history.html',
-  'history.js',
   'manifest.json',
   'popup.html',
   'popup.js',
@@ -42,13 +37,10 @@ const requiredFiles = [
 ];
 
 const shippedJavaScriptFiles = [
-  'ai-bundle.js',
   'background.js',
   'content.js',
   'collector.js',
   'element.js',
-  'editor-dialog.js',
-  'history.js',
   'popup.js',
   'shared.js'
 ];
@@ -99,14 +91,14 @@ assert.equal(productJson.summary, 'Pick webpage elements and turn clear change r
 assert.equal(manifest.background.service_worker, 'background.js');
 assert.deepEqual(manifest.permissions, ['storage', 'activeTab', 'scripting']);
 assert.equal(Array.isArray(manifest.content_scripts), false);
-assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html','history.html'], matches:['<all_urls>'] }]);
+assert.deepEqual(manifest.web_accessible_resources, [{ resources:['element.html'], matches:['<all_urls>'] }]);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.default, shared.SHORTCUT_LABEL);
 assert.equal(manifest.commands['toggle-feedback-mode'].suggested_key.mac, shared.MAC_SHORTCUT_LABEL);
 assert.equal(productJson.releaseUrl, 'https://github.com/StoneHub/webDevFeedbackExt/releases');
 assert.equal(productJson.distribution.latestReleaseApi, 'https://api.github.com/repos/StoneHub/webDevFeedbackExt/releases/latest');
 assert.equal(productJson.distribution.assetNamePattern, 'dev-feedback-capture-v{version}.zip');
-assert.equal(packageJson.dependencies['@modelcontextprotocol/sdk'], '1.29.0');
-assert.equal(packageJson.dependencies.zod, '4.4.3');
+assert.equal(packageJson.dependencies['@modelcontextprotocol/sdk'], '1.32.2');
+assert.equal(packageJson.dependencies.zod, '4.6.7');
 assert.equal(packageJson.scripts['test:mcp'], 'node --test test/mcp.test.mjs');
 assert.equal(packageJson.scripts.mcp, 'node mcp/cli.mjs');
 

@@ -19,3 +19,6 @@ dist/
 # Local browser validation
 output/
 .playwright-cli/
+
+# Generated Safari project and builds
+.build/

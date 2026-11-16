@@ -1,0 +1,18 @@
+{
+  "name": "swiftui-feedback",
+  "version": "0.1.0",
+  "description": "Integrate and maintain local feedback capture in native Mac SwiftUI development builds.",
+  "author": {
+    "name": "StoneHub"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "SwiftUI Feedback",
+    "shortDescription": "Pick SwiftUI views and hand off local design notes.",
+    "longDescription": "Install the DevFeedback Swift package, maintain stable target tags, and implement selected feedback exports.",
+    "developerName": "StoneHub",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Add SwiftUI feedback capture to this Mac app and tag its main controls."
+  }
+}
